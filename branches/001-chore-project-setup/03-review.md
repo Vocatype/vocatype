@@ -42,3 +42,31 @@
 - `npm run typecheck`, `npm run lint`, `npm test`(10 테스트), `npm run build` 모두 통과
 - 브라우저(375px, 시스템 다크): 새로고침 직후 `data-theme="system"` 상태에서 다크로 렌더링, `theme-color` 두 메타가 `rgb(15, 14, 18)`로 갱신, 그라디언트 id `_r_0_`/`_r_1_`로 구분, `localStorage`·쿠키 비어 있음
 - 라이트 선택 시 `data-theme="light"`, 배경 `rgb(250, 248, 245)`, 메타 동기화 확인
+
+## 2차 리뷰
+
+대상: 커밋 `ccb5d7c`(1차 반영)와 작업 트리. 리뷰 에이전트가 typecheck/lint/test(10)/build를 다시 실행하고 1차 항목별 해결 여부를 확인.
+
+### 1차 항목 해결 여부
+
+#1~#10 모두 해결 확인. 특히 #1은 `color-scheme: light dark` + `light-dark()` 토큰으로 JS 전 첫 프레임이 시스템 설정을 따르고, `data-theme` 선택 시 `color-scheme`만 고정되어 토큰이 일관되게 바뀌는 것을 확인. `theme-color` 메타 두 개가 같은 값으로 갱신되므로 `media` 속성과 무관하게 맞음. `useId()` 결과(`_r_0_`)가 `url(#…)` 참조에 안전함을 확인.
+
+### 신규 발견 사항과 조치
+
+| # | 심각도 | 위치 | 내용 | 조치 |
+| --- | --- | --- | --- | --- |
+| A | minor | `02-implementation.md` | 1차 수정으로 바뀐 내용(`nextPreference` 삭제, `data-theme`에 선택값 적용, 테스트 수 10, 3항 테마 컨트롤, description 갱신)이 문서에 반영되지 않음 | 구현 문서를 최종 상태 기준으로 다시 작성 |
+| B | nit | `global.css` | 400px 이하에서 `.topbar__name`을 `display: none`으로 숨겨 접근 가능한 브랜드 이름이 사라짐 | visually-hidden 패턴으로 변경 |
+| C | nit | `index.html` | `theme-color` 초기값과 영문 태그라인이 CSS·사전과 별도로 하드코딩 | JS가 즉시 덮어쓰므로 보류. 값이 바뀔 때 함께 수정 |
+| D | nit | `global.css` | `light-dark()` 폴백 없음 (Safari 17.5 / Chrome 123 이전) | README에 지원 브라우저 기준(2024년 이후 버전) 명시 |
+| E | nit | `ThemeProvider.tsx` | effect 의존성의 `systemDark`가 본문에서 쓰이지 않아 "불필요 의존성"으로 제거될 위험 | 의도(OS 테마 변경 시 메타 재동기화)를 주석으로 기록 |
+
+### 2차 결론
+
+**병합 가능.** 조건이던 A를 포함해 B·D·E까지 반영했고 코드 동작 변경은 없다(스타일 1곳, 주석 1곳, README 1줄). C는 보류.
+
+## 최종
+
+- 반영 커밋: 2차 반영 `docs(001)` 커밋
+- 병합: `git merge --no-ff chore/001-project-setup` → main
+- 브랜치 삭제: `git branch -d chore/001-project-setup`

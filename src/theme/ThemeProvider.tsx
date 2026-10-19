@@ -24,6 +24,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     applyTheme(preference)
+    // systemDark는 본문에서 쓰지 않지만, preference가 'system'일 때 OS 테마가 바뀌면
+    // theme-color 메타를 실제 배경색으로 다시 맞춰야 하므로 의존성에 둔다.
   }, [preference, systemDark])
 
   const value = useMemo<ThemeContextValue>(

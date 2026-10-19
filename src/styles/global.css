@@ -151,8 +151,14 @@ p {
 }
 
 @media (max-width: 400px) {
+  /* 좁은 화면에서는 시각적으로만 숨긴다. 로고가 aria-hidden이라 이름은 보조기기에 남아야 한다. */
   .topbar__name {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 

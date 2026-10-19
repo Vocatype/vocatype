@@ -25,6 +25,7 @@
 ## 개발
 
 요구 환경: Node.js 22 이상, npm 10 이상.
+지원 브라우저: CSS `light-dark()`, `color-mix()`, `dvh`를 쓰므로 2024년 이후 버전(Chrome 123+, Safari 17.5+, Firefox 120+)을 기준으로 한다.
 
 ```bash
 npm install
