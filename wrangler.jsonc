@@ -20,6 +20,15 @@
     "binding": "AI",
     "remote": true
   },
+  // 초상 생성 속도 제한: 접속 IP당 1분에 5회. IP는 제한 판단에만 쓰고 저장하지 않는다.
+  // workers-ai를 켜기 전에 반드시 유지할 것(무제한 과금 방지). namespace_id는 계정 안에서 고유한 임의 정수.
+  "ratelimits": [
+    {
+      "name": "PORTRAIT_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 5, "period": 60 }
+    }
+  ],
   // 개인정보 원칙에 따라 요청 로그 수집(Workers Logs)은 기본 비활성화한다.
   // 운영 중 문제 분석이 필요하면 true로 바꾼다.
   "observability": {

@@ -1,4 +1,4 @@
-import type { ApiConfigResponse, PortraitRequest, PortraitResponse } from '../../../shared/api'
+import { PORTRAIT_IMAGE_MAX_CHARS, type ApiConfigResponse, type PortraitRequest, type PortraitResponse } from '../../../shared/api'
 
 const CONFIG_TIMEOUT_MS = 5000
 const PORTRAIT_TIMEOUT_MS = 60000
@@ -9,7 +9,7 @@ const OFFLINE_CONFIG: ApiConfigResponse = { provider: 'mock', features: { portra
 
 async function fetchJson<T>(input: string, init: RequestInit, timeoutMs: number, outer?: AbortSignal): Promise<T> {
   const controller = new AbortController()
-  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   const onOuterAbort = () => controller.abort()
   outer?.addEventListener('abort', onOuterAbort, { once: true })
   try {
@@ -18,7 +18,7 @@ async function fetchJson<T>(input: string, init: RequestInit, timeoutMs: number,
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     return (await response.json()) as T
   } finally {
-    window.clearTimeout(timer)
+    clearTimeout(timer)
     outer?.removeEventListener('abort', onOuterAbort)
   }
 }
@@ -46,7 +46,10 @@ export async function requestPortrait(request: PortraitRequest, signal?: AbortSi
       PORTRAIT_TIMEOUT_MS,
       signal,
     )
-    return typeof response.image === 'string' && response.image.startsWith('data:image/') ? response.image : null
+    const image = response.image
+    // 서버 계약은 JPEG/PNG/WebP data URL뿐이다. 그 밖의 형식(SVG 등)과 비정상적으로 큰 응답은 버린다.
+    if (typeof image !== 'string' || image.length > PORTRAIT_IMAGE_MAX_CHARS) return null
+    return /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(image) ? image : null
   } catch {
     return null
   }

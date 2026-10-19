@@ -3,11 +3,11 @@ import { fetchAiConfig, requestPortrait, resetAiConfigCache } from './client'
 
 function mockFetch(handler: (input: string, init?: RequestInit) => Response | Promise<Response>) {
   vi.stubGlobal('fetch', vi.fn(handler))
-  vi.stubGlobal('window', { setTimeout: globalThis.setTimeout.bind(globalThis), clearTimeout: globalThis.clearTimeout.bind(globalThis) })
 }
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.useRealTimers()
   resetAiConfigCache()
 })
 
@@ -42,5 +42,28 @@ describe('requestPortrait', () => {
     expect(await requestPortrait({ typeCode: 'WFQV', seed: 9 })).toBeNull()
     mockFetch(() => Response.json({ image: 'javascript:alert(1)', provider: 'mock' }))
     expect(await requestPortrait({ typeCode: 'WFQV', seed: 9 })).toBeNull()
+    mockFetch(() => Response.json({ image: 'data:image/svg+xml;base64,QUJD', provider: 'mock' }))
+    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9 })).toBeNull()
+    mockFetch(() => Response.json({ image: `data:image/png;base64,${'A'.repeat(5 * 1024 * 1024)}`, provider: 'mock' }))
+    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9 })).toBeNull()
+  })
+
+  it('이미 취소된 신호를 주면 요청하지 않고 null', async () => {
+    const handler = vi.fn((_input: string, init?: RequestInit) => {
+      if (init?.signal?.aborted) return Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+      return Promise.resolve(Response.json({ image: null, provider: 'mock' }))
+    })
+    mockFetch(handler)
+    const controller = new AbortController()
+    controller.abort()
+    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9 }, controller.signal)).toBeNull()
+  })
+
+  it('타임아웃이 지나면 요청을 끊고 null', async () => {
+    vi.useFakeTimers()
+    mockFetch((_input, init) => new Promise((_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })))))
+    const pending = requestPortrait({ typeCode: 'WFQV', seed: 9 })
+    await vi.advanceTimersByTimeAsync(60_001)
+    expect(await pending).toBeNull()
   })
 })

@@ -25,7 +25,7 @@ export interface PortraitResponse {
 }
 
 export interface ApiErrorResponse {
-  error: 'not_found' | 'invalid_request' | 'too_large' | 'provider_failed'
+  error: 'not_found' | 'method_not_allowed' | 'forbidden' | 'rate_limited' | 'invalid_request' | 'too_large' | 'provider_failed'
 }
 
 /** /api/portrait 요청 본문 최대 크기(바이트). 타입 코드와 씨앗뿐이라 넉넉히 1KB. */
@@ -33,3 +33,6 @@ export const PORTRAIT_REQUEST_MAX_BYTES = 1024
 
 /** 씨앗 상한. Workers AI seed 입력은 32비트 정수면 충분하다. */
 export const SEED_MAX = 0xffffffff
+
+/** 클라이언트가 받아들이는 초상 data URL의 최대 길이(약 4MB). */
+export const PORTRAIT_IMAGE_MAX_CHARS = 4 * 1024 * 1024

@@ -52,6 +52,9 @@ export function GeneratingScreen({ capture, onNavigate, onGenerated }: Props) {
     const startedAt = performance.now()
 
     const run = async () => {
+      // 설정 조회는 분석과 동시에 시작해 대기 시간을 겹친다(세션 안에서 한 번만 실제 요청).
+      const configPromise = fetchAiConfig()
+
       // 1) 기기 안에서 분석
       const profile = await analyzeRecording(capture.recording, {
         locale: capture.script.locale,
@@ -64,7 +67,7 @@ export function GeneratingScreen({ capture, onNavigate, onGenerated }: Props) {
 
       // 2) 제공자가 켜져 있을 때만 초상 요청. 타입 코드와 씨앗만 보낸다.
       let portrait: string | null = null
-      const config = await fetchAiConfig()
+      const config = await configPromise
       if (signal.aborted) return
       if (config.features.portrait) {
         setProgress({ stage: 'portrait', value: 0.9 })
@@ -104,6 +107,8 @@ export function GeneratingScreen({ capture, onNavigate, onGenerated }: Props) {
 
   const percent = Math.round(progress.value * 100)
   const stageText = t(`generating.stage.${progress.stage}`)
+  // 초상 단계는 걸리는 시간을 알 수 없는 indeterminate 상태라 aria-valuenow를 내보내지 않는다.
+  const indeterminate = progress.stage === 'portrait'
 
   return (
     <Screen centered title={t('generating.title')} lead={t('generating.script', { title: capture.script.title })}>
@@ -122,12 +127,12 @@ export function GeneratingScreen({ capture, onNavigate, onGenerated }: Props) {
       ) : (
         <>
           <div
-            className={['generating__meter', progress.stage === 'portrait' ? 'is-indeterminate' : ''].filter(Boolean).join(' ')}
+            className={['generating__meter', indeterminate ? 'is-indeterminate' : ''].filter(Boolean).join(' ')}
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={percent}
-            aria-valuetext={`${percent}% · ${stageText}`}
+            aria-valuenow={indeterminate ? undefined : percent}
+            aria-valuetext={indeterminate ? stageText : `${percent}% · ${stageText}`}
             aria-label={t('generating.title')}
           >
             <div className="generating__bar" style={{ width: `${percent}%` }} />

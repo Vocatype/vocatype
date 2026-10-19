@@ -33,3 +33,16 @@ describe('parsePortraitRequest', () => {
     expect(await parsePortraitRequest(request)).toEqual({ ok: false, error: 'too_large' })
   })
 })
+
+describe('readBodyLimited', () => {
+  it('바이트 기준으로 제한한다 (한글은 글자당 3바이트)', async () => {
+    const hangul = '가'.repeat(400) // 1200바이트, 400 코드 유닛
+    const request = new Request('http://x/api/portrait', { method: 'POST', body: JSON.stringify({ typeCode: 'WFQV', seed: 1, pad: hangul }) })
+    expect(await parsePortraitRequest(request)).toEqual({ ok: false, error: 'too_large' })
+  })
+
+  it('작은 본문은 그대로 읽는다', async () => {
+    const request = new Request('http://x/api/portrait', { method: 'POST', body: '{"typeCode":"WFQV","seed":5}' })
+    expect(await parsePortraitRequest(request)).toEqual({ ok: true, value: { typeCode: 'WFQV', seed: 5 } })
+  })
+})
