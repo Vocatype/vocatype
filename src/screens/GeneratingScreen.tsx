@@ -1,26 +1,116 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FlowStep } from '../app/flow'
 import { Button } from '../components/Button'
 import { Screen } from '../components/Screen'
+import { analyzeRecording, type AnalysisProgress } from '../features/analysis/analyze'
+import type { VoiceProfile } from '../features/profile/types'
 import type { Capture } from '../features/recorder/types'
 import { useI18n } from '../i18n/useI18n'
 
 interface Props {
   capture: Capture | null
   onNavigate: (to: FlowStep) => void
+  onAnalyzed: (profile: VoiceProfile) => void
 }
 
-/** 자리표시 화면. 004에서 실제 분석 진행 화면으로 교체한다. */
-export function GeneratingScreen({ capture, onNavigate }: Props) {
+/** 진행 표시가 깜빡이고 끝나지 않도록 최소로 보여 주는 시간. */
+const MIN_DISPLAY_MS = 1400
+const INITIAL_PROGRESS: AnalysisProgress = { stage: 'decoding', progress: 0 }
+
+export function GeneratingScreen({ capture, onNavigate, onAnalyzed }: Props) {
   const { t } = useI18n()
-  const lead = capture ? t('generating.script', { title: capture.script.title }) : t('placeholder.pending')
+  const [progress, setProgress] = useState<AnalysisProgress>(INITIAL_PROGRESS)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+
+  // 부모가 매 렌더 새 콜백을 만들어도 분석을 다시 돌리지 않도록 최신 참조만 유지한다.
+  const onAnalyzedRef = useRef(onAnalyzed)
+  useEffect(() => {
+    onAnalyzedRef.current = onAnalyzed
+  })
+
+  useEffect(() => {
+    if (!capture) return
+    // 취소·언마운트 시 abort → 분석 루프가 다음 양보 지점에서 멈추고, 뒤늦은 콜백도 막힌다.
+    const controller = new AbortController()
+    const { signal } = controller
+    const startedAt = performance.now()
+
+    analyzeRecording(capture.recording, {
+      locale: capture.script.locale,
+      signal,
+      onProgress: (next) => {
+        if (!signal.aborted) setProgress(next)
+      },
+    })
+      .then(async (profile) => {
+        const remaining = MIN_DISPLAY_MS - (performance.now() - startedAt)
+        if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
+        if (!signal.aborted) onAnalyzedRef.current(profile)
+      })
+      .catch(() => {
+        if (!signal.aborted) setFailed(true)
+      })
+
+    return () => controller.abort()
+  }, [capture, attempt])
+
+  const retry = useCallback(() => {
+    setFailed(false)
+    setProgress(INITIAL_PROGRESS)
+    setAttempt((n) => n + 1)
+  }, [])
+
+  if (!capture) {
+    return (
+      <Screen centered title={t('generating.title')} lead={t('result.missing')}>
+        <div className="actions">
+          <Button onClick={() => onNavigate('record')}>{t('common.retry')}</Button>
+        </div>
+      </Screen>
+    )
+  }
+
+  const percent = Math.round(progress.progress * 100)
+  const stageText = t(`generating.stage.${progress.stage}`)
+
   return (
-    <Screen centered title={t('generating.title')} lead={lead}>
-      <div className="actions">
-        <Button variant="secondary" onClick={() => onNavigate('record')}>
-          {t('common.cancel')}
-        </Button>
-        <Button onClick={() => onNavigate('result')}>{t('generating.skip')}</Button>
-      </div>
+    <Screen centered title={t('generating.title')} lead={t('generating.script', { title: capture.script.title })}>
+      {failed ? (
+        <>
+          <p className="generating__error" role="alert">
+            {t('generating.error')}
+          </p>
+          <div className="actions">
+            <Button variant="secondary" onClick={() => onNavigate('record')}>
+              {t('record.redo')}
+            </Button>
+            <Button onClick={retry}>{t('record.retry')}</Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div
+            className="generating__meter"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent}
+            aria-valuetext={`${percent}% · ${stageText}`}
+            aria-label={t('generating.title')}
+          >
+            <div className="generating__bar" style={{ width: `${percent}%` }} />
+          </div>
+          <p className="generating__stage" role="status">
+            {stageText}
+          </p>
+          <div className="actions">
+            <Button variant="ghost" onClick={() => onNavigate('record')}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </>
+      )}
     </Screen>
   )
 }

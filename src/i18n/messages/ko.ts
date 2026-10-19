@@ -24,13 +24,11 @@ export const ko = {
   'record.title': '스크립트를 읽어 주세요',
   'record.generate': '생성하기',
   'generating.title': '초상을 그리는 중',
-  'generating.skip': '결과 보기',
   'result.title': '나의 목소리 초상',
   'common.back': '뒤로',
   'common.home': '처음으로',
   'common.retry': '다시 하기',
   'common.cancel': '취소',
-  'placeholder.pending': '이 화면은 다음 작업에서 채워집니다.',
   'record.lead': '평소 말하듯 자연스럽게 읽어 주세요. 10~30초면 충분해요.',
   'record.scriptMeta': '{author} · {year}',
   'record.excerpt': '발췌',
@@ -54,6 +52,13 @@ export const ko = {
   'record.error.unsupported': '이 브라우저에서는 녹음할 수 없어요. 최신 Chrome, Safari, Firefox를 사용해 주세요.',
   'record.error.unknown': '녹음 중 문제가 생겼어요. 다시 시도해 주세요.',
   'generating.script': '『{title}』 낭독을 분석하고 있어요',
+  'generating.stage.decoding': '녹음을 읽는 중',
+  'generating.stage.extracting': '목소리의 결을 재는 중',
+  'generating.stage.profiling': '타입을 정하는 중',
+  'generating.error': '녹음을 분석하지 못했어요. 다시 시도하거나 새로 녹음해 주세요.',
+  'result.missing': '결과가 없어요. 처음부터 다시 시작해 주세요.',
+  'result.typeCode': '타입 코드',
+  'result.axes': '축 값',
 } as const
 
 export type MessageKey = keyof typeof ko
