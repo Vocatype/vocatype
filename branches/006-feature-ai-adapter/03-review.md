@@ -45,3 +45,31 @@
 
 - typecheck / lint / test(121) / build 통과. `wrangler types`로 `Env.PORTRAIT_LIMITER: RateLimit` 생성
 - 개발 서버 `curl`: 교차 사이트 403, 같은 IP 6번째 요청 429, `HEAD /api/config` 200, `POST /api/config` 405
+
+## 2차 리뷰
+
+대상: 커밋 `08bb854`. 리뷰 에이전트가 검증 4종을 다시 실행하고 개발 서버 `curl`로 HEAD 200, `POST /api/config` 405(`Allow: GET, HEAD`), `GET /api/portrait` 405, `cross-site`/`same-site` 403, 한글 1838바이트 413, chunked 소형 본문 200, IP당 5회 뒤 429를 확인. 출력 `wrangler.json`에 `ratelimits` 포함 확인.
+
+### 1차 항목 해결 여부
+
+1~8, n1~n6 모두 해결 확인. `ratelimits` 정의가 스키마에 맞고 로컬 에뮬레이션에서 동작, `readBodyLimited`가 chunked·`NaN` content-length·본문 없음을 처리, `Request` 캐스트는 workerd 제네릭 불일치만 메움, `configPromise`는 reject하지 않아 unhandled rejection 없음.
+
+### 신규 발견 사항과 조치
+
+| # | 심각도 | 위치 | 내용 | 조치 |
+| --- | --- | --- | --- | --- |
+| 1 | nit | `worker/index.ts` | `limiter.limit()`이 던지면 1101 오류 페이지 | try/catch로 fail-open |
+| 2 | nit | `README.md` | "순간적으로만" 표현이 과함. 콜로별 제한이라 합산 한도는 더 큼 | "최대 60초 카운터 키, 영구 저장·로그 없음", 콜로별 제한 명시 |
+| 3 | nit | `client.test.ts` | 테스트 이름이 실제 동작(취소된 신호로 fetch 호출)과 다름 | 이름 수정, 호출 1회·aborted 신호 단언 |
+| 4 | nit | `README.md` | `md5`는 macOS 전용 | `shasum` |
+| 5 | nit | — | `OPTIONS /api/portrait`가 운영에서 405. 동일 출처라 preflight 없음 | 기록만 |
+
+### 2차 결론
+
+**병합 가능.** 1~4 반영. `seed` 결정성은 배포 후 확인 항목으로 README에 유지.
+
+## 최종
+
+- 반영 커밋: 2차 반영 `fix(ai-adapter)` 커밋
+- 병합: `git merge --no-ff feature/006-ai-adapter` → main
+- 브랜치 삭제: `git branch -d feature/006-ai-adapter`

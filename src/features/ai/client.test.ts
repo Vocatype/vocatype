@@ -48,7 +48,7 @@ describe('requestPortrait', () => {
     expect(await requestPortrait({ typeCode: 'WFQV', seed: 9 })).toBeNull()
   })
 
-  it('이미 취소된 신호를 주면 요청하지 않고 null', async () => {
+  it('이미 취소된 신호를 주면 취소된 채로 요청이 나가고 즉시 null로 끝난다', async () => {
     const handler = vi.fn((_input: string, init?: RequestInit) => {
       if (init?.signal?.aborted) return Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
       return Promise.resolve(Response.json({ image: null, provider: 'mock' }))
@@ -57,6 +57,8 @@ describe('requestPortrait', () => {
     const controller = new AbortController()
     controller.abort()
     expect(await requestPortrait({ typeCode: 'WFQV', seed: 9 }, controller.signal)).toBeNull()
+    expect(handler).toHaveBeenCalledTimes(1)
+    expect((handler.mock.calls[0]?.[1] as RequestInit | undefined)?.signal?.aborted).toBe(true)
   })
 
   it('타임아웃이 지나면 요청을 끊고 null', async () => {

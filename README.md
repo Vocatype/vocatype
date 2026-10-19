@@ -78,7 +78,7 @@ wrangler.jsonc   Workers 설정
 - 녹음은 브라우저 안에서 분석한다. AI 초상 생성 요청에는 타입 코드와 씨앗만 들어가며 음성은 어떤 경우에도 서버로 가지 않는다.
 - 외부 폰트, 분석 스크립트, 광고 등 제3자 요청을 넣지 않는다.
 - Workers 요청 로그(`observability`)는 기본 비활성화한다.
-- 초상 생성 속도 제한에 접속 IP를 쓰지만 Workers Rate Limiting 바인딩 안에서 순간적으로만 쓰이고 저장되지 않는다.
+- 초상 생성 속도 제한에 접속 IP를 쓰지만 Workers Rate Limiting 바인딩 안에서 최대 60초 동안 카운터 키로만 유지되고 영구 저장·로그는 없다.
 
 ## AI 제공자
 
@@ -96,7 +96,7 @@ AI는 어댑터(`worker/ai/`) 뒤에 있고, 기본값은 이미지를 만들지
 2. 푸시하면 Cloudflare가 빌드·배포한다. 배포 후 `https://<worker>/api/config`가 `{"provider":"workers-ai","features":{"portrait":true}}`를 돌려주면 켜진 것이다.
 3. 같은 요청을 두 번 보내 같은 이미지가 나오는지 확인한다. Flux 1 schnell의 `seed` 파라미터는 Cloudflare 예제 코드에만 나오고 파라미터 표에는 없어 지원이 확실하지 않다. 다르게 나오면 "같은 녹음 = 같은 얼굴"이 성립하지 않으므로 `seed`를 지원하는 모델로 바꾸는 것을 검토한다.
    ```bash
-   curl -s -X POST https://<worker>/api/portrait -H 'content-type: application/json' -d '{"typeCode":"WFQV","seed":123}' | md5
+   curl -s -X POST https://<worker>/api/portrait -H 'content-type: application/json' -d '{"typeCode":"WFQV","seed":123}' | shasum
    ```
 4. 로컬에서 실제 모델을 호출해 보려면 `npx wrangler login` 뒤 프로젝트 루트에 `.dev.vars` 파일을 만들어 `AI_PROVIDER=workers-ai` 한 줄을 넣고 `npm run dev`를 실행한다(`.dev.vars`는 커밋되지 않는다). Workers AI 바인딩은 로컬에서도 Cloudflare 계정을 통해 원격으로 호출되며 과금될 수 있다.
 
@@ -104,7 +104,7 @@ AI는 어댑터(`worker/ai/`) 뒤에 있고, 기본값은 이미지를 만들지
 
 - 초상 생성 요청에는 **타입 코드(4글자)와 씨앗(정수)** 만 들어간다. 음성, 녹음 파일, 분석 수치는 서버로 가지 않는다.
 - 프롬프트는 서버가 타입 코드로만 만든다. 성별·나이·인종은 지정하지 않으며, 생성된 이미지는 응답으로만 돌아가고 서버에 저장되지 않는다.
-- 비용은 Cloudflare Workers AI 가격표를 확인한다. 초상 엔드포인트는 인증이 없으므로 **속도 제한을 반드시 유지한다**: `wrangler.jsonc`의 `ratelimits`가 접속 IP당 1분에 5회로 막고(초과 시 429), 다른 사이트에서 온 요청(`Sec-Fetch-Site`)은 403으로 거절한다. IP는 제한 판단에만 순간적으로 쓰고 어디에도 저장하지 않는다.
+- 비용은 Cloudflare Workers AI 가격표를 확인한다. 초상 엔드포인트는 인증이 없으므로 **속도 제한을 반드시 유지한다**: `wrangler.jsonc`의 `ratelimits`가 접속 IP당 1분에 5회로 막고(초과 시 429), 다른 사이트에서 온 요청(`Sec-Fetch-Site`)은 403으로 거절한다. IP는 Rate Limiting 바인딩 안에서 최대 60초 동안 카운터 키로만 유지되고 영구 저장·로그는 없다. 제한은 Cloudflare 콜로(지역 데이터센터)별로 적용되므로 전 세계 합산 한도는 5회보다 클 수 있다.
 
 ### 다른 제공자 붙이기
 

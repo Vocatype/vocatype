@@ -33,8 +33,13 @@ async function isRateLimited(env: Env, request: Request): Promise<boolean> {
   const limiter = (env as { PORTRAIT_LIMITER?: RateLimit }).PORTRAIT_LIMITER
   if (!limiter) return false
   const key = request.headers.get('cf-connecting-ip') ?? 'unknown'
-  const { success } = await limiter.limit({ key })
-  return !success
+  try {
+    const { success } = await limiter.limit({ key })
+    return !success
+  } catch {
+    // 바인딩 장애는 사용자 요청을 막지 않는다(fail-open). 남용 방지는 보조 수단이다.
+    return false
+  }
 }
 
 export default {
