@@ -15,8 +15,10 @@
     "AI_PROVIDER": "mock"
   },
   // Workers AI 바인딩. mock 상태에서는 쓰지 않지만, 변수만 바꾸면 바로 켤 수 있도록 미리 둔다.
+  // remote: true — Workers AI는 로컬 개발에서도 항상 원격 자원이므로 명시해 경고를 없앤다.
   "ai": {
-    "binding": "AI"
+    "binding": "AI",
+    "remote": true
   },
   // 개인정보 원칙에 따라 요청 로그 수집(Workers Logs)은 기본 비활성화한다.
   // 운영 중 문제 분석이 필요하면 true로 바꾼다.
