@@ -267,30 +267,158 @@ p {
   color: var(--fg);
 }
 
-/* ---------- 히어로 (임시 셸) ---------- */
-.hero {
+/* ---------- 화면 공통 ---------- */
+.screen {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 12px;
-  padding: 48px 0;
+  gap: 24px;
+  animation: screen-in 240ms ease-out;
 }
 
-.hero__title {
-  font-size: clamp(2rem, 6vw, 2.75rem);
+.screen--centered {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.screen__header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.screen--centered .screen__header {
+  align-items: center;
+}
+
+.screen__icon {
+  margin-bottom: 8px;
+}
+
+.screen__title {
+  font-size: clamp(1.6rem, 5vw, 2.25rem);
   font-weight: 800;
   letter-spacing: -0.03em;
+  outline: none;
 }
 
-.hero__tagline {
-  font-size: 1.1rem;
+.screen--centered .screen__title {
+  font-size: clamp(2rem, 7vw, 2.75rem);
+}
+
+.screen__lead {
+  font-size: 1.05rem;
   color: var(--fg-muted);
 }
 
-.hero__note {
-  font-size: 0.9rem;
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* ---------- 진행 단계 ---------- */
+.steps {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.steps__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+}
+
+.steps__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.steps__item.is-done .steps__dot {
+  background: var(--fg-muted);
+}
+
+.steps__item.is-current {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.steps__item.is-current .steps__dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+/* ---------- 메인 화면 ---------- */
+.landing {
+  padding: 24px 0;
+}
+
+.howto {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+  text-align: left;
+}
+
+.howto__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+}
+
+.howto__num {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.landing__cta {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.landing__hint {
+  font-size: 0.85rem;
   color: var(--fg-muted);
 }
