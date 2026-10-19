@@ -1,5 +1,5 @@
 import { Fragment, useReducer, useState } from 'react'
-import { flowReducer, INITIAL_FLOW_STATE, type FlowStep } from './app/flow'
+import { canTransition, flowReducer, INITIAL_FLOW_STATE, type FlowStep } from './app/flow'
 import { FlowContext } from './app/FlowContext'
 import { StepIndicator } from './components/StepIndicator'
 import { TopBar } from './components/TopBar'
@@ -16,15 +16,17 @@ export default function App() {
   // navigate(dispatch)는 안정적이고, 전이 검사는 리듀서가 현재 단계를 기준으로 한다.
   const [flow, navigate] = useReducer(flowReducer, INITIAL_FLOW_STATE)
   const { step } = flow
-  // 녹음 화면이 넘긴 스크립트와 녹음, 분석 결과. 메모리에만 있고 페이지를 닫으면 사라진다.
+  // 녹음 화면이 넘긴 스크립트와 녹음, 분석 결과, 생성된 초상. 메모리에만 있고 페이지를 닫으면 사라진다.
   const [capture, setCapture] = useState<Capture | null>(null)
   const [profile, setProfile] = useState<VoiceProfile | null>(null)
+  const [portrait, setPortrait] = useState<string | null>(null)
 
-  /** 메인으로 돌아가면 녹음과 결과를 메모리에서도 버린다. 전이 허용 여부는 리듀서가 판단한다. */
+  /** 메인으로 돌아가는 전이가 허용될 때만 녹음과 결과를 메모리에서도 버린다. */
   const go = (to: FlowStep) => {
-    if (to === 'landing') {
+    if (to === 'landing' && canTransition(step, to)) {
       setCapture(null)
       setProfile(null)
+      setPortrait(null)
     }
     navigate(to)
   }
@@ -40,6 +42,7 @@ export default function App() {
             onCaptured={(next) => {
               setCapture(next)
               setProfile(null)
+              setPortrait(null)
               go('generating')
             }}
           />
@@ -56,7 +59,7 @@ export default function App() {
           />
         )
       case 'result':
-        return <ResultScreen profile={profile} onNavigate={go} />
+        return <ResultScreen capture={capture} profile={profile} portrait={portrait} onNavigate={go} />
     }
   })()
 
