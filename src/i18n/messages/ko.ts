@@ -36,6 +36,8 @@ export const ko = {
   'record.excerpt': '발췌',
   'record.publicDomain': '저작권이 만료된 작품',
   'record.another': '다른 글',
+  'record.newScript': '새 글: {title}',
+  'record.estimated': '낭독 약 {seconds}초',
   'record.start': '녹음 시작',
   'record.stop': '녹음 끝내기',
   'record.requesting': '마이크 권한을 확인하는 중…',

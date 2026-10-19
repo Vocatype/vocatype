@@ -14,7 +14,7 @@ export interface Script {
 
 /**
  * 낭독용 스크립트. 모두 저작권이 만료된(퍼블릭 도메인) 작품이다.
- * - 한국: 저자 사후 50년(1963년 이전 사망)으로 보호가 끝난 작품만 수록
+ * - 한국: 저자가 1962년 12월 31일 이전에 사망해 사후 50년 보호가 2013년 7월 1일(70년 개정 시행) 전에 끝난 작품만 수록
  * - 영미: 1929년 이전 출판 또는 저자 사후 70년 경과 작품만 수록
  * 20~30초 안에 읽을 분량으로 맞췄다.
  */
@@ -145,6 +145,8 @@ export const SCRIPTS: readonly Script[] = [
       '별 하나에 동경과',
       '별 하나에 시와',
       '별 하나에 어머니, 어머니,',
+      '',
+      '어머님, 나는 별 하나에 아름다운 말 한마디씩 불러 봅니다.',
     ],
   },
 
@@ -170,7 +172,7 @@ export const SCRIPTS: readonly Script[] = [
   {
     id: 'en-stage',
     locale: 'en',
-    title: 'All the world’s a stage',
+    title: "All the world's a stage",
     author: 'William Shakespeare',
     year: '1623',
     excerpt: true,
@@ -225,7 +227,7 @@ export const SCRIPTS: readonly Script[] = [
     locale: 'en',
     title: 'I Wandered Lonely as a Cloud',
     author: 'William Wordsworth',
-    year: '1807',
+    year: '1815',
     excerpt: true,
     lines: [
       'I wandered lonely as a cloud',

@@ -19,6 +19,7 @@
   --accent-fg: light-dark(#ffffff, #0f0e12);
   --accent-soft: light-dark(#efeaff, #241f45);
   --danger: light-dark(#b3261e, #ffb4ab);
+  --recording: light-dark(#c93c36, #e0443e);
 
   --shadow-color: light-dark(rgba(27, 26, 25, 0.08), rgba(0, 0, 0, 0.45));
   --shadow: 0 12px 32px var(--shadow-color);
@@ -575,8 +576,12 @@ p {
 }
 
 .recorder__button.is-recording {
-  background: #e0443e;
+  background: var(--recording);
   color: #fff;
+}
+
+.recorder__ring.is-active {
+  background: var(--recording);
 }
 
 .recorder__timer {

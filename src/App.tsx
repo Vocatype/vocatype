@@ -1,5 +1,5 @@
 import { Fragment, useReducer, useState } from 'react'
-import { flowReducer, INITIAL_FLOW_STATE } from './app/flow'
+import { flowReducer, INITIAL_FLOW_STATE, type FlowStep } from './app/flow'
 import { FlowContext } from './app/FlowContext'
 import { StepIndicator } from './components/StepIndicator'
 import { TopBar } from './components/TopBar'
@@ -18,24 +18,30 @@ export default function App() {
   // 녹음 화면이 넘긴 스크립트와 녹음. 메모리에만 있고 페이지를 닫으면 사라진다.
   const [capture, setCapture] = useState<Capture | null>(null)
 
+  /** 메인으로 돌아가면 녹음을 메모리에서도 버린다. 전이 허용 여부는 리듀서가 판단한다. */
+  const go = (to: FlowStep) => {
+    if (to === 'landing') setCapture(null)
+    navigate(to)
+  }
+
   const screen = (() => {
     switch (step) {
       case 'landing':
-        return <LandingScreen onStart={() => navigate('record')} />
+        return <LandingScreen onStart={() => go('record')} />
       case 'record':
         return (
           <RecordScreen
-            onNavigate={navigate}
+            onNavigate={go}
             onCaptured={(next) => {
               setCapture(next)
-              navigate('generating')
+              go('generating')
             }}
           />
         )
       case 'generating':
-        return <GeneratingScreen capture={capture} onNavigate={navigate} />
+        return <GeneratingScreen capture={capture} onNavigate={go} />
       case 'result':
-        return <ResultScreen onNavigate={navigate} />
+        return <ResultScreen onNavigate={go} />
     }
   })()
 

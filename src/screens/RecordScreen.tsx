@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { RECORDING_MAX_SECONDS, RECORDING_MIN_SECONDS } from '../../shared/config'
 import type { FlowStep } from '../app/flow'
 import { Button } from '../components/Button'
@@ -6,7 +6,7 @@ import { Screen } from '../components/Screen'
 import { formatDuration } from '../features/recorder/recorderSupport'
 import type { Capture } from '../features/recorder/types'
 import { useRecorder } from '../features/recorder/useRecorder'
-import { pickScript, type Script } from '../features/scripts/scripts'
+import { estimateReadingSeconds, pickScript, type Script } from '../features/scripts/scripts'
 import { useI18n } from '../i18n/useI18n'
 
 interface Props {
@@ -34,33 +34,33 @@ function StopIcon() {
 export function RecordScreen({ onNavigate, onCaptured }: Props) {
   const { locale, t } = useI18n()
   const [script, setScript] = useState<Script>(() => pickScript(locale))
+  const [announcement, setAnnouncement] = useState('')
   const recorder = useRecorder({ maxMs: RECORDING_MAX_SECONDS * 1000 })
-  const { status, error, elapsedMs, level, recording } = recorder
+  const { status, error, elapsedMs, level, recording, previewUrl } = recorder
 
   // UI 언어가 바뀌면 읽을 글도 그 언어로 바꾼다. 렌더 중 상태 조정 패턴(effect 없이 즉시 반영).
   // 녹음 중이거나 녹음이 끝난 뒤에는 읽은 글과 결과가 어긋나지 않게 유지하고, 다시 녹음할 때 바꾼다.
   if (script.locale !== locale && (status === 'idle' || status === 'error')) {
-    setScript(pickScript(locale))
+    const next = pickScript(locale)
+    setScript(next)
+    setAnnouncement(t('record.newScript', { title: next.title }))
   }
-
-  // 미리 듣기 URL. 녹음이 바뀌거나 화면이 사라지면 해제한다.
-  const previewUrl = useMemo(() => (recording ? URL.createObjectURL(recording.blob) : null), [recording])
-  useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
-    }
-  }, [previewUrl])
 
   const isBusy = status === 'recording' || status === 'requesting'
   const minMs = RECORDING_MIN_SECONDS * 1000
   const tooShort = recording !== null && recording.durationMs < minMs
   const canGenerate = recording !== null && !tooShort
 
-  const shuffle = () => setScript(pickScript(locale, script.id))
+  const shuffle = () => {
+    const next = pickScript(locale, script.id)
+    setScript(next)
+    setAnnouncement(t('record.newScript', { title: next.title }))
+  }
 
   const toggle = () => {
+    if (status === 'requesting') return
     if (status === 'recording') recorder.stop()
-    else if (status === 'idle' || status === 'done' || status === 'error') void recorder.start()
+    else void recorder.start()
   }
 
   const hint = (() => {
@@ -80,11 +80,14 @@ export function RecordScreen({ onNavigate, onCaptured }: Props) {
 
   return (
     <Screen title={t('record.title')} lead={t('record.lead')}>
-      <article className="script" lang={script.locale} aria-live="polite">
+      <article className="script" lang={script.locale}>
         <header className="script__header">
           <div>
             <h2 className="script__title">{script.title}</h2>
-            <p className="script__meta">{t('record.scriptMeta', { author: script.author, year: script.year })}</p>
+            <p className="script__meta">
+              {t('record.scriptMeta', { author: script.author, year: script.year })} ·{' '}
+              {t('record.estimated', { seconds: estimateReadingSeconds(script) })}
+            </p>
           </div>
           {script.excerpt ? <span className="script__badge">{t('record.excerpt')}</span> : null}
         </header>
@@ -106,29 +109,32 @@ export function RecordScreen({ onNavigate, onCaptured }: Props) {
           </Button>
         </footer>
       </article>
+      <p className="visually-hidden" role="status">
+        {announcement}
+      </p>
 
       <div className="recorder">
         <div className="recorder__stage">
           <span
-            className={`recorder__ring ${status === 'recording' ? 'is-active' : ''}`}
+            className={['recorder__ring', status === 'recording' ? 'is-active' : ''].filter(Boolean).join(' ')}
             style={{ transform: `scale(${1 + level * 0.8})`, opacity: 0.25 + level * 0.5 }}
             aria-hidden="true"
           />
           <button
             type="button"
-            className={`recorder__button ${status === 'recording' ? 'is-recording' : ''}`}
+            className={['recorder__button', status === 'recording' ? 'is-recording' : ''].filter(Boolean).join(' ')}
             onClick={toggle}
-            disabled={status === 'requesting'}
+            aria-disabled={status === 'requesting'}
             aria-label={status === 'recording' ? t('record.stop') : t('record.start')}
           >
             {status === 'recording' ? <StopIcon /> : <MicIcon />}
           </button>
         </div>
-        <p className="recorder__timer" aria-live="off">
+        <p className="recorder__timer">
           <span className="recorder__elapsed">{formatDuration(elapsedMs)}</span>
           <span className="recorder__max"> / {formatDuration(RECORDING_MAX_SECONDS * 1000)}</span>
         </p>
-        <p className={`recorder__hint ${status === 'error' || tooShort ? 'is-error' : ''}`} role="status">
+        <p className={['recorder__hint', status === 'error' || tooShort ? 'is-error' : ''].filter(Boolean).join(' ')} role="status">
           {hint}
         </p>
       </div>
