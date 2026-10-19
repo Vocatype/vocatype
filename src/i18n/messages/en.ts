@@ -76,7 +76,7 @@ export const en = {
   'result.match.best': 'Best match',
   'result.match.opposite': 'Polar opposite',
   'result.signatureCaption': 'Your voice fingerprint: the energy of your recording drawn in a circle',
-  'result.stat.pitch': 'Average pitch {hz}Hz',
+  'result.stat.pitch': 'Average pitch {hz} Hz',
   'result.stat.pace': '{count} syllables per minute',
   'result.save': 'Save as image',
   'result.share': 'Share',
@@ -84,5 +84,6 @@ export const en = {
   'result.saved': 'Image saved',
   'result.shared': 'Shared',
   'result.saveFailed': 'Could not make the image. Please try again.',
+  'result.shareBlocked': 'The share sheet could not open. Please tap once more.',
   'result.disclaimer': 'Just for fun. Your recording was never stored.',
 } satisfies Record<MessageKey, string>

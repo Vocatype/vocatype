@@ -1,3 +1,4 @@
+import { signatureInkFor } from '../features/signature/contrast'
 import { SoundSignature } from './SoundSignature'
 
 interface Props {
@@ -6,10 +7,9 @@ interface Props {
   palette: readonly string[]
   signature: readonly number[]
   alt: string
-  signatureTitle: string
 }
 
-export function PortraitFrame({ image, palette, signature, alt, signatureTitle }: Props) {
+export function PortraitFrame({ image, palette, signature, alt }: Props) {
   if (image) {
     return (
       <div className="portrait">
@@ -20,7 +20,8 @@ export function PortraitFrame({ image, palette, signature, alt, signatureTitle }
   const [c1 = '#6d5dfc', c2 = '#ff7a59'] = palette
   return (
     <div className="portrait portrait--placeholder" style={{ background: `linear-gradient(135deg, ${c1}, ${c2})` }} role="img" aria-label={alt}>
-      <SoundSignature values={signature} size={240} color="rgba(255,255,255,0.9)" title={signatureTitle} className="portrait__signature" />
+      {/* 컨테이너가 role="img"라 안쪽 SVG는 보조기기에 노출되지 않는다. 장식으로 숨긴다. */}
+      <SoundSignature values={signature} size={240} color={signatureInkFor(c1, c2)} decorative className="portrait__signature" />
     </div>
   )
 }

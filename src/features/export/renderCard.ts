@@ -1,4 +1,5 @@
 import type { ResultView } from '../profile/present'
+import { hexToRgba, signatureInkFor } from '../signature/contrast'
 import { signatureBars } from '../signature/signature'
 import { wrapText } from './wrapText'
 
@@ -21,7 +22,8 @@ export interface CardLabels {
   /** 예: 『서시』 낭독 */
   readOf: string
   date: string
-  stats: string
+  /** 통계 두 줄. 예: ['평균 음높이 142Hz', '분당 250음절'] */
+  stats: readonly string[]
 }
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
@@ -29,6 +31,9 @@ const BG = '#141319'
 const FG = '#f4f1ec'
 const MUTED = '#b5afa6'
 const MARGIN = 72
+const CONTENT_WIDTH = CARD_WIDTH - MARGIN * 2
+/** 이 선 아래로는 본문을 그리지 않는다. 하단 문구 영역. */
+const FOOTER_TOP = CARD_HEIGHT - 120
 
 function font(weight: number, size: number): string {
   return `${weight} ${size}px ${FONT}`
@@ -44,12 +49,13 @@ function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
   ctx.closePath()
 }
 
-function hexToRgba(hex: string, alpha: number): string {
-  const value = hex.replace('#', '')
-  const r = parseInt(value.slice(0, 2), 16)
-  const g = parseInt(value.slice(2, 4), 16)
-  const b = parseInt(value.slice(4, 6), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+/** 줄 수를 제한하고 넘치는 마지막 줄은 말줄임표로 끝낸다. */
+export function clampLines(lines: readonly string[], max: number): string[] {
+  if (lines.length <= max) return [...lines]
+  const kept = lines.slice(0, max)
+  const last = kept[max - 1] ?? ''
+  kept[max - 1] = `${last.replace(/[\s,.;:·]+$/, '').slice(0, Math.max(0, last.length - 1))}…`
+  return kept
 }
 
 function drawSignature(ctx: CanvasRenderingContext2D, values: readonly number[], cx: number, cy: number, innerR: number, outerR: number, color: string) {
@@ -78,30 +84,40 @@ function drawPortraitPlaceholder(ctx: CanvasRenderingContext2D, view: ResultView
   gradient.addColorStop(1, c2)
   ctx.fillStyle = gradient
   ctx.fillRect(x, y, size, size)
-  drawSignature(ctx, view.signature, x + size / 2, y + size / 2, size * 0.22, size * 0.42, 'rgba(255, 255, 255, 0.85)')
+  drawSignature(ctx, view.signature, x + size / 2, y + size / 2, size * 0.22, size * 0.42, signatureInkFor(c1, c2))
 }
 
-/** 결과 카드를 1080×1920 PNG로 그린다. 외부 리소스를 쓰지 않아 캔버스가 오염되지 않는다. */
+/**
+ * 결과 카드를 1080×1920 PNG로 그린다. 외부 리소스를 쓰지 않아 캔버스가 오염되지 않는다.
+ * 세로 배치는 커서(y)로 누적하며, 이름 2줄·설명 3줄·향 이름 2줄로 줄 수를 제한해 하단 문구 영역(FOOTER_TOP) 위에서 끝나도록 설계했다.
+ * 그래도 넘치면 예외를 던진다(테스트가 모든 타입·언어로 검사한다).
+ */
 export async function renderCard(view: ResultView, portrait: HTMLImageElement | null, labels: CardLabels): Promise<Blob> {
   const canvas = document.createElement('canvas')
   canvas.width = CARD_WIDTH
   canvas.height = CARD_HEIGHT
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('canvas 2d context unavailable')
+  drawCard(ctx, view, portrait, labels)
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('toBlob failed'))), 'image/png')
+  })
+}
 
+/** 그리기 본체. 테스트에서 가짜 컨텍스트로 좌표를 검사할 수 있게 분리했다. */
+export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portrait: HTMLImageElement | null, labels: CardLabels): void {
   const [primary = '#6d5dfc', secondary = '#ff7a59'] = view.color.palette
-  const contentWidth = CARD_WIDTH - MARGIN * 2
   const measure = (s: string) => ctx.measureText(s).width
 
   // 배경
   ctx.fillStyle = BG
   ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT)
-  const glow = ctx.createRadialGradient(CARD_WIDTH / 2, 420, 60, CARD_WIDTH / 2, 420, 900)
+  const glow = ctx.createRadialGradient(CARD_WIDTH / 2, 380, 60, CARD_WIDTH / 2, 380, 860)
   glow.addColorStop(0, hexToRgba(primary, 0.55))
   glow.addColorStop(0.55, hexToRgba(secondary, 0.18))
   glow.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = glow
-  ctx.fillRect(0, 0, CARD_WIDTH, 1100)
+  ctx.fillRect(0, 0, CARD_WIDTH, 1000)
 
   // 상단
   ctx.textBaseline = 'alphabetic'
@@ -113,14 +129,13 @@ export async function renderCard(view: ResultView, portrait: HTMLImageElement | 
   ctx.fillText(labels.date, CARD_WIDTH - MARGIN, 104)
 
   // 초상
-  const portraitSize = 520
+  const portraitSize = 420
   const portraitX = (CARD_WIDTH - portraitSize) / 2
   const portraitY = 150
   ctx.save()
-  roundedRect(ctx, portraitX, portraitY, portraitSize, portraitSize, 48)
+  roundedRect(ctx, portraitX, portraitY, portraitSize, portraitSize, 44)
   ctx.clip()
   if (portrait) {
-    // cover 방식으로 꽉 채운다
     const scale = Math.max(portraitSize / portrait.naturalWidth, portraitSize / portrait.naturalHeight)
     const w = portrait.naturalWidth * scale
     const h = portrait.naturalHeight * scale
@@ -130,166 +145,166 @@ export async function renderCard(view: ResultView, portrait: HTMLImageElement | 
   }
   ctx.restore()
   ctx.save()
-  roundedRect(ctx, portraitX, portraitY, portraitSize, portraitSize, 48)
+  roundedRect(ctx, portraitX, portraitY, portraitSize, portraitSize, 44)
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)'
   ctx.lineWidth = 3
   ctx.stroke()
   ctx.restore()
 
-  // 타입
-  let y = portraitY + portraitSize + 84
+  // 타입 코드·이름·설명
+  let y = portraitY + portraitSize + 64
   ctx.textAlign = 'center'
   ctx.fillStyle = MUTED
-  ctx.font = font(700, 32)
+  ctx.font = font(700, 30)
   ctx.fillText(view.code.split('').join('  '), CARD_WIDTH / 2, y)
-  y += 76
+  y += 66
   ctx.fillStyle = FG
-  ctx.font = font(800, 66)
-  for (const line of wrapText(view.name, contentWidth, measure)) {
+  ctx.font = font(800, 60)
+  for (const line of clampLines(wrapText(view.name, CONTENT_WIDTH, measure), 2)) {
     ctx.fillText(line, CARD_WIDTH / 2, y)
-    y += 76
+    y += 66
   }
-  y += 4
-  ctx.fillStyle = FG
-  ctx.font = font(400, 30)
-  for (const line of wrapText(view.description, contentWidth - 80, measure)) {
+  y -= 10
+  ctx.font = font(400, 28)
+  for (const line of clampLines(wrapText(view.description, CONTENT_WIDTH - 60, measure), 3)) {
     ctx.fillText(line, CARD_WIDTH / 2, y)
-    y += 44
+    y += 38
   }
 
   // 축 칩
-  y += 26
-  ctx.font = font(600, 26)
-  const chipPad = 22
-  const chipGap = 14
+  y += 14
+  ctx.font = font(600, 24)
+  const chipPad = 20
+  const chipGap = 12
   const chipWidths = view.axisLabels.map((label) => measure(label) + chipPad * 2)
   const chipsWidth = chipWidths.reduce((sum, w) => sum + w, 0) + chipGap * (chipWidths.length - 1)
   let chipX = (CARD_WIDTH - chipsWidth) / 2
   for (let i = 0; i < view.axisLabels.length; i += 1) {
     const w = chipWidths[i] ?? 0
     ctx.fillStyle = 'rgba(255, 255, 255, 0.12)'
-    roundedRect(ctx, chipX, y - 30, w, 46, 23)
+    roundedRect(ctx, chipX, y - 28, w, 42, 21)
     ctx.fill()
     ctx.fillStyle = FG
-    ctx.fillText(view.axisLabels[i] ?? '', chipX + w / 2, y + 2)
+    ctx.fillText(view.axisLabels[i] ?? '', chipX + w / 2, y + 1)
     chipX += w + chipGap
   }
+  y += 36
 
-  // 섹션 제목 헬퍼
   const section = (title: string, top: number) => {
     ctx.textAlign = 'left'
     ctx.fillStyle = MUTED
-    ctx.font = font(700, 24)
+    ctx.font = font(700, 22)
     ctx.fillText(title.toUpperCase(), MARGIN, top)
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)'
     ctx.lineWidth = 2
     ctx.beginPath()
-    ctx.moveTo(MARGIN, top + 16)
-    ctx.lineTo(CARD_WIDTH - MARGIN, top + 16)
+    ctx.moveTo(MARGIN, top + 14)
+    ctx.lineTo(CARD_WIDTH - MARGIN, top + 14)
     ctx.stroke()
   }
 
   // 퍼스널 컬러
-  y += 96
+  y += 48
   section(labels.color, y)
-  y += 64
+  y += 54
   ctx.fillStyle = FG
-  ctx.font = font(700, 38)
+  ctx.font = font(700, 34)
   ctx.fillText(view.color.name, MARGIN, y)
-  y += 34
+  y += 26
   const swatch = 150
-  const swatchGap = (contentWidth - swatch * 5) / 4
+  const swatchGap = (CONTENT_WIDTH - swatch * 5) / 4
   for (let i = 0; i < 5; i += 1) {
     const sx = MARGIN + i * (swatch + swatchGap)
     ctx.fillStyle = view.color.palette[i] ?? '#888'
-    roundedRect(ctx, sx, y, swatch, 86, 20)
+    roundedRect(ctx, sx, y, swatch, 68, 18)
     ctx.fill()
     ctx.fillStyle = MUTED
-    ctx.font = font(500, 22)
+    ctx.font = font(500, 20)
     ctx.textAlign = 'center'
-    ctx.fillText((view.color.palette[i] ?? '').toUpperCase(), sx + swatch / 2, y + 118)
+    ctx.fillText((view.color.palette[i] ?? '').toUpperCase(), sx + swatch / 2, y + 96)
     ctx.textAlign = 'left'
   }
-  y += 150
+  y += 108
 
   // 향 (왼쪽) + 사운드 시그니처 (오른쪽)
-  y += 48
+  y += 52
   section(labels.scent, y)
-  const scentTop = y + 64
+  const columnWidth = 560
+  let sy = y + 56
   ctx.fillStyle = FG
-  ctx.font = font(700, 34)
-  let sy = scentTop
-  for (const line of wrapText(view.scent.name, 600, measure)) {
+  ctx.font = font(700, 32)
+  for (const line of clampLines(wrapText(view.scent.name, columnWidth, measure), 2)) {
     ctx.fillText(line, MARGIN, sy)
-    sy += 42
+    sy += 40
   }
-  sy += 10
-  ctx.font = font(400, 26)
+  sy += 4
+  ctx.font = font(400, 25)
   const noteLines = [
     `${labels.top} · ${view.scent.top.join(', ')}`,
     `${labels.middle} · ${view.scent.middle.join(', ')}`,
     `${labels.base} · ${view.scent.base.join(', ')}`,
   ]
-  for (const line of noteLines) {
-    ctx.fillStyle = FG
-    ctx.fillText(line, MARGIN, sy)
-    sy += 38
-  }
-  ctx.fillStyle = MUTED
-  ctx.font = font(400, 24)
-  for (const line of wrapText(view.scent.mood, 600, measure)) {
-    ctx.fillText(line, MARGIN, sy)
-    sy += 34
+  for (const note of noteLines) {
+    for (const line of clampLines(wrapText(note, columnWidth, measure), 1)) {
+      ctx.fillStyle = FG
+      ctx.fillText(line, MARGIN, sy)
+      sy += 34
+    }
   }
 
+  const sigR = 110
   const sigCx = CARD_WIDTH - MARGIN - 150
-  const sigCy = scentTop + 110
-  drawSignature(ctx, view.signature, sigCx, sigCy, 62, 140, primary)
+  const sigCy = y + 56 + sigR
+  drawSignature(ctx, view.signature, sigCx, sigCy, sigR * 0.45, sigR, primary)
+  let statY = sigCy + sigR + 38
   ctx.textAlign = 'center'
   ctx.fillStyle = MUTED
-  ctx.font = font(600, 22)
-  ctx.fillText(labels.signature, sigCx, sigCy + 182)
-  ctx.font = font(400, 22)
-  ctx.fillText(labels.stats, sigCx, sigCy + 214)
+  ctx.font = font(600, 21)
+  ctx.fillText(labels.signature, sigCx, statY)
+  ctx.font = font(400, 21)
+  for (const stat of labels.stats) {
+    statY += 28
+    for (const line of clampLines(wrapText(stat, 300, measure), 1)) ctx.fillText(line, sigCx, statY)
+  }
   ctx.textAlign = 'left'
-  y = Math.max(sy, sigCy + 230) + 40
+  y = Math.max(sy, statY) + 52
 
   // 궁합
   section(labels.match, y)
-  y += 64
+  y += 50
+  const halfWidth = CONTENT_WIDTH / 2 - 24
+  const rightX = CARD_WIDTH / 2 + 24
   ctx.fillStyle = MUTED
-  ctx.font = font(600, 24)
+  ctx.font = font(600, 22)
   ctx.fillText(labels.best, MARGIN, y)
-  ctx.fillText(labels.opposite, CARD_WIDTH / 2 + 20, y)
-  y += 44
+  ctx.fillText(labels.opposite, rightX, y)
+  y += 40
   ctx.fillStyle = FG
-  ctx.font = font(700, 32)
-  for (const line of wrapText(view.match.best.name, contentWidth / 2 - 40, measure)) {
-    ctx.fillText(line, MARGIN, y)
-    y += 40
+  ctx.font = font(700, 30)
+  const bestLines = clampLines(wrapText(view.match.best.name, halfWidth, measure), 2)
+  const oppositeLines = clampLines(wrapText(view.match.opposite.name, halfWidth, measure), 2)
+  const rows = Math.max(bestLines.length, oppositeLines.length)
+  for (let i = 0; i < rows; i += 1) {
+    const left = bestLines[i]
+    const right = oppositeLines[i]
+    if (left) ctx.fillText(left, MARGIN, y + i * 36)
+    if (right) ctx.fillText(right, rightX, y + i * 36)
   }
-  let oy = y - 40 * wrapText(view.match.best.name, contentWidth / 2 - 40, measure).length
-  for (const line of wrapText(view.match.opposite.name, contentWidth / 2 - 40, measure)) {
-    ctx.fillText(line, CARD_WIDTH / 2 + 20, oy)
-    oy += 40
-  }
-  y = Math.max(y, oy) + 2
+  y += rows * 36
   ctx.fillStyle = MUTED
-  ctx.font = font(500, 24)
-  ctx.fillText(view.match.best.code, MARGIN, y)
-  ctx.fillText(view.match.opposite.code, CARD_WIDTH / 2 + 20, y)
+  ctx.font = font(500, 22)
+  ctx.fillText(view.match.best.code.split('').join(' '), MARGIN, y)
+  ctx.fillText(view.match.opposite.code.split('').join(' '), rightX, y)
+
+  if (y > FOOTER_TOP) throw new Error(`card layout overflow: ${Math.round(y)} > ${FOOTER_TOP}`)
 
   // 하단
   ctx.textAlign = 'center'
   ctx.fillStyle = MUTED
-  ctx.font = font(500, 24)
-  ctx.fillText(labels.readOf, CARD_WIDTH / 2, CARD_HEIGHT - 110)
-  ctx.font = font(400, 22)
-  ctx.fillText(`${labels.serviceName} · ${labels.tagline}`, CARD_WIDTH / 2, CARD_HEIGHT - 72)
-
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('toBlob failed'))), 'image/png')
-  })
+  ctx.font = font(500, 22)
+  if (labels.readOf) ctx.fillText(labels.readOf, CARD_WIDTH / 2, CARD_HEIGHT - 86)
+  ctx.font = font(400, 20)
+  ctx.fillText(`${labels.serviceName} · ${labels.tagline}`, CARD_WIDTH / 2, CARD_HEIGHT - 52)
 }
 
 /** 데이터 URL 등을 이미지 요소로 불러온다. */
