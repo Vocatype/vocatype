@@ -17,7 +17,7 @@ const base: VoiceFeatures = {
   rmsMean: 0.08,
   rmsVariation: 0.5,
   zcrMean: 0.07,
-  tiltMean: 0.18,
+  tiltMedian: 0.18,
   syllableRate: 4.2,
   pauseCount: 3,
   envelope: [],
@@ -39,13 +39,13 @@ describe('mapRange / mapLog', () => {
 
 describe('featuresToAxes / axesToTypeCode', () => {
   it('낮고 어두운 목소리는 따뜻함(W)', () => {
-    const axes = featuresToAxes({ ...base, f0Median: 100, tiltMean: 0.07 })
+    const axes = featuresToAxes({ ...base, f0Median: 100, tiltMedian: 0.07 })
     expect(axes.warmth).toBeGreaterThan(0.7)
     expect(axesToTypeCode(axes).startsWith('W')).toBe(true)
   })
 
   it('높고 밝은 목소리는 서늘함(C)', () => {
-    const axes = featuresToAxes({ ...base, f0Median: 230, tiltMean: 0.3 })
+    const axes = featuresToAxes({ ...base, f0Median: 230, tiltMedian: 0.3 })
     expect(axes.warmth).toBeLessThan(0.3)
     expect(axesToTypeCode(axes).startsWith('C')).toBe(true)
   })

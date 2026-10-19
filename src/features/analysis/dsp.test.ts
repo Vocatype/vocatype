@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { highPass, median, percentile, resample, rms, spectralTilt, yinPitch, zeroCrossingRate } from './dsp'
+import { highPass, lowPass, median, percentile, resample, rms, spectralTilt, yinPitch, zeroCrossingRate } from './dsp'
 
 function sine(hz: number, seconds: number, sampleRate: number, amplitude = 0.5): Float32Array {
   const out = new Float32Array(Math.floor(seconds * sampleRate))
@@ -71,6 +71,15 @@ describe('rms / zcr', () => {
     const high = zeroCrossingRate(sine(400, 1, 16000))
     expect(low).toBeCloseTo(200 / 16000, 3)
     expect(high).toBeCloseTo(800 / 16000, 3)
+  })
+})
+
+describe('lowPass', () => {
+  it('1kHz 위 성분을 크게 줄이고 저음은 유지한다', () => {
+    const low = rms(lowPass(sine(150, 0.5, 16000)).slice(2000))
+    const high = rms(lowPass(sine(4000, 0.5, 16000)).slice(2000))
+    expect(low).toBeGreaterThan(0.3)
+    expect(high).toBeLessThan(0.1)
   })
 })
 

@@ -28,7 +28,7 @@ export interface AxisOptions {
 /**
  * 축 사상 범위. 실제 화자 분포로 보정해야 하는 초기값이다(04 구현 문서의 "보정" 항목 참고).
  * - pitch: 성인 음성 85~255Hz 로그 눈금
- * - brightness: 유성 프레임 스펙트럼 기울기(차분 RMS / RMS). 순음 120Hz ≈ 0.05, 배음이 풍부한 음성 ≈ 0.1~0.35
+ * - brightness: 고신뢰 유성 프레임 스펙트럼 기울기 중앙값(차분 RMS / RMS). 순음 120Hz ≈ 0.05, 포먼트 모음 ≈ 0.1~0.14, 밝은 음성 ≈ 0.2~0.3
  * - density: 말하는 구간 중 에너지가 있는 비율(쉼이 적을수록 큼)
  * - pace: 조음 속도(음절/초). 한국어 낭독 약 4~6.5, 영어 약 3~5
  */
@@ -69,7 +69,7 @@ export function featuresToAxes(features: VoiceFeatures, options: AxisOptions = {
   }
   const paceRange = AXIS_RANGES.pace[options.locale ?? 'en']
   const pitch = mapLog(features.f0Median, ...AXIS_RANGES.pitch)
-  const brightness = mapRange(features.tiltMean, ...AXIS_RANGES.brightness)
+  const brightness = mapRange(features.tiltMedian, ...AXIS_RANGES.brightness)
   const density = mapRange(features.speechRatio, ...AXIS_RANGES.density)
   const pace = mapRange(features.syllableRate, paceRange[0], paceRange[1])
   const variation = clamp01(
@@ -95,7 +95,7 @@ export function seedFromFeatures(features: VoiceFeatures): number {
     features.f0Variation.toFixed(3),
     features.rmsMean.toFixed(4),
     features.rmsVariation.toFixed(3),
-    features.tiltMean.toFixed(4),
+    features.tiltMedian.toFixed(4),
     features.syllableRate.toFixed(2),
     features.speechRatio.toFixed(3),
     features.durationSec.toFixed(2),

@@ -13,6 +13,8 @@ function syllabicTone(hz: number, seconds: number, sampleRate: number, syllableH
 }
 
 interface SpeechLikeOptions {
+  /** 음절별 진폭 배율을 순환 적용한다. 예: [1, 0.5]는 −6dB 강세 교대. */
+  stress?: number[]
   f0: number
   /** 조음 속도(쉼 제외 음절/초). */
   syllablesPerSecond: number
@@ -27,7 +29,7 @@ interface SpeechLikeOptions {
  * 말소리와 비슷한 합성 신호: 자음(60ms 잡음) + 모음(배음 있는 톤, 어택·디케이), 일정 음절마다 쉼.
  * 실제 녹음 대신 밀도·속도 축을 검증하는 데 쓴다.
  */
-function speechLike({ f0, syllablesPerSecond, syllables, pauseEvery, pauseMs, sampleRate }: SpeechLikeOptions): {
+function speechLike({ f0, syllablesPerSecond, syllables, pauseEvery, pauseMs, sampleRate, stress = [1] }: SpeechLikeOptions): {
   samples: Float32Array
   articulationSeconds: number
 } {
@@ -44,13 +46,14 @@ function speechLike({ f0, syllablesPerSecond, syllables, pauseEvery, pauseMs, sa
   }
   let position = Math.round(sampleRate * 0.5)
   for (let s = 0; s < syllables; s += 1) {
-    for (let i = 0; i < consonantSamples; i += 1) samples[position + i] = 0.12 * noise()
+    const gain = stress[s % stress.length] ?? 1
+    for (let i = 0; i < consonantSamples; i += 1) samples[position + i] = 0.12 * gain * noise()
     const vowelSamples = syllableSamples - consonantSamples
     for (let i = 0; i < vowelSamples; i += 1) {
       const t = i / sampleRate
       const ramp = Math.min(1, i / (sampleRate * 0.03), (vowelSamples - i) / (sampleRate * 0.05))
       samples[position + consonantSamples + i] =
-        0.4 * ramp * (Math.sin(2 * Math.PI * f0 * t) + 0.5 * Math.sin(2 * Math.PI * 2 * f0 * t) + 0.3 * Math.sin(2 * Math.PI * 3 * f0 * t))
+        0.4 * gain * ramp * (Math.sin(2 * Math.PI * f0 * t) + 0.5 * Math.sin(2 * Math.PI * 2 * f0 * t) + 0.3 * Math.sin(2 * Math.PI * 3 * f0 * t))
     }
     position += syllableSamples
     if ((s + 1) % pauseEvery === 0 && s < syllables - 1) position += pauseSamples
@@ -105,6 +108,23 @@ describe('extractFeatures', () => {
     const expectedRatio = articulationSeconds / (articulationSeconds + 1.2)
     expect(Math.abs(features.speechRatio - expectedRatio)).toBeLessThan(0.08)
     expect(features.pauseCount).toBe(3)
+  })
+
+  it.each([
+    { f0: 120, syllablesPerSecond: 6, stress: [1, 0.5] },
+    { f0: 200, syllablesPerSecond: 4.5, stress: [1, 0.5, 0.35] },
+    { f0: 120, syllablesPerSecond: 4.5, stress: [1, 0.32] },
+  ])('강세 교대 $stress · $syllablesPerSecond음절/초에서도 조음 속도가 15% 안에 든다', async ({ f0, syllablesPerSecond, stress }) => {
+    const { samples } = speechLike({ f0, syllablesPerSecond, syllables: 36, pauseEvery: 9, pauseMs: 400, sampleRate: 16000, stress })
+    const features = await extractFeatures(samples, 16000)
+    expect(Math.abs(features.syllableRate - syllablesPerSecond) / syllablesPerSecond).toBeLessThan(0.15)
+  })
+
+  it('밝기 중앙값은 자음 잡음 프레임에 끌려가지 않는다', async () => {
+    const clean = speechLike({ f0: 110, syllablesPerSecond: 4.5, syllables: 24, pauseEvery: 8, pauseMs: 400, sampleRate: 16000 })
+    const features = await extractFeatures(clean.samples, 16000)
+    // 배음 3개(1, 0.5, 0.3)짜리 110Hz 모음의 기울기는 약 0.06. 잡음 자음(0.5 이상)이 섞이면 평균은 0.2를 넘는다.
+    expect(features.tiltMedian).toBeLessThan(0.1)
   })
 
   it('진행률 콜백이 0에서 1까지 단조 증가하고 취소하면 거부된다', async () => {

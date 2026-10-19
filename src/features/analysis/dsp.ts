@@ -52,6 +52,20 @@ export function highPass(input: Float32Array, alpha = 0.98): Float32Array {
   return out
 }
 
+/**
+ * 1차 로우패스 필터. 음절 포락선을 만들 때 치찰음·파열음(고주파 잡음)이 모음 봉우리와 겹쳐 세어지지 않게
+ * 모음 대역(~1kHz 이하)만 남긴다. alpha 0.325, 16kHz 기준 차단 주파수 약 1kHz.
+ */
+export function lowPass(input: Float32Array, alpha = 0.325): Float32Array {
+  const out = new Float32Array(input.length)
+  let prev = 0
+  for (let i = 0; i < input.length; i += 1) {
+    prev += alpha * ((input[i] ?? 0) - prev)
+    out[i] = prev
+  }
+  return out
+}
+
 export function rms(frame: Float32Array, start = 0, length = frame.length - start): number {
   if (length <= 0) return 0
   let sum = 0
@@ -169,7 +183,7 @@ export function yinPitch(
     const s1 = cmnd[found] ?? 1
     const s2 = cmnd[found + 1] ?? 1
     const denominator = 2 * (2 * s1 - s2 - s0)
-    if (denominator !== 0) refined = found + (s2 - s0) / denominator
+    if (denominator !== 0) refined = found + Math.max(-1, Math.min(1, (s2 - s0) / denominator))
   }
 
   const value = cmnd[found] ?? 1

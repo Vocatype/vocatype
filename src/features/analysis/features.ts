@@ -1,4 +1,4 @@
-import { highPass, mean, median, percentile, resample, rms, spectralTilt, standardDeviation, yinPitch, zeroCrossingRate } from './dsp'
+import { highPass, lowPass, mean, median, percentile, resample, rms, spectralTilt, standardDeviation, yinPitch, zeroCrossingRate } from './dsp'
 
 /** 녹음 한 건에서 뽑은 원시 특징. 숫자는 모두 사람이 읽을 수 있는 단위다. */
 export interface VoiceFeatures {
@@ -24,9 +24,9 @@ export interface VoiceFeatures {
   rmsVariation: number
   /** 유성 프레임 영교차율 평균. 참고용. */
   zcrMean: number
-  /** 유성 프레임 스펙트럼 기울기(차분 RMS / RMS) 평균. 음색 밝기. */
-  tiltMean: number
-  /** 조음 속도: 에너지 봉우리 수 / 에너지가 있는 시간(초). 쉼을 뺀 말하기 속도. */
+  /** 피치 신뢰도가 높은 유성 프레임의 스펙트럼 기울기(차분 RMS / RMS) 중앙값. 자음·숨 프레임의 영향을 받지 않는 음색 밝기. */
+  tiltMedian: number
+  /** 조음 속도: 20ms 포락선의 dB 봉우리 수 / 에너지가 있는 시간(초). 쉼을 뺀 말하기 속도. */
   syllableRate: number
   /** 말하는 구간 안의 쉼(약 220ms 이상 무음) 횟수. */
   pauseCount: number
@@ -43,8 +43,16 @@ const PITCH_CONFIDENCE = 0.6
 const YIELD_EVERY_FRAMES = 48
 /** 쉼으로 세는 연속 무음 프레임 수. 창 겹침을 고려하면 실제 무음은 약 220ms 이상. */
 const PAUSE_FRAMES = 6
-/** 봉우리 사이 최소 간격(프레임). 4프레임 = 128ms → 최대 약 7.8음절/초. */
-const PEAK_MIN_GAP = 4
+/** 기울기 중앙값에 쓰는 프레임의 최소 피치 신뢰도. 자음·숨이 섞인 창을 뺀다. */
+const TILT_CONFIDENCE = 0.85
+/** 음절 포락선: 20ms 창, 10ms 간격. 피치 창(64ms)보다 짧아야 약한 음절이 강한 음절에 묻히지 않는다. */
+const SYLLABLE_WINDOW_SEC = 0.02
+const SYLLABLE_HOP_SEC = 0.01
+/** 봉우리 조건(dB, 최대값 기준): 바닥, 돌출도, 최소 간격·탐색 폭(홉 수). 9홉 = 90ms → 최대 약 11음절/초. */
+const PEAK_FLOOR_DB = -24
+const PEAK_PROMINENCE_DB = 3
+const PEAK_MIN_GAP_HOPS = 9
+const PEAK_SIDE_HOPS = 12
 
 interface Scheduler {
   yield?: () => Promise<void>
@@ -73,6 +81,7 @@ interface FrameInfo {
   zcr: number
   tilt: number
   f0: number | null
+  confidence: number
 }
 
 export interface ExtractOptions {
@@ -106,6 +115,7 @@ export async function extractFeatures(
       zcr: zeroCrossingRate(samples, start, WINDOW),
       tilt: spectralTilt(samples, start, WINDOW),
       f0: null,
+      confidence: 0,
     })
     if (i % YIELD_EVERY_FRAMES === 0) {
       signal?.throwIfAborted()
@@ -132,7 +142,10 @@ export async function extractFeatures(
     if (!energetic[i]) continue
     const estimate = yinPitch(samples, i * HOP, WINDOW, sampleRate, MIN_HZ, MAX_HZ)
     const frame = frames[i]
-    if (frame && estimate && estimate.confidence >= PITCH_CONFIDENCE) frame.f0 = estimate.f0
+    if (frame && estimate && estimate.confidence >= PITCH_CONFIDENCE) {
+      frame.f0 = estimate.f0
+      frame.confidence = estimate.confidence
+    }
   }
 
   const voiced = frames.map((frame, i) => (energetic[i] ?? false) && frame.f0 !== null)
@@ -143,47 +156,6 @@ export async function extractFeatures(
 
   let energeticInSpan = 0
   for (let i = firstVoiced; span > 0 && i <= lastVoiced; i += 1) if (energetic[i]) energeticInSpan += 1
-
-  const f0s = voicedFrames.map((frame) => frame.f0 ?? 0)
-  const f0Median = median(f0s)
-  const f0Iqr = f0s.length > 0 ? percentile(f0s, 0.75) - percentile(f0s, 0.25) : 0
-  const rmsValues = voicedFrames.map((frame) => frame.rms)
-  const rmsMean = mean(rmsValues)
-
-  // 조음 속도: 말하는 구간의 에너지 봉우리(돌출도 조건) 개수 / 에너지가 있는 시간
-  let syllables = 0
-  let envelope: number[] = []
-  if (span > 0) {
-    const raw: number[] = []
-    for (let i = firstVoiced; i <= lastVoiced; i += 1) raw.push(frames[i]?.rms ?? 0)
-    const smooth = raw.map((_, i) => {
-      const a = raw[i - 1] ?? raw[i] ?? 0
-      const b = raw[i] ?? 0
-      const c = raw[i + 1] ?? raw[i] ?? 0
-      return (a + b + c) / 3
-    })
-    const peakScale = percentile(smooth, 0.95)
-    const peakFloor = Math.max(silenceLevel, peakScale * 0.3)
-    const prominenceMin = peakScale * 0.12
-    let lastPeak = -PEAK_MIN_GAP
-    for (let i = 1; i < smooth.length - 1; i += 1) {
-      const value = smooth[i] ?? 0
-      if (value <= peakFloor || value <= (smooth[i - 1] ?? 0) || value < (smooth[i + 1] ?? 0) || i - lastPeak < PEAK_MIN_GAP) continue
-      let left = value
-      let right = value
-      for (let k = 1; k <= PEAK_MIN_GAP; k += 1) {
-        left = Math.min(left, smooth[i - k] ?? value)
-        right = Math.min(right, smooth[i + k] ?? value)
-      }
-      if (value - Math.max(left, right) < prominenceMin) continue
-      syllables += 1
-      lastPeak = i
-    }
-    const peak = Math.max(...raw, 1e-9)
-    envelope = raw.map((value) => Math.min(1, value / peak))
-  }
-  const energeticSeconds = (energeticInSpan * HOP) / sampleRate
-  const syllableRate = energeticSeconds > 0 ? syllables / energeticSeconds : 0
 
   // 쉼: 말하는 구간 안에서 PAUSE_FRAMES 이상 이어지는 무음 구간
   let pauseCount = 0
@@ -198,6 +170,56 @@ export async function extractFeatures(
       }
     }
   }
+  // 창 겹침 때문에 쉼의 가장자리 프레임이 하나씩 에너지로 세어지므로 쉼마다 한 프레임을 뺀다.
+  const energeticAdjusted = Math.max(0, energeticInSpan - pauseCount)
+
+  const f0s = voicedFrames.map((frame) => frame.f0 ?? 0)
+  const f0Median = median(f0s)
+  const f0Iqr = f0s.length > 0 ? percentile(f0s, 0.75) - percentile(f0s, 0.25) : 0
+  const rmsValues = voicedFrames.map((frame) => frame.rms)
+  const rmsMean = mean(rmsValues)
+
+  // 조음 속도: 말하는 구간을 모음 대역(≈1kHz 이하)만 남긴 신호로, 20ms 창·10ms 간격의 짧은 포락선으로 다시 훑어
+  // dB 눈금에서 봉우리를 센다. 피치용 64ms 창은 약한 음절을 강한 음절의 어깨로 흡수하고,
+  // 로우패스 없이는 치찰음·파열음이 음절로 세어진다.
+  let syllables = 0
+  let envelope: number[] = []
+  if (span > 0) {
+    const raw: number[] = []
+    for (let i = firstVoiced; i <= lastVoiced; i += 1) raw.push(frames[i]?.rms ?? 0)
+    const peak = Math.max(...raw, 1e-9)
+    envelope = raw.map((value) => Math.min(1, value / peak))
+
+    const sylWindow = Math.round(SYLLABLE_WINDOW_SEC * sampleRate)
+    const sylHop = Math.round(SYLLABLE_HOP_SEC * sampleRate)
+    const spanStart = firstVoiced * HOP
+    const spanEnd = Math.min(samples.length, lastVoiced * HOP + WINDOW)
+    const vowelBand = lowPass(samples.subarray(spanStart, spanEnd))
+    const fine: number[] = []
+    for (let pos = 0; pos + sylWindow <= vowelBand.length; pos += sylHop) fine.push(rms(vowelBand, pos, sylWindow))
+    const fineMax = Math.max(...fine, 1e-9)
+    const db = fine.map((value) => 20 * Math.log10(Math.max(value, 1e-6) / fineMax))
+    let lastPeak = -PEAK_MIN_GAP_HOPS
+    for (let i = 1; i < db.length - 1; i += 1) {
+      const value = db[i] ?? -120
+      if (value < PEAK_FLOOR_DB || value <= (db[i - 1] ?? -120) || value < (db[i + 1] ?? -120) || i - lastPeak < PEAK_MIN_GAP_HOPS) continue
+      let left = value
+      let right = value
+      for (let k = 1; k <= PEAK_SIDE_HOPS; k += 1) {
+        left = Math.min(left, db[i - k] ?? value)
+        right = Math.min(right, db[i + k] ?? value)
+      }
+      if (value - Math.max(left, right) < PEAK_PROMINENCE_DB) continue
+      syllables += 1
+      lastPeak = i
+    }
+  }
+  const energeticSeconds = (energeticAdjusted * HOP) / sampleRate
+  const syllableRate = energeticSeconds > 0 ? syllables / energeticSeconds : 0
+
+  // 밝기: 피치 신뢰도가 높은 프레임만 모아 중앙값. 부족하면 유성 프레임 전체.
+  const confidentTilts = voicedFrames.filter((frame) => frame.confidence >= TILT_CONFIDENCE).map((frame) => frame.tilt)
+  const tiltMedian = median(confidentTilts.length >= 5 ? confidentTilts : voicedFrames.map((frame) => frame.tilt))
 
   onProgress?.(1)
 
@@ -207,7 +229,7 @@ export async function extractFeatures(
     frameCount,
     energeticFrameCount: energetic.filter(Boolean).length,
     voicedFrameCount: voicedFrames.length,
-    speechRatio: span > 0 ? energeticInSpan / span : 0,
+    speechRatio: span > 0 ? energeticAdjusted / span : 0,
     f0Median,
     f0Variation: f0Median > 0 ? f0Iqr / f0Median : 0,
     f0Low: f0s.length > 0 ? percentile(f0s, 0.1) : 0,
@@ -215,7 +237,7 @@ export async function extractFeatures(
     rmsMean,
     rmsVariation: rmsMean > 0 ? standardDeviation(rmsValues) / rmsMean : 0,
     zcrMean: mean(voicedFrames.map((frame) => frame.zcr)),
-    tiltMean: mean(voicedFrames.map((frame) => frame.tilt)),
+    tiltMedian,
     syllableRate,
     pauseCount,
     envelope,
