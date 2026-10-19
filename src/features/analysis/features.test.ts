@@ -120,6 +120,13 @@ describe('extractFeatures', () => {
     expect(Math.abs(features.syllableRate - syllablesPerSecond) / syllablesPerSecond).toBeLessThan(0.15)
   })
 
+  it('70Hz 극저음에서도 주기 리플이 음절로 세어지지 않는다', async () => {
+    const { samples } = speechLike({ f0: 70, syllablesPerSecond: 4.5, syllables: 32, pauseEvery: 8, pauseMs: 400, sampleRate: 16000 })
+    const features = await extractFeatures(samples, 16000)
+    expect(Math.abs(features.f0Median - 70) / 70).toBeLessThan(0.03)
+    expect(Math.abs(features.syllableRate - 4.5) / 4.5).toBeLessThan(0.15)
+  })
+
   it('밝기 중앙값은 자음 잡음 프레임에 끌려가지 않는다', async () => {
     const clean = speechLike({ f0: 110, syllablesPerSecond: 4.5, syllables: 24, pauseEvery: 8, pauseMs: 400, sampleRate: 16000 })
     const features = await extractFeatures(clean.samples, 16000)

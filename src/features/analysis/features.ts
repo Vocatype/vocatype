@@ -45,8 +45,11 @@ const YIELD_EVERY_FRAMES = 48
 const PAUSE_FRAMES = 6
 /** 기울기 중앙값에 쓰는 프레임의 최소 피치 신뢰도. 자음·숨이 섞인 창을 뺀다. */
 const TILT_CONFIDENCE = 0.85
-/** 음절 포락선: 20ms 창, 10ms 간격. 피치 창(64ms)보다 짧아야 약한 음절이 강한 음절에 묻히지 않는다. */
-const SYLLABLE_WINDOW_SEC = 0.02
+/**
+ * 음절 포락선: 30ms 창, 10ms 간격. 피치 창(64ms)보다 짧아야 약한 음절이 강한 음절에 묻히지 않고,
+ * 20ms보다 길어야 70Hz 근처 극저음의 주기 리플(약 2dB)이 봉우리로 세어지지 않는다.
+ */
+const SYLLABLE_WINDOW_SEC = 0.03
 const SYLLABLE_HOP_SEC = 0.01
 /** 봉우리 조건(dB, 최대값 기준): 바닥, 돌출도, 최소 간격·탐색 폭(홉 수). 9홉 = 90ms → 최대 약 11음절/초. */
 const PEAK_FLOOR_DB = -24
@@ -187,7 +190,8 @@ export async function extractFeatures(
   if (span > 0) {
     const raw: number[] = []
     for (let i = firstVoiced; i <= lastVoiced; i += 1) raw.push(frames[i]?.rms ?? 0)
-    const peak = Math.max(...raw, 1e-9)
+    let peak = 1e-9
+    for (const value of raw) if (value > peak) peak = value
     envelope = raw.map((value) => Math.min(1, value / peak))
 
     const sylWindow = Math.round(SYLLABLE_WINDOW_SEC * sampleRate)
@@ -197,7 +201,8 @@ export async function extractFeatures(
     const vowelBand = lowPass(samples.subarray(spanStart, spanEnd))
     const fine: number[] = []
     for (let pos = 0; pos + sylWindow <= vowelBand.length; pos += sylHop) fine.push(rms(vowelBand, pos, sylWindow))
-    const fineMax = Math.max(...fine, 1e-9)
+    let fineMax = 1e-9
+    for (const value of fine) if (value > fineMax) fineMax = value
     const db = fine.map((value) => 20 * Math.log10(Math.max(value, 1e-6) / fineMax))
     let lastPeak = -PEAK_MIN_GAP_HOPS
     for (let i = 1; i < db.length - 1; i += 1) {
