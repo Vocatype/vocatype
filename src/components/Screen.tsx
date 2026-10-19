@@ -1,4 +1,5 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useContext, useEffect, useRef, type ReactNode } from 'react'
+import { FlowContext } from '../app/FlowContext'
 
 interface Props {
   title: string
@@ -14,15 +15,17 @@ interface Props {
 
 /**
  * 화면 공통 래퍼.
- * 마운트되면 스크롤을 맨 위로 올리고 제목에 초점을 옮겨 화면 전환을 보조기기에 알린다.
+ * 마운트되면 스크롤을 맨 위로 올리고, 사용자가 화면을 옮긴 경우에만 제목에 초점을 줘
+ * 보조기기에 화면 전환을 알린다. 첫 로드에서는 초점을 건드리지 않아 Tab 순서가 상단 바부터 시작한다.
  */
 export function Screen({ title, lead, icon, centered = false, className, children }: Props) {
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const { hasNavigated } = useContext(FlowContext)
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
-    headingRef.current?.focus({ preventScroll: true })
-  }, [])
+    if (hasNavigated) headingRef.current?.focus({ preventScroll: true })
+  }, [hasNavigated])
 
   const classes = ['screen', centered ? 'screen--centered' : '', className ?? ''].filter(Boolean).join(' ')
 

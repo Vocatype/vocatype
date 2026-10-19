@@ -97,6 +97,16 @@ p {
   }
 }
 
+/* 시각적으로만 숨기고 보조기기에는 남긴다. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* ---------- 레이아웃 ---------- */
 .app {
   display: flex;
@@ -311,6 +321,10 @@ p {
   font-size: clamp(1.6rem, 5vw, 2.25rem);
   font-weight: 800;
   letter-spacing: -0.03em;
+}
+
+/* 스크립트로 초점을 줄 때 마우스 사용자에게는 링을 숨기고 키보드 사용자에게는 남긴다. */
+.screen__title:focus:not(:focus-visible) {
   outline: none;
 }
 
@@ -388,7 +402,7 @@ p {
 
 .howto__item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 12px 14px;
   border: 1px solid var(--border);
@@ -405,9 +419,13 @@ p {
   justify-content: center;
   border-radius: 999px;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: color-mix(in srgb, var(--accent) 75%, var(--fg));
   font-weight: 700;
   font-size: 0.85rem;
+}
+
+.howto__text {
+  padding-top: 2px;
 }
 
 .landing__cta {
@@ -421,4 +439,8 @@ p {
 .landing__hint {
   font-size: 0.85rem;
   color: var(--fg-muted);
+}
+
+.landing__hint.is-warning {
+  color: light-dark(#b3261e, #ffb4ab);
 }
