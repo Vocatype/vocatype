@@ -84,6 +84,7 @@ export const ko = {
   'result.saveFailed': '이미지를 만들지 못했어요. 다시 시도해 주세요.',
   'result.shareBlocked': '공유 창을 열지 못했어요. 한 번 더 눌러 주세요.',
   'result.disclaimer': '재미로 보는 해석이에요. 녹음은 저장되지 않았어요.',
+  'generating.stage.portrait': '초상을 그리는 중 (조금 걸려요)',
 } as const
 
 export type MessageKey = keyof typeof ko

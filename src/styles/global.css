@@ -893,3 +893,17 @@ p {
   font-size: 0.8rem;
   color: var(--fg-muted);
 }
+
+.generating__meter.is-indeterminate .generating__bar {
+  animation: meter-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes meter-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
