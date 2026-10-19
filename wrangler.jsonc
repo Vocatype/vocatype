@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ai-voice-image-generator",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    // 존재하지 않는 경로는 SPA 진입점(index.html)으로 응답한다.
+    "not_found_handling": "single-page-application",
+    // /api/* 만 Worker가 먼저 처리하고, 나머지는 정적 자산이 먼저 응답한다.
+    "run_worker_first": ["/api/*"]
+  },
+  // 개인정보 원칙에 따라 요청 로그 수집(Workers Logs)은 기본 비활성화한다.
+  // 운영 중 문제 분석이 필요하면 true로 바꾼다.
+  "observability": {
+    "enabled": false
+  }
+}
