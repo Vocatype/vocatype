@@ -13,7 +13,7 @@ export function downmixToMono(channels: readonly Float32Array[]): Float32Array {
 
 /**
  * 간단한 다운샘플링. 비율만큼의 샘플을 평균(상자 필터)해 앨리어싱을 줄인다.
- * 피치·에너지 추정에는 충분하고, 고음질 재생용은 아니다.
+ * 디코딩 단계에서 브라우저가 이미 목표 샘플레이트로 맞춰 주는 것이 보통이라, 이 함수는 폴백이다.
  */
 export function resample(input: Float32Array, fromRate: number, toRate: number): Float32Array {
   if (fromRate === toRate) return input
@@ -30,6 +30,24 @@ export function resample(input: Float32Array, fromRate: number, toRate: number):
       count += 1
     }
     out[i] = count > 0 ? sum / count : 0
+  }
+  return out
+}
+
+/**
+ * 1차 하이패스 필터. DC 오프셋과 저역 럼블을 걷어내 RMS·영교차율이 기기별로 흔들리지 않게 한다.
+ * alpha 0.98, 16kHz 기준 차단 주파수 약 50Hz.
+ */
+export function highPass(input: Float32Array, alpha = 0.98): Float32Array {
+  const out = new Float32Array(input.length)
+  let prevIn = 0
+  let prevOut = 0
+  for (let i = 0; i < input.length; i += 1) {
+    const x = input[i] ?? 0
+    const y = x - prevIn + alpha * prevOut
+    out[i] = y
+    prevIn = x
+    prevOut = y
   }
   return out
 }
@@ -56,6 +74,24 @@ export function zeroCrossingRate(frame: Float32Array, start = 0, length = frame.
   return crossings / length
 }
 
+/**
+ * 스펙트럼 기울기 지표: 1차 차분 신호의 RMS / 원신호 RMS.
+ * 고주파 에너지가 많을수록 크다. 진폭으로 가중되므로 영교차율보다 작은 잡음에 덜 흔들린다.
+ * 순음에서는 2π·f/fs 에 비례한다.
+ */
+export function spectralTilt(frame: Float32Array, start = 0, length = frame.length - start): number {
+  if (length <= 1) return 0
+  let sumDiff = 0
+  let sum = 0
+  for (let i = start + 1; i < start + length; i += 1) {
+    const cur = frame[i] ?? 0
+    const prev = frame[i - 1] ?? 0
+    sumDiff += (cur - prev) * (cur - prev)
+    sum += cur * cur
+  }
+  return sum > 0 ? Math.sqrt(sumDiff / sum) : 0
+}
+
 export interface PitchEstimate {
   /** 기본 주파수(Hz). */
   f0: number
@@ -63,9 +99,15 @@ export interface PitchEstimate {
   confidence: number
 }
 
+/** 선택한 지연이 이 값보다 깊으면(작으면) 옥타브 검사를 생략한다. 순음처럼 이미 확실한 경우. */
+const OCTAVE_CHECK_FLOOR = 0.03
+
 /**
  * YIN 알고리즘(차분 함수 + 누적 평균 정규화 + 포물선 보간)으로 한 프레임의 피치를 추정한다.
- * buffer는 window + 최대 지연(tauMax) 이상이어야 한다.
+ * - 임계값 아래 첫 번째 dip의 국소 최소를 고른 뒤, 그 두 배 지연 근처에 뚜렷이 더 깊은 최소가 있으면
+ *   그쪽을 택한다(기본음이 약하고 짝수 배음이 강할 때 생기는 옥타브 오류 방지).
+ * - dip을 찾으면 2τ+2까지만 계산해 연산량을 줄인다.
+ * buffer는 start + window + 최대 지연(tauMax) 이상이어야 한다.
  */
 export function yinPitch(
   buffer: Float32Array,
@@ -80,53 +122,57 @@ export function yinPitch(
   const tauMax = Math.ceil(sampleRate / minHz)
   if (start + window + tauMax > buffer.length) return null
 
-  const diff = new Float32Array(tauMax + 1)
-  for (let tau = 1; tau <= tauMax; tau += 1) {
+  const cmnd = new Float32Array(tauMax + 1)
+  cmnd[0] = 1
+  let running = 0
+  let found = -1
+  let inDip = false
+  let best = tauMin
+  let limit = tauMax
+  let computed = 0
+
+  for (let tau = 1; tau <= limit; tau += 1) {
     let sum = 0
     for (let j = 0; j < window; j += 1) {
       const delta = (buffer[start + j] ?? 0) - (buffer[start + j + tau] ?? 0)
       sum += delta * delta
     }
-    diff[tau] = sum
-  }
+    running += sum
+    const value = running > 0 ? (sum * tau) / running : 1
+    cmnd[tau] = value
+    computed = tau
+    if (tau < tauMin || found >= 0) continue
 
-  // 누적 평균 정규화 차분 함수
-  const cmnd = new Float32Array(tauMax + 1)
-  cmnd[0] = 1
-  let running = 0
-  for (let tau = 1; tau <= tauMax; tau += 1) {
-    running += diff[tau] ?? 0
-    cmnd[tau] = running > 0 ? ((diff[tau] ?? 0) * tau) / running : 1
-  }
-
-  // 임계값 아래로 처음 내려가는 지연을 찾고, 그 근처의 국소 최소로 이동
-  let tau = -1
-  for (let t = tauMin; t <= tauMax; t += 1) {
-    if ((cmnd[t] ?? 1) < threshold) {
-      while (t + 1 <= tauMax && (cmnd[t + 1] ?? 1) < (cmnd[t] ?? 1)) t += 1
-      tau = t
-      break
+    if (value < (cmnd[best] ?? 1)) best = tau
+    if (!inDip && value < threshold) inDip = true
+    if (inDip && tau > tauMin && value > (cmnd[tau - 1] ?? 1)) {
+      found = tau - 1
+      limit = Math.min(tauMax, 2 * found + 2)
     }
   }
-  if (tau < 0) {
-    let best = tauMin
-    for (let t = tauMin + 1; t <= tauMax; t += 1) {
-      if ((cmnd[t] ?? 1) < (cmnd[best] ?? 1)) best = t
+  if (found < 0) found = inDip ? computed : best
+
+  // 옥타브 검사: 2τ 근처(±2)에 뚜렷이 더 깊은 최소가 있으면 그쪽이 진짜 주기다.
+  if ((cmnd[found] ?? 1) > OCTAVE_CHECK_FLOOR) {
+    let alt = -1
+    for (let t = 2 * found - 2; t <= 2 * found + 2; t += 1) {
+      if (t < tauMin || t > computed) continue
+      if (alt < 0 || (cmnd[t] ?? 1) < (cmnd[alt] ?? 1)) alt = t
     }
-    tau = best
+    if (alt > 0 && (cmnd[alt] ?? 1) < 0.5 * (cmnd[found] ?? 1)) found = alt
   }
 
   // 포물선 보간으로 정수 지연 사이의 값을 추정
-  let refined = tau
-  if (tau > 1 && tau < tauMax) {
-    const s0 = cmnd[tau - 1] ?? 1
-    const s1 = cmnd[tau] ?? 1
-    const s2 = cmnd[tau + 1] ?? 1
+  let refined = found
+  if (found > 1 && found + 1 <= computed) {
+    const s0 = cmnd[found - 1] ?? 1
+    const s1 = cmnd[found] ?? 1
+    const s2 = cmnd[found + 1] ?? 1
     const denominator = 2 * (2 * s1 - s2 - s0)
-    if (denominator !== 0) refined = tau + (s2 - s0) / denominator
+    if (denominator !== 0) refined = found + (s2 - s0) / denominator
   }
 
-  const value = cmnd[tau] ?? 1
+  const value = cmnd[found] ?? 1
   return { f0: sampleRate / refined, confidence: Math.max(0, Math.min(1, 1 - value)) }
 }
 

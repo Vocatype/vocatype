@@ -1,4 +1,5 @@
 import type { TypeCode } from '../../../shared/typeCode'
+import type { Locale } from '../../i18n/locales'
 import type { VoiceFeatures } from './features'
 
 export type { TypeCode }
@@ -18,6 +19,27 @@ export interface VoiceAxes {
   /** 밝은 음색일수록 1. */
   brightness: number
 }
+
+export interface AxisOptions {
+  /** 낭독한 글의 언어. 한국어는 영어보다 음절이 짧아 조음 속도 범위가 다르다. */
+  locale?: Locale
+}
+
+/**
+ * 축 사상 범위. 실제 화자 분포로 보정해야 하는 초기값이다(04 구현 문서의 "보정" 항목 참고).
+ * - pitch: 성인 음성 85~255Hz 로그 눈금
+ * - brightness: 유성 프레임 스펙트럼 기울기(차분 RMS / RMS). 순음 120Hz ≈ 0.05, 배음이 풍부한 음성 ≈ 0.1~0.35
+ * - density: 말하는 구간 중 에너지가 있는 비율(쉼이 적을수록 큼)
+ * - pace: 조음 속도(음절/초). 한국어 낭독 약 4~6.5, 영어 약 3~5
+ */
+export const AXIS_RANGES = {
+  pitch: [85, 255],
+  brightness: [0.06, 0.3],
+  density: [0.6, 0.95],
+  pace: { ko: [3.5, 7], en: [2.5, 5.5] },
+  f0Variation: [0.08, 0.3],
+  rmsVariation: [0.25, 0.75],
+} as const
 
 export function clamp01(value: number): number {
   if (Number.isNaN(value)) return 0.5
@@ -41,16 +63,20 @@ export function isLowSignal(features: VoiceFeatures): boolean {
   return features.voicedFrameCount < 20 || features.f0Median <= 0
 }
 
-export function featuresToAxes(features: VoiceFeatures): VoiceAxes {
+export function featuresToAxes(features: VoiceFeatures, options: AxisOptions = {}): VoiceAxes {
   if (isLowSignal(features)) {
     return { warmth: 0.5, density: 0.5, pace: 0.5, variation: 0.5, pitch: 0.5, brightness: 0.5 }
   }
-  const pitch = mapLog(features.f0Median, 85, 255)
-  const brightness = mapRange(features.zcrMean, 0.03, 0.12)
-  const density = mapRange(features.speechRatio, 0.5, 0.95)
-  const pace = mapRange(features.syllableRate, 2.5, 6)
-  const variation = clamp01(0.6 * mapRange(features.f0Variation, 0.08, 0.3) + 0.4 * mapRange(features.rmsVariation, 0.25, 0.75))
-  const warmth = clamp01(1 - (0.6 * pitch + 0.4 * brightness))
+  const paceRange = AXIS_RANGES.pace[options.locale ?? 'en']
+  const pitch = mapLog(features.f0Median, ...AXIS_RANGES.pitch)
+  const brightness = mapRange(features.tiltMean, ...AXIS_RANGES.brightness)
+  const density = mapRange(features.speechRatio, ...AXIS_RANGES.density)
+  const pace = mapRange(features.syllableRate, paceRange[0], paceRange[1])
+  const variation = clamp01(
+    0.6 * mapRange(features.f0Variation, ...AXIS_RANGES.f0Variation) + 0.4 * mapRange(features.rmsVariation, ...AXIS_RANGES.rmsVariation),
+  )
+  // 음높이만으로 온도를 정하면 성별 분류기가 되므로 음색 밝기에 더 큰 비중을 둔다.
+  const warmth = clamp01(1 - (0.4 * pitch + 0.6 * brightness))
   return { warmth, density, pace, variation, pitch, brightness }
 }
 
@@ -69,7 +95,7 @@ export function seedFromFeatures(features: VoiceFeatures): number {
     features.f0Variation.toFixed(3),
     features.rmsMean.toFixed(4),
     features.rmsVariation.toFixed(3),
-    features.zcrMean.toFixed(4),
+    features.tiltMean.toFixed(4),
     features.syllableRate.toFixed(2),
     features.speechRatio.toFixed(3),
     features.durationSec.toFixed(2),

@@ -7,6 +7,7 @@ const base: VoiceFeatures = {
   durationSec: 12,
   sampleRate: 16000,
   frameCount: 370,
+  energeticFrameCount: 300,
   voicedFrameCount: 250,
   speechRatio: 0.8,
   f0Median: 150,
@@ -16,6 +17,7 @@ const base: VoiceFeatures = {
   rmsMean: 0.08,
   rmsVariation: 0.5,
   zcrMean: 0.07,
+  tiltMean: 0.18,
   syllableRate: 4.2,
   pauseCount: 3,
   envelope: [],
@@ -37,22 +39,28 @@ describe('mapRange / mapLog', () => {
 
 describe('featuresToAxes / axesToTypeCode', () => {
   it('낮고 어두운 목소리는 따뜻함(W)', () => {
-    const axes = featuresToAxes({ ...base, f0Median: 100, zcrMean: 0.03 })
+    const axes = featuresToAxes({ ...base, f0Median: 100, tiltMean: 0.07 })
     expect(axes.warmth).toBeGreaterThan(0.7)
     expect(axesToTypeCode(axes).startsWith('W')).toBe(true)
   })
 
   it('높고 밝은 목소리는 서늘함(C)', () => {
-    const axes = featuresToAxes({ ...base, f0Median: 230, zcrMean: 0.11 })
+    const axes = featuresToAxes({ ...base, f0Median: 230, tiltMean: 0.3 })
     expect(axes.warmth).toBeLessThan(0.3)
     expect(axesToTypeCode(axes).startsWith('C')).toBe(true)
   })
 
   it('속도·밀도·변화 축이 글자에 반영된다', () => {
-    const quickFullVivid = featuresToAxes({ ...base, syllableRate: 5.5, speechRatio: 0.92, f0Variation: 0.3, rmsVariation: 0.8 })
+    const quickFullVivid = featuresToAxes({ ...base, syllableRate: 5.2, speechRatio: 0.92, f0Variation: 0.3, rmsVariation: 0.8 })
     expect(axesToTypeCode(quickFullVivid).slice(1)).toBe('FQV')
-    const slowLightEven = featuresToAxes({ ...base, syllableRate: 2.6, speechRatio: 0.55, f0Variation: 0.08, rmsVariation: 0.2 })
+    const slowLightEven = featuresToAxes({ ...base, syllableRate: 2.6, speechRatio: 0.62, f0Variation: 0.08, rmsVariation: 0.2 })
     expect(axesToTypeCode(slowLightEven).slice(1)).toBe('LME')
+  })
+
+  it('조음 속도 범위는 언어마다 다르다', () => {
+    const rate = { ...base, syllableRate: 5 }
+    expect(featuresToAxes(rate, { locale: 'en' }).pace).toBeGreaterThan(0.5)
+    expect(featuresToAxes(rate, { locale: 'ko' }).pace).toBeLessThan(0.5)
   })
 
   it('신호가 거의 없으면 모든 축이 0.5', () => {

@@ -3,13 +3,6 @@
  * 온도 W/C · 밀도 F/L · 속도 Q/M · 흐름 V/E. 예: WFQV
  * 앱과 Worker가 함께 쓴다(Worker는 요청 검증과 프롬프트 생성에 사용).
  */
-export const AXIS_LETTERS = {
-  temperature: ['W', 'C'],
-  texture: ['F', 'L'],
-  pace: ['Q', 'M'],
-  flow: ['V', 'E'],
-} as const
-
 export type TypeCode = `${'W' | 'C'}${'F' | 'L'}${'Q' | 'M'}${'V' | 'E'}`
 
 export const ALL_TYPE_CODES: readonly TypeCode[] = (['W', 'C'] as const).flatMap((a) =>

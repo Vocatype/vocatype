@@ -39,6 +39,8 @@ describe('catalog', () => {
     }
     expect(getScent('WFQV').base[0]?.en).toBe('Amber')
     expect(getScent('CLME').base[0]?.en).toBe('Cedarwood')
+    expect(getScent('CFME').base[0]?.en).toBe('Vetiver')
+    expect(getScent('WLMV').top[0]?.en).toBe('Fig leaf')
   })
 
   it('궁합은 밀도·속도를 뒤집고, 반대 타입은 네 축을 모두 뒤집는다', () => {
@@ -52,12 +54,13 @@ describe('catalog', () => {
   })
 
   it('프롬프트는 성별·나이·인종을 지정하지 않는다', () => {
+    const banned =
+      /\b(wo)?man\b|\b(fe)?male\b|\bgirl\b|\bboy\b|\blady\b|\bgentleman\b|\bchild\b|\bteen(ager)?\b|\byoung\b|\bold\b|\belderly\b|\basian\b|\bcaucasian\b|\bafrican\b|\blatin[oa]?\b|\bblack\b|\bwhite\b/i
     for (const code of ALL_TYPE_CODES) {
-      const prompt = buildPortraitPrompt(code).toLowerCase()
-      for (const banned of ['woman', 'man ', 'male', 'female', 'asian', 'caucasian', 'black ', 'white person', 'young', 'old ']) {
-        expect(prompt, `${code} contains ${banned}`).not.toContain(banned)
-      }
-      expect(prompt).toContain('photorealistic')
+      const prompt = buildPortraitPrompt(code)
+      expect(prompt, `${code}: ${prompt}`).not.toMatch(banned)
+      expect(prompt.toLowerCase()).toContain('photorealistic')
+      expect(prompt).not.toMatch(/#[0-9a-f]{6}/i)
     }
   })
 })

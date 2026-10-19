@@ -102,7 +102,7 @@ const TYPES: Record<TypeCode, Omit<VoiceType, 'code'>> = {
     },
   },
   WLQV: {
-    name: { ko: '봄바람 수다쟁이', en: 'The Spring Breeze Chatterbox' },
+    name: { ko: '봄바람 전령', en: 'The Spring Breeze Messenger' },
     description: {
       ko: '가볍고 따뜻한 목소리가 통통 튀며 빠르게 오갑니다. 대화에 생기를 불어넣는 목소리예요.',
       en: 'Light, warm and quick, bouncing from one thought to the next. You make conversations feel alive.',
@@ -137,7 +137,7 @@ const TYPES: Record<TypeCode, Omit<VoiceType, 'code'>> = {
     },
   },
   CFQE: {
-    name: { ko: '유리 같은 해설자', en: 'The Glass Commentator' },
+    name: { ko: '유리알 해설자', en: 'The Crystal Commentator' },
     description: {
       ko: '맑고 단단한 톤으로 빠르고 고르게 말합니다. 복잡한 이야기도 투명하게 들리게 하는 목소리예요.',
       en: 'Crisp, firm, quick and even. Complicated things sound transparent when you explain them.',
@@ -168,7 +168,7 @@ const TYPES: Record<TypeCode, Omit<VoiceType, 'code'>> = {
     name: { ko: '비 오는 날의 바리스타', en: 'The Rainy Day Barista' },
     description: {
       ko: '맑고 가벼운 톤이 경쾌하고 고르게 이어집니다. 가까이에서 조곤조곤 들리는 목소리예요.',
-      en: 'Clear, light, brisk and even. A close, quiet voice that makes small talk feel warm.',
+      en: 'Clear, light, brisk and even. A close, quiet voice that makes small talk feel easy.',
     },
   },
   CLMV: {
@@ -179,7 +179,7 @@ const TYPES: Record<TypeCode, Omit<VoiceType, 'code'>> = {
     },
   },
   CLME: {
-    name: { ko: '서리 내린 아침의 서점 주인', en: 'The Frost Morning Bookseller' },
+    name: { ko: '서리 아침의 서점 주인', en: 'The Frosty Morning Bookseller' },
     description: {
       ko: '맑고 가벼운 음색이 고르고 느긋하게 이어집니다. 조용히 오래 듣고 싶은 목소리예요.',
       en: 'Clear and light, even and unhurried. The kind of voice you could listen to for a long while.',
@@ -203,6 +203,8 @@ export interface PersonalColor {
   description: Localized
   /** 메인 → 보조 순. 첫 색이 대표색. */
   palette: readonly string[]
+  /** 이미지 프롬프트에 쓰는 영어 색 이름. 텍스트 인코더는 hex를 이해하지 못한다. */
+  promptColors: string
 }
 
 const PERSONAL_COLORS: Record<Season, Omit<PersonalColor, 'season'>> = {
@@ -210,21 +212,25 @@ const PERSONAL_COLORS: Record<Season, Omit<PersonalColor, 'season'>> = {
     name: { ko: '봄 웜', en: 'Spring Warm' },
     description: { ko: '맑고 환한 따뜻함. 피치, 코랄, 버터 옐로가 잘 어울려요.', en: 'Bright, clear warmth. Peach, coral and butter yellow suit you.' },
     palette: ['#F28C7A', '#F6C1A6', '#F9D976', '#A8D8B9', '#FFF4E0'],
+    promptColors: 'soft coral and peach',
   },
   'summer-cool': {
     name: { ko: '여름 쿨', en: 'Summer Cool' },
     description: { ko: '부드럽고 차분한 서늘함. 라벤더, 파우더 블루, 로즈 핑크가 잘 어울려요.', en: 'Soft, muted coolness. Lavender, powder blue and rose pink suit you.' },
     palette: ['#9A8CD6', '#C9B6E4', '#A7C7E7', '#F4C2C2', '#EEEFF5'],
+    promptColors: 'muted lavender and powder blue',
   },
   'autumn-warm': {
     name: { ko: '가을 웜', en: 'Autumn Warm' },
     description: { ko: '깊고 풍성한 따뜻함. 브릭, 머스터드, 올리브가 잘 어울려요.', en: 'Deep, rich warmth. Brick, mustard and olive suit you.' },
     palette: ['#B8432F', '#D4A017', '#6B8E23', '#8B5A2B', '#F3E9DC'],
+    promptColors: 'deep brick red and mustard',
   },
   'winter-cool': {
     name: { ko: '겨울 쿨', en: 'Winter Cool' },
     description: { ko: '선명하고 또렷한 서늘함. 로열 블루, 마젠타, 에메랄드가 잘 어울려요.', en: 'Vivid, high-contrast coolness. Royal blue, magenta and emerald suit you.' },
     palette: ['#1E3A8A', '#C2185B', '#0F766E', '#CFE8FF', '#FFFFFF'],
+    promptColors: 'vivid royal blue and emerald',
   },
 }
 
@@ -257,9 +263,9 @@ const TOP_NOTES: Record<0 | 1, readonly Localized[]> = {
     { ko: '유자', en: 'Yuzu' },
   ],
   1: [
-    { ko: '녹차', en: 'Green tea' },
-    { ko: '무화과 잎', en: 'Fig leaf' },
     { ko: '홍차', en: 'Black tea' },
+    { ko: '무화과 잎', en: 'Fig leaf' },
+    { ko: '녹차', en: 'Green tea' },
   ],
 }
 
@@ -283,9 +289,9 @@ const BASE_NOTES: Record<0 | 1, readonly Localized[]> = {
     { ko: '샌달우드', en: 'Sandalwood' },
   ],
   1: [
-    { ko: '화이트 머스크', en: 'White musk' },
-    { ko: '시더우드', en: 'Cedarwood' },
     { ko: '베티버', en: 'Vetiver' },
+    { ko: '시더우드', en: 'Cedarwood' },
+    { ko: '화이트 머스크', en: 'White musk' },
   ],
 }
 
@@ -301,7 +307,7 @@ export function getScent(code: TypeCode): Scent {
   const texture = axisValue(code, 'texture')
   const pace = axisValue(code, 'pace')
   const flow = axisValue(code, 'flow')
-  // 꽉 찬 목소리는 무거운 앞쪽 노트, 가벼운 목소리는 가벼운 뒤쪽 노트를 대표로 쓴다.
+  // 각 노트 목록은 무거운 순이다. 꽉 찬 목소리는 앞쪽 둘, 가벼운 목소리는 뒤쪽 둘을 쓴다.
   const pick = (notes: readonly Localized[]) => (texture === 0 ? notes.slice(0, 2) : notes.slice(1, 3))
   const top = pick(TOP_NOTES[pace])
   const middle = pick(MIDDLE_NOTES[flow])
@@ -368,7 +374,7 @@ export function buildPortraitPrompt(code: TypeCode): string {
   const lighting = warm ? 'golden hour window light, warm color grading' : 'soft overcast daylight, cool color grading'
   const presence = full ? 'confident posture, grounded presence' : 'relaxed posture, airy presence'
   const expression = quick ? (vivid ? 'bright animated smile, eyes mid-laugh' : 'alert friendly half-smile') : vivid ? 'thoughtful expressive gaze, slight smile' : 'calm serene expression, soft eyes'
-  const wardrobe = `simple ${color.name.en.toLowerCase()} palette clothing in ${color.palette[0]} tones`
+  const wardrobe = `simple clothing in ${color.promptColors} tones`
   return [
     'Photorealistic head-and-shoulders portrait photograph of one person looking at the camera',
     lighting,

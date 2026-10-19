@@ -31,24 +31,28 @@ export function GeneratingScreen({ capture, onNavigate, onAnalyzed }: Props) {
 
   useEffect(() => {
     if (!capture) return
-    let cancelled = false
+    // 취소·언마운트 시 abort → 분석 루프가 다음 양보 지점에서 멈추고, 뒤늦은 콜백도 막힌다.
+    const controller = new AbortController()
+    const { signal } = controller
     const startedAt = performance.now()
 
-    analyzeRecording(capture.recording, (next) => {
-      if (!cancelled) setProgress(next)
+    analyzeRecording(capture.recording, {
+      locale: capture.script.locale,
+      signal,
+      onProgress: (next) => {
+        if (!signal.aborted) setProgress(next)
+      },
     })
       .then(async (profile) => {
         const remaining = MIN_DISPLAY_MS - (performance.now() - startedAt)
         if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
-        if (!cancelled) onAnalyzedRef.current(profile)
+        if (!signal.aborted) onAnalyzedRef.current(profile)
       })
       .catch(() => {
-        if (!cancelled) setFailed(true)
+        if (!signal.aborted) setFailed(true)
       })
 
-    return () => {
-      cancelled = true
-    }
+    return () => controller.abort()
   }, [capture, attempt])
 
   const retry = useCallback(() => {
@@ -68,6 +72,7 @@ export function GeneratingScreen({ capture, onNavigate, onAnalyzed }: Props) {
   }
 
   const percent = Math.round(progress.progress * 100)
+  const stageText = t(`generating.stage.${progress.stage}`)
 
   return (
     <Screen centered title={t('generating.title')} lead={t('generating.script', { title: capture.script.title })}>
@@ -85,11 +90,19 @@ export function GeneratingScreen({ capture, onNavigate, onAnalyzed }: Props) {
         </>
       ) : (
         <>
-          <div className="generating__meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={t('generating.title')}>
+          <div
+            className="generating__meter"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent}
+            aria-valuetext={`${percent}% · ${stageText}`}
+            aria-label={t('generating.title')}
+          >
             <div className="generating__bar" style={{ width: `${percent}%` }} />
           </div>
           <p className="generating__stage" role="status">
-            {t(`generating.stage.${progress.stage}`)}
+            {stageText}
           </p>
           <div className="actions">
             <Button variant="ghost" onClick={() => onNavigate('record')}>
