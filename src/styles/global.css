@@ -445,3 +445,174 @@ p {
 .landing__hint.is-warning {
   color: var(--danger);
 }
+
+/* ---------- 녹음 화면: 스크립트 카드 ---------- */
+.script {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.script__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.script__title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.script__meta {
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+}
+
+.script__badge {
+  flex: none;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.script__body {
+  font-size: 1.1rem;
+  line-height: 1.8;
+}
+
+.script__line {
+  margin: 0;
+}
+
+.script__gap {
+  margin: 0;
+  height: 0.9em;
+}
+
+.script__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.script__note {
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+}
+
+/* ---------- 녹음 화면: 녹음기 ---------- */
+.recorder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.recorder__stage {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recorder__ring {
+  position: absolute;
+  inset: 12px;
+  border-radius: 999px;
+  background: var(--accent);
+  opacity: 0;
+  transition:
+    transform 80ms linear,
+    opacity 80ms linear;
+  pointer-events: none;
+}
+
+.recorder__ring:not(.is-active) {
+  opacity: 0 !important;
+  transform: none !important;
+}
+
+.recorder__button {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-fg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: background-color 120ms ease, transform 120ms ease;
+}
+
+.recorder__button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.recorder__button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.recorder__button.is-recording {
+  background: #e0443e;
+  color: #fff;
+}
+
+.recorder__timer {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.recorder__max {
+  color: var(--fg-muted);
+  font-weight: 400;
+}
+
+.recorder__hint {
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: 0.95rem;
+  min-height: 1.5em;
+  max-width: 420px;
+}
+
+.recorder__hint.is-error {
+  color: var(--danger);
+}
+
+/* ---------- 녹음 화면: 미리 듣기 ---------- */
+.preview {
+  display: flex;
+  justify-content: center;
+}
+
+.preview__player {
+  width: 100%;
+  max-width: 420px;
+}
+
+.actions--secondary {
+  margin-top: 4px;
+}
