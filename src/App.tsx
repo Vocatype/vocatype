@@ -1,8 +1,9 @@
-import { Fragment, useReducer } from 'react'
-import { flowReducer, INITIAL_FLOW_STATE } from './app/flow'
+import { Fragment, useReducer, useState } from 'react'
+import { canTransition, flowReducer, INITIAL_FLOW_STATE, type FlowStep } from './app/flow'
 import { FlowContext } from './app/FlowContext'
 import { StepIndicator } from './components/StepIndicator'
 import { TopBar } from './components/TopBar'
+import type { Capture } from './features/recorder/types'
 import { useI18n } from './i18n/useI18n'
 import { GeneratingScreen } from './screens/GeneratingScreen'
 import { LandingScreen } from './screens/LandingScreen'
@@ -14,17 +15,33 @@ export default function App() {
   // navigate(dispatch)는 안정적이고, 전이 검사는 리듀서가 현재 단계를 기준으로 한다.
   const [flow, navigate] = useReducer(flowReducer, INITIAL_FLOW_STATE)
   const { step } = flow
+  // 녹음 화면이 넘긴 스크립트와 녹음. 메모리에만 있고 페이지를 닫으면 사라진다.
+  const [capture, setCapture] = useState<Capture | null>(null)
+
+  /** 메인으로 돌아가는 전이가 허용될 때만 녹음을 메모리에서도 버린다. */
+  const go = (to: FlowStep) => {
+    if (to === 'landing' && canTransition(step, to)) setCapture(null)
+    navigate(to)
+  }
 
   const screen = (() => {
     switch (step) {
       case 'landing':
-        return <LandingScreen onStart={() => navigate('record')} />
+        return <LandingScreen onStart={() => go('record')} />
       case 'record':
-        return <RecordScreen onNavigate={navigate} />
+        return (
+          <RecordScreen
+            onNavigate={go}
+            onCaptured={(next) => {
+              setCapture(next)
+              go('generating')
+            }}
+          />
+        )
       case 'generating':
-        return <GeneratingScreen onNavigate={navigate} />
+        return <GeneratingScreen capture={capture} onNavigate={go} />
       case 'result':
-        return <ResultScreen onNavigate={navigate} />
+        return <ResultScreen onNavigate={go} />
     }
   })()
 
