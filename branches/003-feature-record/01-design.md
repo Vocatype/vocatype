@@ -25,7 +25,7 @@
 
 | 언어 | 기준 | 수록 |
 | --- | --- | --- |
-| 한국어 | 저자 사후 50년(1963년 이전 사망)으로 보호가 끝난 작품 | 윤동주 서시·별 헤는 밤(발췌), 김소월 진달래꽃, 이육사 청포도(발췌), 한용운 님의 침묵(발췌), 정지용 향수(발췌) |
+| 한국어 | 저자가 1962년 12월 31일 이전에 사망해, 사후 50년 보호가 2013년 7월 1일(70년 개정 시행) 전에 끝난 작품 | 윤동주 서시·별 헤는 밤(발췌), 김소월 진달래꽃, 이육사 청포도(발췌), 한용운 님의 침묵(발췌), 정지용 향수(발췌) |
 | 영어 | 1929년 이전 출판 또는 저자 사후 70년 경과 | Shakespeare Sonnet 18·All the world's a stage, Dickinson "Hope", Henley Invictus, Wordsworth Daffodils, Lincoln Gettysburg Address |
 
 낭독 20~30초 분량으로 발췌했고, 카드에 "발췌" 표시와 "저작권이 만료된 작품" 안내를 둔다.
@@ -62,10 +62,11 @@ reset(): 어느 상태에서든 idle로. 언마운트 시에도 같은 정리.
 ```
 
 - `getUserMedia({ audio: { echoCancellation, noiseSuppression, autoGainControl } })`
-- mime: `audio/webm;codecs=opus` → `audio/webm` → `audio/mp4` 순으로 `isTypeSupported` 확인. Safari는 mp4.
+- mime: `audio/webm;codecs=opus` → `audio/webm` → `audio/mp4;codecs=mp4a.40.2` → `audio/mp4` → `audio/ogg;codecs=opus` 순으로 `isTypeSupported` 확인. Safari는 mp4.
 - 레벨 미터: `AudioContext` + `AnalyserNode`로 RMS 계산. 50ms 간격으로만 상태 갱신해 렌더 수를 제한.
-- `requestAnimationFrame` 루프에서 경과 시간을 재고 `RECORDING_MAX_SECONDS`에 닿으면 자동 종료.
-- 종료 시 트랙 정지, `AudioContext.close()`. 미리 듣기용 object URL은 화면이 사라질 때 `revokeObjectURL`.
+- 최대 길이는 `setTimeout`이 책임지고(탭이 숨겨져도 동작), `requestAnimationFrame` 루프는 타이머·레벨 표시만 맡는다.
+- 종료 시 트랙 정지, `AudioContext.close()`. 미리 듣기용 object URL은 훅이 만들고 reset·언마운트 때 `revokeObjectURL`.
+- 권한 프롬프트 중에 화면을 떠나면 세대 토큰으로 뒤늦게 열린 스트림을 즉시 닫는다.
 
 ## 인터페이스
 
