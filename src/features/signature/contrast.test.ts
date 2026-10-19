@@ -14,6 +14,7 @@ describe('contrast helpers', () => {
     expect(luminance('#FFFFFF')).toBeCloseTo(1, 5)
     expect(luminance('#000000')).toBe(0)
     expect(signatureInkFor('#F28C7A', '#F6C1A6')).toContain('30, 24, 40')
+    expect(signatureInkFor('#9A8CD6', '#C9B6E4')).toContain('30, 24, 40')
     expect(signatureInkFor('#1E3A8A', '#C2185B')).toContain('255, 255, 255')
   })
 })

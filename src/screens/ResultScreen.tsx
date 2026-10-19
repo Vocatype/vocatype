@@ -37,13 +37,24 @@ export function ResultScreen({ capture, profile, portrait, onNavigate }: Props) 
 
   // 저장 이미지는 한 번 만들면 재사용한다. 공유 시트는 사용자 제스처 직후에 열려야 하므로,
   // 마운트 뒤 여유 시간에 미리 만들어 두면 "공유"를 눌렀을 때 바로 열 수 있다.
-  const blobCacheRef = useRef<{ key: string; blob: Blob } | null>(null)
+  // Promise를 캐시해 선생성 중에 버튼을 눌러도 렌더가 중복되지 않는다. 실패하면 비워 다음 클릭에서 다시 시도한다.
+  const blobCacheRef = useRef<{ key: string; promise: Promise<Blob> } | null>(null)
 
-  const buildBlob = async (current: ResultView): Promise<Blob> => {
+  const buildBlob = (current: ResultView): Promise<Blob> => {
     const cached = blobCacheRef.current
-    if (cached && cached.key === cacheKey) return cached.blob
+    if (cached && cached.key === cacheKey) return cached.promise
+    const key = cacheKey
+    const promise = renderBlob(current)
+    blobCacheRef.current = { key, promise }
+    promise.catch(() => {
+      if (blobCacheRef.current?.key === key) blobCacheRef.current = null
+    })
+    return promise
+  }
+
+  const renderBlob = async (current: ResultView): Promise<Blob> => {
     const image = portrait ? await loadImage(portrait) : null
-    const blob = await renderCard(current, image, {
+    return renderCard(current, image, {
       serviceName: SERVICE_NAME,
       tagline: t('app.tagline'),
       color: t('result.section.color'),
@@ -59,8 +70,6 @@ export function ResultScreen({ capture, profile, portrait, onNavigate }: Props) 
       date: new Date().toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-US'),
       stats: statLines,
     })
-    blobCacheRef.current = { key: cacheKey, blob }
-    return blob
   }
 
   // 마운트·언어 변경 뒤 이미지를 미리 만들어 둔다. 실패해도 버튼을 누를 때 다시 시도한다.

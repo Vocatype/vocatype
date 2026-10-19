@@ -49,12 +49,19 @@ function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
   ctx.closePath()
 }
 
-/** 줄 수를 제한하고 넘치는 마지막 줄은 말줄임표로 끝낸다. */
-export function clampLines(lines: readonly string[], max: number): string[] {
+/**
+ * 줄 수를 제한하고 넘치는 마지막 줄은 말줄임표로 끝낸다.
+ * measure와 maxWidth를 주면 말줄임표를 붙인 줄이 폭 안에 들도록 글자를 더 줄인다.
+ */
+export function clampLines(lines: readonly string[], max: number, maxWidth?: number, measure?: (s: string) => number): string[] {
   if (lines.length <= max) return [...lines]
   const kept = lines.slice(0, max)
-  const last = kept[max - 1] ?? ''
-  kept[max - 1] = `${last.replace(/[\s,.;:·]+$/, '').slice(0, Math.max(0, last.length - 1))}…`
+  let last = (kept[max - 1] ?? '').replace(/[\s,.;:·]+$/, '')
+  last = last.slice(0, Math.max(0, last.length - 1))
+  if (measure && maxWidth !== undefined) {
+    while (last.length > 0 && measure(`${last}…`) > maxWidth) last = last.slice(0, -1).replace(/[\s,.;:·]+$/, '')
+  }
+  kept[max - 1] = `${last}…`
   return kept
 }
 
@@ -129,7 +136,7 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   ctx.fillText(labels.date, CARD_WIDTH - MARGIN, 104)
 
   // 초상
-  const portraitSize = 420
+  const portraitSize = 400
   const portraitX = (CARD_WIDTH - portraitSize) / 2
   const portraitY = 150
   ctx.save()
@@ -160,15 +167,15 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   y += 66
   ctx.fillStyle = FG
   ctx.font = font(800, 60)
-  for (const line of clampLines(wrapText(view.name, CONTENT_WIDTH, measure), 2)) {
+  for (const line of clampLines(wrapText(view.name, CONTENT_WIDTH, measure), 2, CONTENT_WIDTH, measure)) {
     ctx.fillText(line, CARD_WIDTH / 2, y)
     y += 66
   }
   y -= 10
   ctx.font = font(400, 28)
-  for (const line of clampLines(wrapText(view.description, CONTENT_WIDTH - 60, measure), 3)) {
+  for (const line of clampLines(wrapText(view.description, CONTENT_WIDTH - 60, measure), 3, CONTENT_WIDTH - 60, measure)) {
     ctx.fillText(line, CARD_WIDTH / 2, y)
-    y += 38
+    y += 36
   }
 
   // 축 칩
@@ -188,7 +195,7 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
     ctx.fillText(view.axisLabels[i] ?? '', chipX + w / 2, y + 1)
     chipX += w + chipGap
   }
-  y += 36
+  y += 28
 
   const section = (title: string, top: number) => {
     ctx.textAlign = 'left'
@@ -204,7 +211,7 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   }
 
   // 퍼스널 컬러
-  y += 48
+  y += 40
   section(labels.color, y)
   y += 54
   ctx.fillStyle = FG
@@ -221,19 +228,19 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
     ctx.fillStyle = MUTED
     ctx.font = font(500, 20)
     ctx.textAlign = 'center'
-    ctx.fillText((view.color.palette[i] ?? '').toUpperCase(), sx + swatch / 2, y + 96)
+    ctx.fillText((view.color.palette[i] ?? '').toUpperCase(), sx + swatch / 2, y + 90)
     ctx.textAlign = 'left'
   }
-  y += 108
+  y += 98
 
   // 향 (왼쪽) + 사운드 시그니처 (오른쪽)
-  y += 52
+  y += 40
   section(labels.scent, y)
   const columnWidth = 560
   let sy = y + 56
   ctx.fillStyle = FG
   ctx.font = font(700, 32)
-  for (const line of clampLines(wrapText(view.scent.name, columnWidth, measure), 2)) {
+  for (const line of clampLines(wrapText(view.scent.name, columnWidth, measure), 2, columnWidth, measure)) {
     ctx.fillText(line, MARGIN, sy)
     sy += 40
   }
@@ -245,7 +252,7 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
     `${labels.base} · ${view.scent.base.join(', ')}`,
   ]
   for (const note of noteLines) {
-    for (const line of clampLines(wrapText(note, columnWidth, measure), 1)) {
+    for (const line of clampLines(wrapText(note, columnWidth, measure), 1, columnWidth, measure)) {
       ctx.fillStyle = FG
       ctx.fillText(line, MARGIN, sy)
       sy += 34
@@ -264,25 +271,25 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   ctx.font = font(400, 21)
   for (const stat of labels.stats) {
     statY += 28
-    for (const line of clampLines(wrapText(stat, 300, measure), 1)) ctx.fillText(line, sigCx, statY)
+    for (const line of clampLines(wrapText(stat, 300, measure), 1, 300, measure)) ctx.fillText(line, sigCx, statY)
   }
   ctx.textAlign = 'left'
-  y = Math.max(sy, statY) + 52
+  y = Math.max(sy, statY) + 48
 
   // 궁합
   section(labels.match, y)
-  y += 50
+  y += 44
   const halfWidth = CONTENT_WIDTH / 2 - 24
   const rightX = CARD_WIDTH / 2 + 24
   ctx.fillStyle = MUTED
   ctx.font = font(600, 22)
   ctx.fillText(labels.best, MARGIN, y)
   ctx.fillText(labels.opposite, rightX, y)
-  y += 40
+  y += 36
   ctx.fillStyle = FG
   ctx.font = font(700, 30)
-  const bestLines = clampLines(wrapText(view.match.best.name, halfWidth, measure), 2)
-  const oppositeLines = clampLines(wrapText(view.match.opposite.name, halfWidth, measure), 2)
+  const bestLines = clampLines(wrapText(view.match.best.name, halfWidth, measure), 2, halfWidth, measure)
+  const oppositeLines = clampLines(wrapText(view.match.opposite.name, halfWidth, measure), 2, halfWidth, measure)
   const rows = Math.max(bestLines.length, oppositeLines.length)
   for (let i = 0; i < rows; i += 1) {
     const left = bestLines[i]

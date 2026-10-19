@@ -3,6 +3,7 @@ import { ALL_TYPE_CODES } from '../../../shared/typeCode'
 import { presentResult } from '../profile/present'
 import type { VoiceProfile } from '../profile/types'
 import { CARD_HEIGHT, CARD_WIDTH, clampLines, drawCard, type CardLabels } from './renderCard'
+import { wrapText } from './wrapText'
 
 interface TextCall {
   text: string
@@ -152,9 +153,13 @@ describe('drawCard', () => {
         expect(left, `${code} ${locale} "${call.text}" left`).toBeGreaterThanOrEqual(margin - 1)
         expect(right, `${code} ${locale} "${call.text}" right`).toBeLessThanOrEqual(CARD_WIDTH - margin + 1)
       }
-      // 궁합 이름 두 개가 실제로 그려졌는지
-      expect(calls.some((c) => c.text === view.match.best.name || view.match.best.name.startsWith(c.text.replace(/…$/, ''))), `${code} best`).toBe(true)
-      expect(calls.some((c) => c.text === view.match.opposite.name || view.match.opposite.name.startsWith(c.text.replace(/…$/, ''))), `${code} opposite`).toBe(true)
+      // 궁합 이름 두 개가 줄 수까지 그대로 그려졌는지
+      const measure = (s: string) => ctx.measureText(s).width
+      ctx.font = '700 30px x'
+      for (const name of [view.match.best.name, view.match.opposite.name]) {
+        const expected = clampLines(wrapText(name, (CARD_WIDTH - 144) / 2 - 24, measure), 2, (CARD_WIDTH - 144) / 2 - 24, measure)
+        for (const line of expected) expect(calls.some((c) => c.text === line), `${code} ${locale} match line "${line}"`).toBe(true)
+      }
     }
   })
 
@@ -171,10 +176,40 @@ describe('drawCard', () => {
   })
 })
 
+describe('drawCard 예산', () => {
+  it('모든 줄 수 제한이 꽉 찬 최악 조합도 하단 문구 위에서 끝난다', () => {
+    const base = presentResult(profileFor('WFQV'), null, 'en')
+    const long = (n: number) => Array.from({ length: n }, (_, i) => `Word${i}`).join(' ')
+    const view = {
+      ...base,
+      name: long(14), // 60px 볼드로 2줄 이상
+      description: long(60), // 28px로 3줄 이상
+      scent: { ...base.scent, name: long(12), top: [long(8), long(8)], middle: [long(8)], base: [long(8)] },
+      match: { ...base.match, best: { ...base.match.best, name: long(12) }, opposite: { ...base.match.opposite, name: long(12) } },
+    }
+    const { ctx, calls } = fakeContext()
+    expect(() => drawCard(ctx, view, null, { ...labelsEn, stats: [long(6), long(6)] })).not.toThrow()
+    const body = calls.filter((c) => c.y <= CARD_HEIGHT - 100)
+    for (const call of body) {
+      expect(call.y, `"${call.text}"`).toBeLessThanOrEqual(CARD_HEIGHT - 120)
+      const left = call.align === 'left' ? call.x : call.align === 'center' ? call.x - call.width / 2 : call.x - call.width
+      expect(left).toBeGreaterThanOrEqual(71)
+      expect(left + call.width).toBeLessThanOrEqual(CARD_WIDTH - 71)
+    }
+    // 이름 2줄, 설명 3줄, 궁합 2행이 실제로 쓰였는지
+    expect(calls.filter((c) => c.text.startsWith('Word') && c.align === 'center').length).toBeGreaterThanOrEqual(5)
+  })
+})
+
 describe('clampLines', () => {
   it('줄 수를 제한하고 말줄임표를 붙인다', () => {
     expect(clampLines(['a', 'b', 'c'], 2)).toEqual(['a', '…'])
     expect(clampLines(['hello world', 'again'], 1)).toEqual(['hello worl…'])
     expect(clampLines(['one'], 3)).toEqual(['one'])
+  })
+
+  it('measure가 있으면 말줄임표를 붙인 줄이 폭 안에 들도록 더 줄인다', () => {
+    const measure = (s: string) => s.length * 10
+    expect(clampLines(['abcdefghij', 'k'], 1, 60, measure)).toEqual(['abcde…'])
   })
 })
