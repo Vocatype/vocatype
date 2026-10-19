@@ -1,12 +1,24 @@
 import { SERVICE_NAME } from '../../shared/config'
 import { LOCALES } from '../i18n/locales'
 import { useI18n } from '../i18n/useI18n'
-import { nextPreference, type ThemePreference } from '../theme/theme'
+import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme'
 import { useTheme } from '../theme/useTheme'
 import { Logo } from './Logo'
 
 function ThemeIcon({ preference }: { preference: ThemePreference }) {
-  const common = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true } as const
+  const common = {
+    width: 16,
+    height: 16,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': true,
+    focusable: false,
+  } as const
+
   if (preference === 'light') {
     return (
       <svg {...common}>
@@ -55,15 +67,21 @@ export function TopBar() {
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          className="icon-btn"
-          aria-label={`${t('topbar.theme')}: ${t(`theme.${preference}`)}`}
-          title={`${t('topbar.theme')}: ${t(`theme.${preference}`)}`}
-          onClick={() => setPreference(nextPreference(preference))}
-        >
-          <ThemeIcon preference={preference} />
-        </button>
+        <div className="segmented" role="group" aria-label={t('topbar.theme')}>
+          {THEME_PREFERENCES.map((item) => (
+            <button
+              key={item}
+              type="button"
+              className="segmented__item segmented__item--icon"
+              aria-pressed={preference === item}
+              aria-label={t(`theme.${item}`)}
+              title={t(`theme.${item}`)}
+              onClick={() => setPreference(item)}
+            >
+              <ThemeIcon preference={item} />
+            </button>
+          ))}
+        </div>
       </div>
     </header>
   )

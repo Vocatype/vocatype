@@ -45,7 +45,6 @@ branches/        작업 단위 문서 (설계 → 구현 → 리뷰). 규칙은 
 public/          정적 파일
 shared/          앱과 Worker가 함께 쓰는 상수·타입
 src/             React 앱
-  app/           앱 수준 상태
   components/    공통 컴포넌트
   i18n/          로케일 감지, 메시지 사전, Provider
   theme/         테마 해석, Provider

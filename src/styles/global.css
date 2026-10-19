@@ -1,24 +1,29 @@
-/* ---------- 디자인 토큰 ---------- */
+/* ---------- 디자인 토큰 ----------
+   색은 light-dark()로 한 번만 정의한다. 기본 color-scheme이 'light dark'라서
+   JS가 실행되기 전에도 시스템 설정대로 첫 프레임이 그려진다(FOUC 방지).
+   사용자가 테마를 고르면 html[data-theme]이 color-scheme을 한쪽으로 고정한다. */
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
 
   --brand-a: #6d5dfc;
   --brand-b: #ff7a59;
 
-  --bg: #faf8f5;
-  --bg-elevated: #ffffff;
-  --bg-sunken: #f1ede7;
-  --fg: #1b1a19;
-  --fg-muted: #6b665f;
-  --border: #e6e1da;
+  --bg: light-dark(#faf8f5, #0f0e12);
+  --bg-elevated: light-dark(#ffffff, #18171d);
+  --bg-sunken: light-dark(#f1ede7, #0a0a0d);
+  --fg: light-dark(#1b1a19, #f2efe9);
+  --fg-muted: light-dark(#6b665f, #a39e96);
+  --border: light-dark(#e6e1da, #2a2830);
 
-  --accent: var(--brand-a);
-  --accent-fg: #ffffff;
-  --accent-soft: #efeaff;
+  --accent: light-dark(#6d5dfc, #8f82ff);
+  --accent-fg: light-dark(#ffffff, #0f0e12);
+  --accent-soft: light-dark(#efeaff, #241f45);
+
+  --shadow-color: light-dark(rgba(27, 26, 25, 0.08), rgba(0, 0, 0, 0.45));
+  --shadow: 0 12px 32px var(--shadow-color);
 
   --radius: 18px;
   --radius-sm: 10px;
-  --shadow: 0 12px 32px rgba(27, 26, 25, 0.08);
 
   --font:
     system-ui, -apple-system, 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Segoe UI',
@@ -28,21 +33,12 @@
   --topbar-h: 56px;
 }
 
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
 :root[data-theme='dark'] {
   color-scheme: dark;
-
-  --bg: #0f0e12;
-  --bg-elevated: #18171d;
-  --bg-sunken: #0a0a0d;
-  --fg: #f2efe9;
-  --fg-muted: #a39e96;
-  --border: #2a2830;
-
-  --accent: #8f82ff;
-  --accent-fg: #0f0e12;
-  --accent-soft: #241f45;
-
-  --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
 /* ---------- 리셋 ---------- */
@@ -60,7 +56,6 @@ body {
 
 html {
   font-family: var(--font);
-  font-size: 16px;
   line-height: 1.5;
   -webkit-text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
@@ -131,13 +126,12 @@ p {
   position: sticky;
   top: 0;
   z-index: 10;
-  height: var(--topbar-h);
+  height: calc(var(--topbar-h) + env(safe-area-inset-top));
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 16px;
-  padding-top: env(safe-area-inset-top);
+  padding: env(safe-area-inset-top) 16px 0;
   background: color-mix(in srgb, var(--bg) 85%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -156,6 +150,12 @@ p {
   font-size: 1rem;
 }
 
+@media (max-width: 400px) {
+  .topbar__name {
+    display: none;
+  }
+}
+
 .topbar__controls {
   display: flex;
   align-items: center;
@@ -171,35 +171,27 @@ p {
 }
 
 .segmented__item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
   border: 0;
   background: transparent;
-  padding: 4px 10px;
+  padding: 2px 10px;
   border-radius: 999px;
   font-size: 0.8rem;
   color: var(--fg-muted);
   cursor: pointer;
 }
 
+.segmented__item--icon {
+  padding: 2px 7px;
+}
+
 .segmented__item[aria-pressed='true'] {
   background: var(--accent);
   color: var(--accent-fg);
   font-weight: 600;
-}
-
-.icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-elevated);
-  cursor: pointer;
-}
-
-.icon-btn:hover {
-  border-color: var(--accent);
 }
 
 /* ---------- 버튼 ---------- */

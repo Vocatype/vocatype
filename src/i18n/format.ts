@@ -4,6 +4,6 @@ export type TranslateParams = Record<string, string | number>
 export function formatMessage(template: string, params?: TranslateParams): string {
   if (!params) return template
   return template.replace(/\{(\w+)\}/g, (match: string, name: string) =>
-    name in params ? String(params[name]) : match,
+    Object.hasOwn(params, name) ? String(params[name]) : match,
   )
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { SERVICE_NAME } from '../../shared/config'
 import { formatMessage, type TranslateParams } from './format'
 import { I18nContext, type I18nContextValue } from './I18nContext'
 import { detectBrowserLocale, type Locale } from './locales'
@@ -15,6 +16,8 @@ export function I18nProvider({ children, initialLocale }: Props) {
 
   useEffect(() => {
     document.documentElement.lang = locale
+    const description = document.querySelector<HTMLMetaElement>('meta[name="description"]')
+    if (description) description.content = `${SERVICE_NAME} — ${messages[locale]['app.tagline']}`
   }, [locale])
 
   const t = useCallback(

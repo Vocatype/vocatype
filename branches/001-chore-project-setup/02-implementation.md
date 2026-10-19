@@ -24,7 +24,7 @@ i18n(ko/en)과 테마(system/light/dark)는 저장 없이 메모리 상태로만
 | `src/styles/global.css` | 디자인 토큰(라이트/다크), 리셋, 레이아웃, 버튼 |
 | `worker/index.ts` | `/api/health`, `/api/*` 404 |
 | `worker-configuration.d.ts` | `wrangler types` 생성물 |
-| `README.md`, `.gitignore` | 프로젝트 안내, 무시 목록 |
+| `README.md` | 프로젝트 안내 |
 | 테스트 4개 | 로케일 감지, 메시지 치환, 사전 키 일치, 테마 해석 |
 
 ## 주요 구현
@@ -42,7 +42,6 @@ i18n(ko/en)과 테마(system/light/dark)는 저장 없이 메모리 상태로만
 | `src/app/config.ts` | `shared/config.ts` | Worker가 `src/` 안을 import하는 것보다 공용 폴더가 경계가 명확하다. |
 | 언급 없음 | `vite.config.ts`, `worker/index.ts`는 `./shared/config.ts`처럼 확장자를 붙여 import | `tsconfig.node.json`이 `module: nodenext`라 확장자 없는 상대 import가 오류. `allowImportingTsExtensions`가 켜져 있어 `.ts` 확장자가 가장 단순하다. |
 | `observability` 언급 없음 | `enabled: false` | 개인정보 원칙. 필요 시 켜도록 주석으로 안내. |
-| 언급 없음 | `.claude/`를 `.gitignore`에 추가 | 로컬 개발 도구 설정(launch.json)은 저장소와 무관. |
 
 ## 검증 결과
 
