@@ -1,7 +1,6 @@
 /** 한국어 사전. 메시지 키의 원본이며, 다른 언어 사전은 이 키 집합을 모두 채워야 한다. */
 export const ko = {
   'app.tagline': '목소리로 그리는 나의 초상',
-  'shell.placeholder': '화면을 준비하고 있습니다.',
   'topbar.language': '언어',
   'topbar.theme': '테마',
   'locale.ko': '한국어',
@@ -10,6 +9,28 @@ export const ko = {
   'theme.light': '라이트',
   'theme.dark': '다크',
   'privacy.note': '로그인도, 쿠키도, 저장도 없습니다. 녹음은 기기 안에서만 처리됩니다.',
+  'landing.step1': '짧은 글을 소리 내어 읽고 녹음해요',
+  'landing.step2': '목소리의 온도, 밀도, 속도를 분석해요',
+  'landing.step3': '얼굴, 컬러, 향이 담긴 초상 카드를 받아요',
+  'landing.start': '시작하기',
+  'landing.hint': '약 1분 · 녹음은 저장되지 않아요',
+  'landing.insecure': 'HTTPS가 아닌 주소에서는 마이크를 쓸 수 없어요.',
+  'landing.unsupported': '이 브라우저는 마이크 녹음을 지원하지 않아요. 최신 Chrome, Safari, Firefox를 사용해 주세요.',
+  'steps.label': '진행 단계',
+  'steps.record': '녹음',
+  'steps.generating': '생성',
+  'steps.result': '결과',
+  'steps.done': '완료',
+  'record.title': '스크립트를 읽어 주세요',
+  'record.generate': '생성하기',
+  'generating.title': '초상을 그리는 중',
+  'generating.skip': '결과 보기',
+  'result.title': '나의 목소리 초상',
+  'common.back': '뒤로',
+  'common.home': '처음으로',
+  'common.retry': '다시 하기',
+  'common.cancel': '취소',
+  'placeholder.pending': '이 화면은 다음 작업에서 채워집니다.',
 } as const
 
 export type MessageKey = keyof typeof ko

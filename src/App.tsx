@@ -1,25 +1,46 @@
-import { SERVICE_NAME } from '../shared/config'
-import { Logo } from './components/Logo'
+import { Fragment, useReducer } from 'react'
+import { flowReducer, INITIAL_FLOW_STATE } from './app/flow'
+import { FlowContext } from './app/FlowContext'
+import { StepIndicator } from './components/StepIndicator'
 import { TopBar } from './components/TopBar'
 import { useI18n } from './i18n/useI18n'
+import { GeneratingScreen } from './screens/GeneratingScreen'
+import { LandingScreen } from './screens/LandingScreen'
+import { RecordScreen } from './screens/RecordScreen'
+import { ResultScreen } from './screens/ResultScreen'
 
 export default function App() {
   const { t } = useI18n()
+  // navigate(dispatch)는 안정적이고, 전이 검사는 리듀서가 현재 단계를 기준으로 한다.
+  const [flow, navigate] = useReducer(flowReducer, INITIAL_FLOW_STATE)
+  const { step } = flow
+
+  const screen = (() => {
+    switch (step) {
+      case 'landing':
+        return <LandingScreen onStart={() => navigate('record')} />
+      case 'record':
+        return <RecordScreen onNavigate={navigate} />
+      case 'generating':
+        return <GeneratingScreen onNavigate={navigate} />
+      case 'result':
+        return <ResultScreen onNavigate={navigate} />
+    }
+  })()
 
   return (
-    <div className="app">
-      <TopBar />
-      <main className="main">
-        <section className="hero">
-          <Logo size={72} />
-          <h1 className="hero__title">{SERVICE_NAME}</h1>
-          <p className="hero__tagline">{t('app.tagline')}</p>
-          <p className="hero__note">{t('shell.placeholder')}</p>
-        </section>
-      </main>
-      <footer className="footer">
-        <p>{t('privacy.note')}</p>
-      </footer>
-    </div>
+    <FlowContext value={flow}>
+      <div className="app">
+        <TopBar />
+        <main className="main">
+          <StepIndicator current={step} />
+          {/* 단계가 바뀌면 화면을 새로 마운트해 Screen의 초점·스크롤 처리가 매번 실행되게 한다. */}
+          <Fragment key={step}>{screen}</Fragment>
+        </main>
+        <footer className="footer">
+          <p>{t('privacy.note')}</p>
+        </footer>
+      </div>
+    </FlowContext>
   )
 }
