@@ -566,11 +566,11 @@ p {
   transition: background-color 120ms ease, transform 120ms ease;
 }
 
-.recorder__button:active:not(:disabled) {
+.recorder__button:active:not([aria-disabled='true']) {
   transform: scale(0.96);
 }
 
-.recorder__button:disabled {
+.recorder__button[aria-disabled='true'] {
   opacity: 0.6;
   cursor: progress;
 }

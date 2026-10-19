@@ -49,3 +49,30 @@
 - 2.5초 녹음 → 미리 듣기 blob URL 생성, 생성하기 비활성(3초 미만). "다시 녹음" 후 이전 URL `fetch` 실패(해제 확인), `<audio>` 제거
 - 자동 종료: 30초 후 `0:30 / 0:30`, 트랙 `ended`, 완료 힌트
 - 카드 메타에 "낭독 약 35초" 표시(님의 침묵). 녹음 버튼 `aria-disabled="true"` 상태에서 초점 유지
+
+## 2차 리뷰
+
+대상: 커밋 `7b3bfc5`, `61cdf80`. 리뷰 에이전트가 검증 4종을 다시 실행하고 1차 16건의 해결 여부와 세대 토큰·dispose·reset·언마운트 경로를 추적.
+
+### 1차 항목 해결 여부
+
+1~14, 16 해결 확인(15는 유지 합의). 언마운트 뒤 setState에 도달하는 경로가 없고 스트림·AudioContext·rAF·timeout·blob URL이 `dispose` 한 곳에서 해제됨을 확인. StrictMode 모의 언마운트는 세대만 올리고 끝나 무해.
+
+### 신규 발견 사항과 조치
+
+| # | 심각도 | 위치 | 내용 | 조치 |
+| --- | --- | --- | --- | --- |
+| A | minor | `global.css` | `aria-disabled` 전환으로 `:disabled` 규칙이 죽어 권한 대기 중 버튼이 활성처럼 보임 | 선택자를 `[aria-disabled='true']`로 교체 |
+| B | minor | `useRecorder.ts` | done에서 재시작한 뒤 실패로 끝나면 이전 blob URL이 reset까지 남음 | `start()` 초입에 `revokePreview()` |
+| C | nit | `App.tsx` | `go()`가 전이 거부 여부와 무관하게 `capture`를 지움 | `canTransition` 확인 후에만 폐기 |
+| D | nit | `RecordScreen.tsx` | 새 글 안내 텍스트가 비워지지 않음 | 무해하여 유지 |
+
+### 2차 결론
+
+**병합 가능.** A~C 반영(스타일 2줄, 해제 1줄, 조건 1줄). 코드 동작 원칙에는 변화 없음.
+
+## 최종
+
+- 반영 커밋: 2차 반영 `fix(record)` 커밋
+- 병합: `git merge --no-ff feature/003-record` → main
+- 브랜치 삭제: `git branch -d feature/003-record`

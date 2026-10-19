@@ -115,6 +115,8 @@ export function useRecorder({ maxMs }: Options) {
     }
 
     const generation = ++generationRef.current
+    // done에서 다시 시작할 때 이전 미리 듣기 URL을 먼저 해제한다(실패로 끝나도 남지 않게).
+    revokePreview()
     setState({ ...INITIAL, status: 'requesting' })
 
     let stream: MediaStream
