@@ -86,4 +86,5 @@ export const en = {
   'result.saveFailed': 'Could not make the image. Please try again.',
   'result.shareBlocked': 'The share sheet could not open. Please tap once more.',
   'result.disclaimer': 'Just for fun. Your recording was never stored.',
+  'generating.stage.portrait': 'Painting your portrait (this takes a moment)',
 } satisfies Record<MessageKey, string>

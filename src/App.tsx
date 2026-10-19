@@ -52,8 +52,9 @@ export default function App() {
           <GeneratingScreen
             capture={capture}
             onNavigate={go}
-            onAnalyzed={(next) => {
-              setProfile(next)
+            onGenerated={({ profile: nextProfile, portrait: nextPortrait }) => {
+              setProfile(nextProfile)
+              setPortrait(nextPortrait)
               go('result')
             }}
           />

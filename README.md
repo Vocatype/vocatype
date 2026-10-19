@@ -1,7 +1,7 @@
 # VoicePortrait (ai-voice-image-generator)
 
-목소리를 녹음하면 분석 결과로 얼굴 초상, 퍼스널 컬러, 시그니처 향, 사운드 시그니처, 궁합 타입을 만들어 주는 웹 서비스.
-로그인, 쿠키, 저장소를 전혀 쓰지 않는다.
+목소리를 녹음하면 브라우저 안에서 분석해 보이스 타입, 퍼스널 컬러, 시그니처 향, 사운드 시그니처, 궁합 타입을 만들고, 모든 요소를 1080×1920 이미지 한 장으로 저장할 수 있는 웹 서비스.
+AI 초상(실사)은 Cloudflare Workers AI 어댑터로 생성하며 설정 하나로 켠다. 로그인, 쿠키, 저장소를 전혀 쓰지 않는다.
 
 서비스 이름은 [`shared/config.ts`](shared/config.ts)의 `SERVICE_NAME` 상수 한 곳에서만 바꾼다.
 
@@ -17,6 +17,8 @@
 | --- | --- |
 | 프론트엔드 | React 19, TypeScript, Vite 8 |
 | 서버 | Cloudflare Workers + Static Assets (`worker/index.ts`, `/api/*`) |
+| 분석 | 브라우저 Web Audio (YIN 피치, 에너지, 조음 속도, 스펙트럼 기울기) → 4축 16타입 |
+| AI | 어댑터(`worker/ai/`). 기본 mock, Workers AI(Flux 1 schnell)로 전환 가능 |
 | 빌드/배포 | `@cloudflare/vite-plugin`, Wrangler. Cloudflare Workers Builds가 Git 푸시마다 빌드·배포 (별도 CI 없음) |
 | 린트/테스트 | oxlint, Vitest |
 | 언어 | 한국어 / 영어 (브라우저 언어 자동 감지, 화면에서 전환) |
@@ -47,10 +49,13 @@ public/          정적 파일
 shared/          앱과 Worker가 함께 쓰는 상수·타입
 src/             React 앱
   components/    공통 컴포넌트
+  features/      analysis(분석), profile(결과 표현), recorder(녹음), scripts(낭독 글), signature(사운드 시그니처), export(이미지 저장), ai(API 클라이언트)
+  screens/       메인, 녹음, 생성, 결과 화면
   i18n/          로케일 감지, 메시지 사전, Provider
   theme/         테마 해석, Provider
   styles/        디자인 토큰과 전역 스타일
 worker/          Cloudflare Worker (API)
+  ai/            AI 제공자 어댑터 (mock, workers-ai)
 wrangler.jsonc   Workers 설정
 ```
 
@@ -70,9 +75,42 @@ wrangler.jsonc   Workers 설정
 
 - 로그인, 회원가입, 쿠키, localStorage, sessionStorage를 쓰지 않는다.
 - 언어와 테마는 방문할 때마다 브라우저 설정으로만 정하고, 전환 값은 페이지를 닫으면 사라진다.
-- 녹음은 브라우저 안에서 분석한다. AI 제공자를 연결하더라도 음성은 저장하지 않고 요청 처리에만 쓴다.
+- 녹음은 브라우저 안에서 분석한다. AI 초상 생성 요청에는 타입 코드와 씨앗만 들어가며 음성은 어떤 경우에도 서버로 가지 않는다.
 - 외부 폰트, 분석 스크립트, 광고 등 제3자 요청을 넣지 않는다.
 - Workers 요청 로그(`observability`)는 기본 비활성화한다.
+
+## AI 제공자
+
+AI는 어댑터(`worker/ai/`) 뒤에 있고, 기본값은 이미지를 만들지 않는 모의 제공자다. 모의 상태에서도 분석·결과·이미지 저장은 전부 동작하며, 초상 자리에는 퍼스널 컬러와 사운드 시그니처로 그린 자리표시 초상이 들어간다.
+
+| 제공자 | 설정 | 하는 일 |
+| --- | --- | --- |
+| `mock` (기본) | `AI_PROVIDER` 없음 또는 `mock` | 초상 생성 안 함 (`/api/config` → `features.portrait: false`) |
+| `workers-ai` | `AI_PROVIDER = "workers-ai"` + `ai` 바인딩 | `@cf/black-forest-labs/flux-1-schnell`로 실사 초상 생성 |
+
+### Workers AI 켜기
+
+1. `wrangler.jsonc`의 `vars.AI_PROVIDER`를 `"workers-ai"`로 바꾼다. (`ai` 바인딩은 이미 들어 있다.)
+   대시보드에서 바꾸려면 Workers → 설정 → 변수에서 `AI_PROVIDER`를 `workers-ai`로 두고 재배포한다.
+2. 푸시하면 Cloudflare가 빌드·배포한다. 배포 후 `https://<worker>/api/config`가 `{"provider":"workers-ai","features":{"portrait":true}}`를 돌려주면 켜진 것이다.
+3. 로컬에서 실제 모델을 호출해 보려면 `npx wrangler login` 뒤 `npm run dev`를 실행한다. Workers AI 바인딩은 로컬에서도 Cloudflare 계정을 통해 원격으로 호출된다.
+
+### 보내는 데이터와 비용
+
+- 초상 생성 요청에는 **타입 코드(4글자)와 씨앗(정수)** 만 들어간다. 음성, 녹음 파일, 분석 수치는 서버로 가지 않는다.
+- 프롬프트는 서버가 타입 코드로만 만든다. 성별·나이·인종은 지정하지 않으며, 생성된 이미지는 응답으로만 돌아가고 서버에 저장되지 않는다.
+- Flux 1 schnell은 4스텝 기준 장당 1센트 미만이며 Workers AI 무료 할당량 안에서 하루 수십 장을 만들 수 있다. 정확한 단가는 Cloudflare 가격표를 확인한다.
+
+### 다른 제공자 붙이기
+
+`worker/ai/types.ts`의 `AiProvider`를 구현하고 `worker/ai/select.ts`에서 고르게 하면 된다. 클라이언트는 `/api/config`와 `/api/portrait` 계약(`shared/api.ts`)만 안다.
+
+## 알려진 한계
+
+- 분석 축의 범위(`src/features/analysis/axes.ts`의 `AXIS_RANGES`)는 합성 신호로만 검증한 초기값이다. 실제 화자 10명 이상의 녹음으로 축 분포를 보고 범위를 보정해야 16개 타입이 고르게 나온다. 자세한 내용은 `branches/004-feature-analysis/02-implementation.md`의 "알려진 한계와 보정".
+- 온도 축의 밝기 지표(스펙트럼 기울기)는 음높이와 함께 커지는 경향이 남아 있다. 보정 때 음높이 정규화 지표로 바꾸는 방안을 검토한다.
+- iOS Safari는 `download` 속성을 새 탭으로 열 수 있다. 공유 시트("공유" 버튼)를 쓰면 사진 앱에 바로 저장할 수 있다.
+- 결과는 재미로 보는 해석이며 성격·건강 등 어떤 진단도 아니다.
 
 ## 작업 흐름
 
