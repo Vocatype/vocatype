@@ -18,6 +18,7 @@
   --accent: light-dark(#6d5dfc, #8f82ff);
   --accent-fg: light-dark(#ffffff, #0f0e12);
   --accent-soft: light-dark(#efeaff, #241f45);
+  --danger: light-dark(#b3261e, #ffb4ab);
 
   --shadow-color: light-dark(rgba(27, 26, 25, 0.08), rgba(0, 0, 0, 0.45));
   --shadow: 0 12px 32px var(--shadow-color);
@@ -442,5 +443,5 @@ p {
 }
 
 .landing__hint.is-warning {
-  color: light-dark(#b3261e, #ffb4ab);
+  color: var(--danger);
 }

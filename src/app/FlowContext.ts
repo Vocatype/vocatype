@@ -1,8 +1,6 @@
 import { createContext } from 'react'
+import type { FlowState } from './flow'
 
-export interface FlowContextValue {
-  /** 사용자가 한 번이라도 화면을 옮긴 뒤인지. 첫 로드에서는 제목에 초점을 주지 않는다. */
-  hasNavigated: boolean
-}
+export type FlowContextValue = Pick<FlowState, 'hasNavigated'>
 
 export const FlowContext = createContext<FlowContextValue>({ hasNavigated: false })

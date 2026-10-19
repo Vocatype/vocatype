@@ -43,3 +43,31 @@
 - typecheck / lint / test(14) / build 통과
 - 첫 로드: `activeElement`가 `body`, 첫 Tab → "한국어". 시작하기 클릭 후 `h1`에 초점(outline 없음). 뒤로 → 메인 `h1`에 초점
 - 375px 라이트 한국어·영어 화면 확인, 번호 색 `color(srgb 0.35 0.30 0.77)`로 어두워짐
+
+## 2차 리뷰
+
+대상: 커밋 `952c0cb`, `4343258`. 리뷰 에이전트가 검증 4종을 다시 실행하고 1차 13건의 해결 여부를 확인.
+
+### 1차 항목 해결 여부
+
+M1, M2, m1~m7, nit 전부 해결 확인. `hasNavigated`가 `setStep`과 함께만 켜져 플래그 변경 시점이 항상 재마운트와 일치함, 대비 수치(라이트 ≈ 5.5:1, 다크 ≈ 6.5:1), 문서 기록의 정확성 확인.
+
+### 신규 발견 사항과 조치
+
+| # | 심각도 | 위치 | 내용 | 조치 |
+| --- | --- | --- | --- | --- |
+| A | minor(잠복) | `App.tsx` | `useCallback([step])`은 언마운트된 화면이 쥔 옛 `navigate`가 옛 `step`으로 판단해, 004의 비동기 완료 콜백이 `record`에서 `result`로 건너뛸 수 있음 | `useReducer(flowReducer)`로 전환. 리듀서가 현재 단계 기준으로 전이를 판단. 뒤늦은 전이가 막히는 테스트 추가 |
+| B | nit | `Screen.tsx` | effect 의존성 `[hasNavigated]`의 불변식이 코드에서 읽히지 않음 | 주석으로 불변식 기록. 리듀서 전환으로 코드에서도 보장 |
+| C | nit | `LandingScreen.tsx` | className 뒤쪽 공백 패턴 재발 | 배열 `filter(Boolean).join` |
+| D | nit | `global.css` | `.visually-hidden`과 `.topbar__name` 400px 규칙 중복, 경고색 하드코딩 | `--danger` 토큰 추가·사용. 400px 규칙은 미디어 쿼리 조건부라 클래스 재사용이 불가해 보류 |
+| E | nit | `App.tsx` | `value={{ hasNavigated }}`가 매 렌더 새 객체 | 리듀서 상태 객체를 그대로 전달 |
+
+### 2차 결론
+
+**병합 가능.** A~C·E와 D의 토큰 부분을 반영했고 테스트 17개 통과. 코드 변경은 전이 판단 위치만 바뀌었고 화면 동작은 같다(브라우저에서 시작 → 녹음 → 생성 → 취소 → 녹음 흐름과 초점 이동 재확인).
+
+## 최종
+
+- 반영 커밋: 2차 반영 `fix(ui-main)` 커밋
+- 병합: `git merge --no-ff feature/002-ui-main` → main
+- 브랜치 삭제: `git branch -d feature/002-ui-main`

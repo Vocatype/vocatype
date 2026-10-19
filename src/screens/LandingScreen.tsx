@@ -56,7 +56,7 @@ export function LandingScreen({ onStart }: Props) {
         <Button size="lg" block onClick={onStart} disabled={availability !== 'ok'}>
           {t('landing.start')}
         </Button>
-        <p className={`landing__hint ${availability === 'ok' ? '' : 'is-warning'}`} role="status">
+        <p className={['landing__hint', availability === 'ok' ? '' : 'is-warning'].filter(Boolean).join(' ')} role="status">
           {hint}
         </p>
       </div>

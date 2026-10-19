@@ -22,6 +22,8 @@ export function Screen({ title, lead, icon, centered = false, className, childre
   const headingRef = useRef<HTMLHeadingElement>(null)
   const { hasNavigated } = useContext(FlowContext)
 
+  // 마운트 시 한 번만 실행하려는 effect다. hasNavigated는 flowReducer가 step과 함께만 바꾸므로
+  // 값이 바뀌는 순간은 항상 이 컴포넌트가 새로 마운트되는 순간이다.
   useEffect(() => {
     window.scrollTo({ top: 0 })
     if (hasNavigated) headingRef.current?.focus({ preventScroll: true })

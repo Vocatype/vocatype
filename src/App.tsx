@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useState } from 'react'
-import { canTransition, type FlowStep } from './app/flow'
+import { Fragment, useReducer } from 'react'
+import { flowReducer, INITIAL_FLOW_STATE } from './app/flow'
 import { FlowContext } from './app/FlowContext'
 import { StepIndicator } from './components/StepIndicator'
 import { TopBar } from './components/TopBar'
@@ -11,20 +11,9 @@ import { ResultScreen } from './screens/ResultScreen'
 
 export default function App() {
   const { t } = useI18n()
-  const [step, setStep] = useState<FlowStep>('landing')
-  const [hasNavigated, setHasNavigated] = useState(false)
-
-  const navigate = useCallback(
-    (to: FlowStep) => {
-      if (!canTransition(step, to)) {
-        if (import.meta.env.DEV) console.warn(`flow: blocked transition ${step} → ${to}`)
-        return
-      }
-      setHasNavigated(true)
-      setStep(to)
-    },
-    [step],
-  )
+  // navigate(dispatch)는 안정적이고, 전이 검사는 리듀서가 현재 단계를 기준으로 한다.
+  const [flow, navigate] = useReducer(flowReducer, INITIAL_FLOW_STATE)
+  const { step } = flow
 
   const screen = (() => {
     switch (step) {
@@ -40,7 +29,7 @@ export default function App() {
   })()
 
   return (
-    <FlowContext value={{ hasNavigated }}>
+    <FlowContext value={flow}>
       <div className="app">
         <TopBar />
         <main className="main">
