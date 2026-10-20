@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
+import { READING_CHAIN_BUDGET_MS } from '../../shared/api.ts'
 import { DEFAULT_TEXT_MODEL } from './claude.ts'
-import { buildTextChain, CHAIN_TIME_BUDGET_MS, createTextChain, parseTextProviderChain, resolveTextModel, selectTextChain } from './textChain.ts'
+import { buildTextChain, createTextChain, parseTextProviderChain, resolveTextModel, selectTextChain } from './textChain.ts'
 import type { TextProvider } from './types.ts'
 
 const axes = { warmth: 0.8, density: 0.25, pace: 0.5, variation: 0.1, pitch: 0.4, brightness: 0.9 }
@@ -129,7 +130,7 @@ describe('createTextChain', () => {
     const slow: TextProvider = {
       name: 'workers-ai',
       generateReading: vi.fn(async () => {
-        clock += CHAIN_TIME_BUDGET_MS - 1000
+        clock += READING_CHAIN_BUDGET_MS - 1000
         throw quota
       }),
     }

@@ -31,7 +31,7 @@ export interface ReadingOutput {
 }
 
 export interface GenerateOptions {
-  /** 체인이 넘기는 남은 시간 예산. 신호를 받을 수 있는 제공자(Claude)는 이걸로 요청을 끊는다. */
+  /** 체인이 넘기는 남은 시간 예산. 제공자(Workers AI, Claude)는 이걸로 요청을 끊는다. */
   signal?: AbortSignal
 }
 

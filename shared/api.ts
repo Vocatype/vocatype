@@ -71,6 +71,17 @@ export interface ReadingResponse {
 /** /api/reading 요청 본문 최대 크기(바이트). 타입 코드·여섯 수치·로케일뿐이라 1KB면 넉넉하다. */
 export const READING_REQUEST_MAX_BYTES = 1024
 
+/*
+ * 리딩 시간 규칙: Worker 체인 예산 < 클라이언트 대기 시간 (shared/api.test.ts 가 검사한다).
+ * 체인은 예산 안에 반드시 답(최악이면 mock 고정 문구)을 돌려주고, 클라이언트는 그보다 오래 기다린다.
+ * 그래야 클라이언트가 포기한 뒤에 Worker 가 다음 제공자(유료 Claude)를 새로 부르는 일이 없다.
+ * 차이(5초)는 네트워크 왕복과 Worker 처리 여유로 잡은 값이다.
+ */
+/** Worker 리딩 체인 전체(모든 제공자·재시도·retry-after 대기 포함)의 시간 예산. 제공자에게는 남은 예산이 중단 신호로 간다. */
+export const READING_CHAIN_BUDGET_MS = 25_000
+/** 클라이언트가 /api/reading 응답을 기다리는 시간. 초상 요청과 병렬이라 전체 대기는 늘지 않는다. */
+export const READING_CLIENT_TIMEOUT_MS = 30_000
+
 /** 서버와 클라이언트가 함께 지키는 길이 범위. 벗어나면 제공자 실패로 본다. */
 export const READING_MIN_CHARS = 20
 export const READING_MAX_CHARS = 600
