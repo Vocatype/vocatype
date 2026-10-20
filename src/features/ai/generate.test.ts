@@ -69,9 +69,13 @@ const portraitOk: Handler = () => Response.json({ image: IMAGE, provider: 'worke
 const readingOk: Handler = () => Response.json({ reading: READING_TEXT, caption: CAPTION, provider: 'claude' })
 const httpError: Handler = () => new Response('', { status: 503 })
 const networkError: Handler = () => Promise.reject(new TypeError('Failed to fetch'))
-/** 취소될 때까지 끝나지 않는 응답. 실제 fetch 처럼 신호가 끊기면 AbortError 로 거부한다. */
+/** 취소될 때까지 끝나지 않는 응답. 실제 fetch 처럼 신호가 끊기면(이미 끊겨 있어도) AbortError 로 거부한다. */
 const untilAborted: Handler = (init) =>
-  new Promise((_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))))
+  new Promise((_resolve, reject) => {
+    const abort = () => reject(new DOMException('aborted', 'AbortError'))
+    if (init?.signal?.aborted) abort()
+    else init?.signal?.addEventListener('abort', abort)
+  })
 
 /** 경로별 응답을 정해 fetch 를 바꾼다. 정하지 않은 경로는 네트워크 오류. */
 function stubApi(handlers: Partial<Record<ApiPath, Handler>>) {
@@ -153,7 +157,9 @@ describe('runGeneration 정상 흐름', () => {
     expect(analyze).toHaveBeenCalledTimes(1)
     const [recording, options] = analyze.mock.calls[0]!
     expect(recording).toBe(capture.recording)
-    expect(options).toMatchObject({ locale: 'en', signal: controller.signal })
+    expect(options?.locale).toBe('en')
+    // toMatchObject 는 AbortSignal 을 구조로 비교해 다른 신호도 같다고 본다. 같은 객체인지 본다.
+    expect(options?.signal).toBe(controller.signal)
     expect(progress).toEqual([{ stage: 'extracting', progress: 0.5 }])
     // 두 요청이 거의 함께 끝나므로 뒤따르는 'reading' 전환 여부는 여기서 보지 않는다(아래 단계 전환 테스트).
     expect(stages[0]).toBe('portrait')
@@ -245,6 +251,18 @@ describe('runGeneration 대기 단계 전환', () => {
     reading.resolve(Response.json({ reading: READING_TEXT, caption: CAPTION, provider: 'claude' }))
     expect(await pending).toMatchObject({ portrait: IMAGE, reading: { reading: READING_TEXT } })
     expect(stages).toEqual(['portrait', 'reading'])
+  })
+
+  it('초상이 실패로 먼저 끝나도 리딩을 기다리면 단계를 리딩으로 바꾼다', async () => {
+    const reading = deferred<Response>()
+    stubApi({ '/api/config': configOf(true, true), '/api/portrait': httpError, '/api/reading': () => reading.promise })
+    const { pending, stages } = run()
+
+    await settle()
+    expect(stages).toEqual(['portrait', 'reading'])
+
+    reading.resolve(Response.json({ reading: READING_TEXT, caption: CAPTION, provider: 'claude' }))
+    expect(await pending).toMatchObject({ portrait: null, reading: { reading: READING_TEXT } })
   })
 
   it('리딩이 먼저 끝나면 단계를 바꾸지 않는다', async () => {
