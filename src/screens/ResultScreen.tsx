@@ -153,10 +153,27 @@ export function ResultScreen({ capture, profile, portrait, reading, onNavigate }
           {view.name}
         </h2>
         <p className="type__description">{view.description}</p>
-        <ul className="chips" aria-label={t('result.axesLabel')}>
-          {view.axisLabels.map((label) => (
-            <li key={label} className="chip">
-              {label}
+        <ul className="axes" aria-label={t('result.axesLabel')}>
+          {view.axes.map((axis) => (
+            <li key={axis.key} className={['axis', axis.boundary ? 'is-boundary' : ''].filter(Boolean).join(' ')}>
+              <div className="axis__head">
+                <span className="axis__letter" aria-hidden="true">
+                  {axis.letter}
+                </span>
+                <span className="axis__label">{axis.label}</span>
+                <span className="axis__percent">{axis.percent}%</span>
+              </div>
+              <div
+                className="axis__bar"
+                role="meter"
+                aria-valuemin={50}
+                aria-valuemax={100}
+                aria-valuenow={axis.percent}
+                aria-label={`${axis.title}: ${axis.label} ${axis.percent}%`}
+              >
+                <div className="axis__fill" style={{ width: `${axis.percent}%` }} />
+              </div>
+              {axis.boundary ? <p className="axis__note">{t('result.axisBoundary', { other: axis.otherLabel })}</p> : null}
             </li>
           ))}
         </ul>

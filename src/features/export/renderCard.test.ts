@@ -183,7 +183,7 @@ describe('drawCard', () => {
     drawCard(ctx, view, null, labelsEn)
     const caption = calls.find((c) => c.text === labelsEn.caption)
     const description = calls.filter((c) => view.description.includes(c.text) && c.text.length > 10)
-    const chip = calls.find((c) => c.text === view.axisLabels[0])
+    const chip = calls.find((c) => c.text === `${view.axes[0]?.letter} ${view.axes[0]?.label}`)
     expect(caption && chip && description.length > 0).toBeTruthy()
     expect(caption!.y).toBeGreaterThan(Math.max(...description.map((c) => c.y)))
     expect(caption!.y).toBeLessThan(chip!.y)
@@ -193,7 +193,7 @@ describe('drawCard', () => {
     drawCard(ctx2, view, null, { ...labelsEn, caption: '' })
     expect(calls2.some((c) => c.text === labelsEn.caption)).toBe(false)
     // 캡션이 없으면 그 자리를 비워 칩이 위로 올라온다.
-    const chip2 = calls2.find((c) => c.text === view.axisLabels[0])
+    const chip2 = calls2.find((c) => c.text === `${view.axes[0]?.letter} ${view.axes[0]?.label}`)
     expect(chip2!.y).toBeLessThan(chip!.y)
 
     // 긴 캡션은 한 줄로 말줄임한다.

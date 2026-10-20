@@ -191,24 +191,33 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
     }
   }
 
-  // 축 칩
-  y += 14
-  ctx.font = font(600, 24)
-  const chipPad = 20
-  const chipGap = 12
-  const chipWidths = view.axisLabels.map((label) => measure(label) + chipPad * 2)
-  const chipsWidth = chipWidths.reduce((sum, w) => sum + w, 0) + chipGap * (chipWidths.length - 1)
-  let chipX = (CARD_WIDTH - chipsWidth) / 2
-  for (let i = 0; i < view.axisLabels.length; i += 1) {
-    const w = chipWidths[i] ?? 0
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.12)'
-    roundedRect(ctx, chipX, y - 28, w, 42, 21)
-    ctx.fill()
+  // 축 강도: 한 줄에 네 개의 작은 막대 (글자 + 라벨, 퍼센트, 막대)
+  y += 10
+  const barGap = 24
+  const barWidth = (CONTENT_WIDTH - barGap * 3) / 4
+  for (let i = 0; i < view.axes.length; i += 1) {
+    const axis = view.axes[i]
+    if (!axis) continue
+    const x = MARGIN + i * (barWidth + barGap)
+    ctx.textAlign = 'left'
     ctx.fillStyle = FG
-    ctx.fillText(view.axisLabels[i] ?? '', chipX + w / 2, y + 1)
-    chipX += w + chipGap
+    ctx.font = font(700, 22)
+    const [label] = clampLines([`${axis.letter} ${axis.label}`], 1, barWidth - 64, measure)
+    ctx.fillText(label ?? '', x, y)
+    ctx.textAlign = 'right'
+    ctx.fillStyle = MUTED
+    ctx.font = font(600, 22)
+    ctx.fillText(`${axis.percent}%`, x + barWidth, y)
+    ctx.textAlign = 'left'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.12)'
+    roundedRect(ctx, x, y + 12, barWidth, 10, 5)
+    ctx.fill()
+    ctx.fillStyle = primary
+    roundedRect(ctx, x, y + 12, Math.max(10, barWidth * (axis.percent / 100)), 10, 5)
+    ctx.fill()
   }
-  y += 28
+  ctx.textAlign = 'center'
+  y += 46
 
   const section = (title: string, top: number) => {
     ctx.textAlign = 'left'
