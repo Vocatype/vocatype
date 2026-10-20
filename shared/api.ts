@@ -3,7 +3,7 @@ import type { TypeCode } from './typeCode.ts'
 /** 클라이언트와 Worker가 함께 쓰는 API 계약. 개인정보가 담길 수 있는 필드는 없다. */
 
 export type AiProviderName = 'mock' | 'workers-ai'
-/** 텍스트(목소리 리딩) 제공자. 이미지 제공자와 별도로 켜지며, 폴백 체인(workers-ai → claude → mock)으로 쓰인다. */
+/** 텍스트(목소리 리딩) 제공자. 이미지 제공자와 별도로 켜지며, `TEXT_PROVIDER` 순서의 폴백 체인으로 쓰인다(운영: claude → workers-ai, mock 은 항상 마지막). */
 export type TextProviderName = 'mock' | 'workers-ai' | 'claude'
 
 export interface ApiConfigResponse {

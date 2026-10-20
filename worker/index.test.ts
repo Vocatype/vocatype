@@ -226,6 +226,45 @@ describe('POST /api/reading', () => {
     expect(String(error.mock.calls[0]?.[0])).toContain('all providers failed')
   })
 
+  it('체인(운영 순서 claude,workers-ai): claude 가 실패하면 workers-ai 가 답하고 provider 에 그 이름이 실린다', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const runs: string[] = []
+    const ai = {
+      run: async (model: string) => {
+        runs.push(model)
+        return { response: JSON.stringify({ reading: '맑고 가벼운 소리가 또박또박 이어져요. 서두르지 않는데도 지루할 틈이 없어요. 듣는 사람이 편하게 기대게 되는 결이에요.', caption: '편하게 기대게 되는 목소리' }) }
+      },
+    } as unknown as Ai
+    // 키 오류(401)는 SDK 가 재시도하지 않는 빠른 실패라 남은 예산으로 workers-ai 가 시도된다.
+    const fetchMock = vi.fn(async () => Response.json({ type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }, { status: 401 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const env = { AI_PROVIDER: 'mock', TEXT_PROVIDER: 'claude,workers-ai', AI: ai, ANTHROPIC_API_KEY: 'sk-ant-test-key' } as unknown as FakeEnv
+    expect(await (await call('/api/config', undefined, env)).json()).toEqual({ provider: 'mock', textProviders: ['claude', 'workers-ai'], features: { portrait: false, reading: true } })
+    const response = await call('/api/reading', { method: 'POST', body: readingBody }, env)
+    expect(response.status).toBe(200)
+    expect(((await response.json()) as { provider: string }).provider).toBe('workers-ai')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(runs).toEqual(['@cf/meta/llama-4-scout-17b-16e-instruct'])
+    expect(warn.mock.calls[0]?.[0]).toContain('[reading] claude failed, falling back:')
+  })
+
+  it('체인(운영 순서 claude,workers-ai): claude 가 성공하면 workers-ai 는 부르지 않는다', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const run = vi.fn()
+    const ai = { run } as unknown as Ai
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json(anthropicMessage('따뜻한 숨결이 문장을 데우고, 멈추는 자리마다 여운이 남아요. 빠르게 달리다가도 한 번씩 숨을 고르는 리듬이 있어요.', '이야기 한가운데로 끌어들이는 목소리'))))
+    const env = { AI_PROVIDER: 'mock', TEXT_PROVIDER: 'claude,workers-ai', AI: ai, ANTHROPIC_API_KEY: 'sk-ant-test-key' } as unknown as FakeEnv
+    const response = await call('/api/reading', { method: 'POST', body: readingBody }, env)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      reading: '따뜻한 숨결이 문장을 데우고, 멈추는 자리마다 여운이 남아요. 빠르게 달리다가도 한 번씩 숨을 고르는 리듬이 있어요.',
+      caption: '이야기 한가운데로 끌어들이는 목소리',
+      provider: 'claude',
+    })
+    expect(run).not.toHaveBeenCalled()
+  })
+
   it('TEXT_PROVIDER=claude 라도 키가 없으면 체인이 비어 리딩이 꺼진다', async () => {
     const env = { AI_PROVIDER: 'mock', TEXT_PROVIDER: 'claude' } as unknown as FakeEnv
     expect(await (await call('/api/config', undefined, env)).json()).toEqual({ provider: 'mock', textProviders: [], features: { portrait: false, reading: false } })
