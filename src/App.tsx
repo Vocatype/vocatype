@@ -3,6 +3,7 @@ import { canTransition, flowReducer, INITIAL_FLOW_STATE, type FlowStep } from '.
 import { FlowContext } from './app/FlowContext'
 import { StepIndicator } from './components/StepIndicator'
 import { TopBar } from './components/TopBar'
+import type { VoiceReading } from './features/ai/client'
 import type { VoiceProfile } from './features/profile/types'
 import type { Capture } from './features/recorder/types'
 import { useI18n } from './i18n/useI18n'
@@ -16,10 +17,11 @@ export default function App() {
   // navigate(dispatch)는 안정적이고, 전이 검사는 리듀서가 현재 단계를 기준으로 한다.
   const [flow, navigate] = useReducer(flowReducer, INITIAL_FLOW_STATE)
   const { step } = flow
-  // 녹음 화면이 넘긴 스크립트와 녹음, 분석 결과, 생성된 초상. 메모리에만 있고 페이지를 닫으면 사라진다.
+  // 녹음 화면이 넘긴 스크립트와 녹음, 분석 결과, 생성된 초상과 리딩. 메모리에만 있고 페이지를 닫으면 사라진다.
   const [capture, setCapture] = useState<Capture | null>(null)
   const [profile, setProfile] = useState<VoiceProfile | null>(null)
   const [portrait, setPortrait] = useState<string | null>(null)
+  const [reading, setReading] = useState<VoiceReading | null>(null)
 
   /** 메인으로 돌아가는 전이가 허용될 때만 녹음과 결과를 메모리에서도 버린다. */
   const go = (to: FlowStep) => {
@@ -27,6 +29,7 @@ export default function App() {
       setCapture(null)
       setProfile(null)
       setPortrait(null)
+      setReading(null)
     }
     navigate(to)
   }
@@ -43,6 +46,7 @@ export default function App() {
               setCapture(next)
               setProfile(null)
               setPortrait(null)
+              setReading(null)
               go('generating')
             }}
           />
@@ -52,15 +56,16 @@ export default function App() {
           <GeneratingScreen
             capture={capture}
             onNavigate={go}
-            onGenerated={({ profile: nextProfile, portrait: nextPortrait }) => {
+            onGenerated={({ profile: nextProfile, portrait: nextPortrait, reading: nextReading }) => {
               setProfile(nextProfile)
               setPortrait(nextPortrait)
+              setReading(nextReading)
               go('result')
             }}
           />
         )
       case 'result':
-        return <ResultScreen capture={capture} profile={profile} portrait={portrait} onNavigate={go} />
+        return <ResultScreen capture={capture} profile={profile} portrait={portrait} reading={reading} onNavigate={go} />
     }
   })()
 

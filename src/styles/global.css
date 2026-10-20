@@ -829,6 +829,24 @@ p {
   margin: 0;
 }
 
+/* 목소리 리딩 카드(009). 문단은 본문 색, 캡션은 강조색 한 줄. */
+.reading__text {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.reading__caption {
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--accent);
+  padding-left: 12px;
+  border-left: 3px solid var(--accent);
+  overflow-wrap: anywhere;
+}
+
 .card--signature {
   align-items: center;
   text-align: center;

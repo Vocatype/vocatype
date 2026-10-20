@@ -3,12 +3,17 @@ import type { TypeCode } from './typeCode.ts'
 /** 클라이언트와 Worker가 함께 쓰는 API 계약. 개인정보가 담길 수 있는 필드는 없다. */
 
 export type AiProviderName = 'mock' | 'workers-ai'
+/** 텍스트(목소리 리딩) 제공자. 이미지 제공자와 별도로 켜진다. */
+export type TextProviderName = 'mock' | 'claude'
 
 export interface ApiConfigResponse {
   provider: AiProviderName
+  textProvider: TextProviderName
   features: {
     /** true면 클라이언트가 /api/portrait 를 호출한다. */
     portrait: boolean
+    /** true면 클라이언트가 /api/reading 을 호출한다. */
+    reading: boolean
   }
 }
 
@@ -36,3 +41,37 @@ export const SEED_MAX = 0xffffffff
 
 /** 클라이언트가 받아들이는 초상 data URL의 최대 길이(약 4MB). */
 export const PORTRAIT_IMAGE_MAX_CHARS = 4 * 1024 * 1024
+
+/* ---------- 목소리 리딩 ---------- */
+
+export type ReadingLocale = 'ko' | 'en'
+
+/** 리딩 요청에 들어가는 여섯 축. 분석의 VoiceAxes 와 같은 키다. */
+export const READING_AXIS_KEYS = ['warmth', 'density', 'pace', 'variation', 'pitch', 'brightness'] as const
+export type ReadingAxisKey = (typeof READING_AXIS_KEYS)[number]
+/** 모두 0..1. 소수 둘째 자리로 반올림해 보낸다(필요 이상의 정밀도를 보내지 않는다). */
+export type ReadingAxes = Record<ReadingAxisKey, number>
+
+export interface ReadingRequest {
+  typeCode: TypeCode
+  axes: ReadingAxes
+  /** 리딩을 쓸 언어. 생성 시점의 화면 언어다. */
+  locale: ReadingLocale
+}
+
+export interface ReadingResponse {
+  /** 3~4문장 한 문단. */
+  reading: string
+  /** 공유용 한 줄. */
+  caption: string
+  provider: TextProviderName
+}
+
+/** /api/reading 요청 본문 최대 크기(바이트). 타입 코드·여섯 수치·로케일뿐이라 1KB면 넉넉하다. */
+export const READING_REQUEST_MAX_BYTES = 1024
+
+/** 서버와 클라이언트가 함께 지키는 길이 범위. 벗어나면 제공자 실패로 본다. */
+export const READING_MIN_CHARS = 20
+export const READING_MAX_CHARS = 600
+export const CAPTION_MIN_CHARS = 2
+export const CAPTION_MAX_CHARS = 100

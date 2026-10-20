@@ -85,6 +85,9 @@ export const ko = {
   'result.shareBlocked': '공유 창을 열지 못했어요. 한 번 더 눌러 주세요.',
   'result.disclaimer': '재미로 보는 해석이에요. 녹음은 저장되지 않았어요.',
   'generating.stage.portrait': '초상을 그리는 중 (조금 걸려요)',
+  'generating.stage.reading': '목소리를 읽는 중',
+  'result.section.reading': '목소리 리딩',
+  'result.readingNote': 'AI가 타입과 여섯 축 수치만 보고 쓴 글이에요. 녹음은 듣지 않았어요.',
 } as const
 
 export type MessageKey = keyof typeof ko

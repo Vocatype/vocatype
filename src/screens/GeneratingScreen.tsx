@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FlowStep } from '../app/flow'
 import { Button } from '../components/Button'
 import { Screen } from '../components/Screen'
-import { fetchAiConfig, requestPortrait } from '../features/ai/client'
+import { fetchAiConfig, requestPortrait, requestReading, toReadingAxes, type VoiceReading } from '../features/ai/client'
 import { analyzeRecording, type AnalysisStage } from '../features/analysis/analyze'
 import type { VoiceProfile } from '../features/profile/types'
 import type { Capture } from '../features/recorder/types'
@@ -12,6 +12,8 @@ export interface GenerationResult {
   profile: VoiceProfile
   /** 생성된 초상(data URL). 제공자가 없거나 실패하면 null. */
   portrait: string | null
+  /** 목소리 리딩. 제공자가 없거나 실패하면 null(결과 화면은 카탈로그 설명으로 폴백). */
+  reading: VoiceReading | null
 }
 
 interface Props {
@@ -20,11 +22,11 @@ interface Props {
   onGenerated: (result: GenerationResult) => void
 }
 
-type Stage = AnalysisStage | 'portrait'
+type Stage = AnalysisStage | 'portrait' | 'reading'
 
 interface Progress {
   stage: Stage
-  /** 전체 진행률 0..1. 초상 단계는 걸리는 시간을 알 수 없어 0.9에 멈춘 채 애니메이션만 돈다. */
+  /** 전체 진행률 0..1. 초상·리딩 단계는 걸리는 시간을 알 수 없어 0.9에 멈춘 채 애니메이션만 돈다. */
   value: number
 }
 
@@ -33,7 +35,7 @@ const MIN_DISPLAY_MS = 1400
 const INITIAL_PROGRESS: Progress = { stage: 'decoding', value: 0 }
 
 export function GeneratingScreen({ capture, onNavigate, onGenerated }: Props) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [progress, setProgress] = useState<Progress>(INITIAL_PROGRESS)
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
@@ -42,6 +44,11 @@ export function GeneratingScreen({ capture, onNavigate, onGenerated }: Props) {
   const onGeneratedRef = useRef(onGenerated)
   useEffect(() => {
     onGeneratedRef.current = onGenerated
+  })
+  // 리딩 언어는 요청을 보내는 순간의 화면 언어다. 언어를 바꿔도 분석을 다시 돌리지 않도록 참조로 읽는다.
+  const localeRef = useRef(locale)
+  useEffect(() => {
+    localeRef.current = locale
   })
 
   useEffect(() => {
@@ -65,21 +72,24 @@ export function GeneratingScreen({ capture, onNavigate, onGenerated }: Props) {
       })
       if (signal.aborted) return
 
-      // 2) 제공자가 켜져 있을 때만 초상 요청. 타입 코드와 씨앗만 보낸다.
-      let portrait: string | null = null
+      // 2) 켜져 있는 기능만 병렬로 요청한다. 초상은 타입 코드·씨앗, 리딩은 타입 코드·반올림한 축·언어만 보낸다.
+      //    어느 쪽이 실패해도 null 로 받아 결과로 진행한다(초상은 자리표시, 리딩은 카탈로그 설명).
       const config = await configPromise
       if (signal.aborted) return
-      if (config.features.portrait) {
-        setProgress({ stage: 'portrait', value: 0.9 })
-        portrait = await requestPortrait({ typeCode: profile.typeCode, seed: profile.seed }, signal)
-        if (signal.aborted) return
-      }
+      const wantPortrait = config.features.portrait
+      const wantReading = config.features.reading
+      if (wantPortrait || wantReading) setProgress({ stage: wantPortrait ? 'portrait' : 'reading', value: 0.9 })
+      const [portrait, reading] = await Promise.all([
+        wantPortrait ? requestPortrait({ typeCode: profile.typeCode, seed: profile.seed }, signal) : Promise.resolve(null),
+        wantReading ? requestReading({ typeCode: profile.typeCode, axes: toReadingAxes(profile.axes), locale: localeRef.current }, signal) : Promise.resolve(null),
+      ])
+      if (signal.aborted) return
 
       const remaining = MIN_DISPLAY_MS - (performance.now() - startedAt)
       if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
       if (signal.aborted) return
       setProgress({ stage: 'profiling', value: 1 })
-      onGeneratedRef.current({ profile, portrait })
+      onGeneratedRef.current({ profile, portrait, reading })
     }
 
     run().catch(() => {
@@ -107,8 +117,8 @@ export function GeneratingScreen({ capture, onNavigate, onGenerated }: Props) {
 
   const percent = Math.round(progress.value * 100)
   const stageText = t(`generating.stage.${progress.stage}`)
-  // 초상 단계는 걸리는 시간을 알 수 없는 indeterminate 상태라 aria-valuenow를 내보내지 않는다.
-  const indeterminate = progress.stage === 'portrait'
+  // 초상·리딩 단계는 걸리는 시간을 알 수 없는 indeterminate 상태라 aria-valuenow를 내보내지 않는다.
+  const indeterminate = progress.stage === 'portrait' || progress.stage === 'reading'
 
   return (
     <Screen centered title={t('generating.title')} lead={t('generating.script', { title: capture.script.title })}>
