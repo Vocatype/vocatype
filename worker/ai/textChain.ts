@@ -5,7 +5,7 @@ import type { ReadingInput, ReadingOutput, TextProvider } from './types.ts'
 import { createWorkersAiTextProvider } from './workersAiText.ts'
 
 export interface TextProviderEnv {
-  /** 콤마 목록. 예: "workers-ai,claude". 순서대로 시도한다. */
+  /** 콤마로 나눈 제공자 이름(CHAIN_NAMES). 적힌 순서대로 시도한다. 운영 값은 wrangler.jsonc 의 vars. */
   TEXT_PROVIDER?: string
   /** 선택. Claude 모델. 없으면 DEFAULT_TEXT_MODEL. */
   TEXT_MODEL?: string

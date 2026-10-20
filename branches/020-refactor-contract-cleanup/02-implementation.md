@@ -3,7 +3,7 @@
 ## 요약
 
 설계의 네 가지 정리를 구현 커밋 넷(설계 문서 커밋 별도)으로 나눠 넣었다. 언어 목록·리딩 시간 규칙은 `shared/` 한 곳에서 정하고 나머지는 거기서 타입·값을 가져오며, 관계는 테스트로 고정했다. `readBodyLimited`는 `worker/http.ts`로 옮겼고, 메인 화면은 녹음 훅과 같은 `isRecordingSupported()`를 쓴다.
-요청·응답 JSON과 화면 동작은 그대로다. 의도된 동작 차이는 하나뿐이다. Workers AI 텍스트 호출이 체인 예산(25초)을 넘기면 이제 25초에 끊긴다(설계 3번 항목). 25~30초 사이에 성공했을 호출도 이제 mock이 된다(드묾, 1차 리뷰 #1). 테스트 파일 29 → 33, 테스트 193 → 215.
+요청·응답 JSON과 화면 동작은 그대로다. 의도된 동작 차이는 하나뿐이다. Workers AI 텍스트 호출이 체인 예산(25초)을 넘기면 이제 25초에 끊긴다(설계 3번 항목). 25~30초 사이에 성공했을 호출도 이제 mock이 된다(드묾, 1차 리뷰 #1). 테스트 파일 29 → 33, 테스트 193 → 216.
 
 ## 변경 파일
 
@@ -21,7 +21,7 @@
 | `worker/reading.ts` | `isLocale(locale)`로 검증, `readBodyLimited`는 `./http.ts`에서 |
 | `worker/reading.test.ts` | `LOCALES` 전부 통과, `KO`·숫자 로케일 거부. 지원하지 않는 언어 예시는 `'ja'` → `'xx'`(1차 리뷰 #5) |
 | `worker/ai/textChain.ts` | `CHAIN_TIME_BUDGET_MS` 제거, 기본 예산은 `READING_CHAIN_BUDGET_MS` |
-| `worker/ai/textChain.test.ts` | import 를 shared 상수로 |
+| `worker/ai/textChain.test.ts` | import 를 shared 상수로. 뒤에 시도되는 Workers AI 도 남은 예산 신호를 받는지(022 순서 대비) |
 | `worker/ai/claude.ts` | `TOTAL_TIMEOUT_MS` 제거, 신호가 없을 때 상한은 `READING_CHAIN_BUDGET_MS`. `REQUEST_TIMEOUT_MS` 주석 정정(12초 × 2 = 24초가 체인 예산을 넘지 않게, 실제 상한은 신호) |
 | `worker/ai/claude.test.ts` | 신호가 없으면 `AbortSignal.timeout(READING_CHAIN_BUDGET_MS)`를 한 번 걸고, 체인 신호가 있으면 그것을 그대로 씀(1차 리뷰 #3) |
 | `worker/ai/workersAiText.ts` | `generateReading(input, options)`가 `ai.run(model, inputs, { signal: options?.signal })`. 신호를 받지 못한다던 주석을 확인 근거로 교체 |
@@ -48,7 +48,8 @@
 | `d75c538` | 구현 문서, README |
 | `279da4c` | 1차 리뷰 반영 테스트(Claude 상한, 본문 경계, 언어 예시 `xx`) |
 | `a91c805` | 리뷰 문서 1차, 설계·구현 문서 정정 |
-| (이 문서 커밋) | 2차 리뷰 반영(`content-length` 경계 테스트), 리뷰 문서 2차 |
+| `c3e7ff6` | 2차 리뷰 반영(`content-length` 경계 테스트), 리뷰 문서 2차 |
+| (이 문서 커밋) | 022 순서 대비: 순서 중립 주석, 둘째 Workers AI 신호 테스트 |
 
 ## 주요 구현 내용
 
@@ -66,6 +67,13 @@
 설계 문서 3번 항목의 조사대로 바인딩 타입과 런타임 구현이 `signal`을 받는다. 확인한 런타임 소스(`cloudflare-internal:ai-api`, workerd 바이너리에 내장된 JS)에서 `run()`은 `options.signal`을 추론 요청 `fetch`에 넘기고, 본문 `options`에서는 `prefix`·`extraHeaders`·`sessionOptions`와 함께 뺀다. 그래서 신호가 없을 때 `{ signal: undefined }`를 넘겨도 본문은 옵션을 생략했을 때와 같은 `{}`이다.
 중단되면 신호의 `TimeoutError`가 그대로 올라오고 체인 로그에 `workers-ai failed, falling back: TimeoutError: …`로 남는다. Claude처럼 바꿔 던지지 않았다(설계 결정 표). 1차 리뷰가 workerd를 직접 띄워 서비스 바인딩 `fetch`에 `AbortSignal.timeout(500)`을 걸면 507ms 뒤 이 `TimeoutError`로 reject됨을 확인했다.
 010 문서의 "바인딩 호출 옵션에는 중단 신호가 없다"는 서술은 이 확인으로 대체한다(이력이라 고치지 않는다).
+
+**022 순서 변경과의 관계(2차 리뷰 뒤, 시작 세션 요청).** 022가 운영 순서를 `claude,workers-ai`로 바꾸면 Workers AI가 둘째로, 남은 예산이 3초 남짓일 때도 시작한다. 그래서 다음 두 가지를 더했다.
+
+- `textChain.test.ts`에 "뒤에 시도되는 Workers AI 도 남은 예산만큼의 신호를 바인딩에 넘긴다" 테스트를 추가했다. 가짜 시계로 첫 제공자(claude)가 20초를 쓰고 실패하게 한 뒤, 실제 `createWorkersAiTextProvider`가 `AbortSignal.timeout(READING_CHAIN_BUDGET_MS - 20_000)`으로 만든 그 신호를 `ai.run` 옵션으로 받는지 본다. `workersAiText.ts`에서 신호 전달을 빼면 이 테스트가 실패한다.
+- 020이 넣은 주석이 체인 순서에 기대지 않게 고쳤다. `shared/api.ts` 시간 규칙의 "다음 제공자(유료 Claude)"는 "다음 제공자를 새로 불러 할당량·비용을 쓰는 일"로 바꿨다. `textChain.ts`의 `TEXT_PROVIDER` 예시 값은 지우고 "적힌 순서대로"만 남겼다. `workersAiText.ts`는 "체인의 몇 번째에 있든"으로, README의 시간 예산 줄은 "Worker가 제공자를 새로 부르지 않는다(체인 순서와 상관없이)"로 고쳤다.
+
+`shared/api.ts:7`의 `TextProviderName` 주석(`workers-ai → claude → mock`)은 022가 같은 줄을 고치므로 손대지 않았다(겹치면 글자 충돌이 난다). README의 체인 그림·표도 022 범위라 그대로 두었다. 020과 022는 `git merge-tree` 기준 충돌이 없다.
 
 ### 4. `readBodyLimited` 이동
 
@@ -97,7 +105,7 @@
 
 | 항목 | 명령 | 결과 |
 | --- | --- | --- |
-| 단위 테스트 | `npm test` | 33 파일 215 테스트 통과, 종료 코드 0(1차 리뷰 전 212, 1차 반영 뒤 214) |
+| 단위 테스트 | `npm test` | 33 파일 216 테스트 통과, 종료 코드 0(1차 리뷰 전 212, 1차 반영 뒤 214, 2차 반영 뒤 215) |
 | 타입 검사 | `npm run typecheck` | 종료 코드 0 |
 | 린트 | `npm run lint` | 종료 코드 0, 출력 없음 |
 | 빌드 | `npm run build` | 종료 코드 0 |
