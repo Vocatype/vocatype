@@ -2,8 +2,8 @@ import { AXES, type AxisKey } from '../../../shared/catalog'
 import type { Localized } from '../../../shared/catalog'
 import type { VoiceAxes } from '../analysis/axes'
 
-/** 축 값이 이 거리 안에서 0.5에 가까우면 경계형으로 본다. */
-export const BOUNDARY_MARGIN = 0.05
+/** 표시 퍼센트가 이 값 미만이면 경계형(반대 성향도 있음)으로 본다. 표시값 기준이라 좌우가 대칭이다. */
+export const BOUNDARY_PERCENT = 55
 
 export interface AxisStrength {
   key: AxisKey
@@ -16,7 +16,7 @@ export interface AxisStrength {
   otherLabel: Localized
   /** 결정된 쪽으로 기운 정도 0.5..1 → 50..100%. */
   percent: number
-  /** 0.5 ± BOUNDARY_MARGIN 안이면 참. */
+  /** percent < BOUNDARY_PERCENT 이면 참. */
   boundary: boolean
 }
 
@@ -36,6 +36,7 @@ export function axisStrengths(axes: VoiceAxes): AxisStrength[] {
     const value = axes[AXIS_VALUE[axis.key]]
     const left = value >= 0.5
     const lean = left ? value : 1 - value
+    const percent = Math.round(lean * 100)
     return {
       key: axis.key,
       title: axis.title,
@@ -43,8 +44,8 @@ export function axisStrengths(axes: VoiceAxes): AxisStrength[] {
       label: axis.labels[left ? 0 : 1],
       otherLetter: axis.letters[left ? 1 : 0],
       otherLabel: axis.labels[left ? 1 : 0],
-      percent: Math.round(lean * 100),
-      boundary: Math.abs(value - 0.5) < BOUNDARY_MARGIN,
+      percent,
+      boundary: percent < BOUNDARY_PERCENT,
     }
   })
 }

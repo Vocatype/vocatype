@@ -65,4 +65,11 @@ describe('presentResult', () => {
     expect(view.axes[0]).toMatchObject({ key: 'temperature', title: '온도', label: '따뜻한', otherLabel: '서늘한', percent: 80, boundary: false })
     expect(view.axes.every((axis) => axis.percent >= 50 && axis.percent <= 100)).toBe(true)
   })
+
+  it('경계 축과 영어 라벨, 신호 부족 품질을 그대로 전달한다', () => {
+    const boundary = presentResult({ ...profile, axes: { ...profile.axes, density: 0.52 } }, null, 'en')
+    expect(boundary.axes[1]).toMatchObject({ letter: 'F', label: 'Full', otherLabel: 'Light', percent: 52, boundary: true })
+    const low = presentResult({ ...profile, quality: 'low-signal' }, null, 'ko')
+    expect(low.quality).toBe('low-signal')
+  })
 })

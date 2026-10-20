@@ -5,7 +5,7 @@ import { getCompatibility, getPersonalColor, getScent, getVoiceType, type Season
 import { axisStrengths } from './axisStrength'
 import type { Localized, TypeCode, VoiceProfile } from './types'
 
-/** 화면과 저장 이미지가 함께 쓰는, 문구가 현재 언어로 풀린 결과. */
+/** 타입을 정한 한 축의 강도(현재 언어로 풀린 값). */
 export interface AxisStrengthView {
   key: string
   title: string
@@ -19,6 +19,7 @@ export interface AxisStrengthView {
   boundary: boolean
 }
 
+/** 화면과 저장 이미지가 함께 쓰는, 문구가 현재 언어로 풀린 결과. */
 export interface ResultView {
   code: TypeCode
   name: string

@@ -183,6 +183,7 @@ describe('drawCard', () => {
     drawCard(ctx, view, null, labelsEn)
     const caption = calls.find((c) => c.text === labelsEn.caption)
     const description = calls.filter((c) => view.description.includes(c.text) && c.text.length > 10)
+    // 축 막대의 첫 라벨
     const chip = calls.find((c) => c.text === `${view.axes[0]?.letter} ${view.axes[0]?.label}`)
     expect(caption && chip && description.length > 0).toBeTruthy()
     expect(caption!.y).toBeGreaterThan(Math.max(...description.map((c) => c.y)))
@@ -229,6 +230,29 @@ describe('drawCard 예산', () => {
     }
     // 이름 2줄, 설명 3줄, 캡션 1줄, 궁합 2행이 실제로 쓰였는지
     expect(calls.filter((c) => c.text.startsWith('Word') && c.align === 'center').length).toBeGreaterThanOrEqual(6)
+  })
+})
+
+describe('축 막대', () => {
+  it('긴 라벨은 퍼센트 자리를 남기고 말줄임된다', () => {
+    const base = presentResult(profileFor('WFQV'), null, 'en')
+    const view = { ...base, axes: base.axes.map((axis) => ({ ...axis, label: 'Extraordinarily long axis label' })) }
+    const { ctx, calls } = fakeContext()
+    drawCard(ctx, view, null, labelsEn)
+    const labels = calls.filter((c) => /^[WFQV] \S/.test(c.text) && c.text.includes('…'))
+    expect(labels).toHaveLength(4)
+    const barWidth = (CARD_WIDTH - 144 - 24 * 3) / 4
+    for (const call of labels) {
+      expect(call.text.endsWith('…')).toBe(true)
+      expect(call.width).toBeLessThanOrEqual(barWidth - 30)
+    }
+  })
+
+  it('신호가 부족하면 막대를 그리지 않는다', () => {
+    const view = { ...presentResult(profileFor('WFQV'), null, 'ko'), quality: 'low-signal' as const }
+    const { ctx, calls } = fakeContext()
+    drawCard(ctx, view, null, labelsKo)
+    expect(calls.some((c) => /^\d+%$/.test(c.text))).toBe(false)
   })
 })
 
