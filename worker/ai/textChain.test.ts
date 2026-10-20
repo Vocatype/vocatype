@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { READING_CHAIN_BUDGET_MS } from '../../shared/api.ts'
 import { DEFAULT_TEXT_MODEL } from './claude.ts'
-import { buildTextChain, createTextChain, parseTextProviderChain, resolveTextModel, selectTextChain } from './textChain.ts'
+import { buildTextChain, createTextChain, FALLBACK_RESERVE_MS, MIN_REMAINING_MS, parseTextProviderChain, resolveTextModel, selectTextChain } from './textChain.ts'
 import type { TextProvider } from './types.ts'
 import { createWorkersAiTextProvider } from './workersAiText.ts'
 
@@ -169,6 +169,37 @@ describe('createTextChain', () => {
     expect(second.generateReading).not.toHaveBeenCalled()
     expect(log.warn.mock.calls[1]?.[0]).toContain('[reading] claude skipped: time budget exhausted')
     expect(log.error.mock.calls[0]?.[0]).toContain('claude: skipped, time budget exhausted')
+  })
+
+  it('뒤에 제공자가 있으면 그 몫(FALLBACK_RESERVE_MS)을 남기고 신호를 주고, 마지막 제공자는 남은 예산을 다 쓴다', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout')
+    const chain = createTextChain([failing('claude', new Error('401 invalid x-api-key')), ok('workers-ai', 'free text')], { logger: logger(), now: () => 0 })
+    await expect(chain.generateReading(input)).resolves.toMatchObject({ provider: 'workers-ai' })
+    expect(timeout.mock.calls).toEqual([[READING_CHAIN_BUDGET_MS - FALLBACK_RESERVE_MS], [READING_CHAIN_BUDGET_MS]])
+  })
+
+  it('앞 제공자가 자기 몫을 다 쓰고 실패해도 뒤 제공자는 남겨 둔 시간으로 시도된다(느린 실패에서도 예비 모델이 답한다)', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout')
+    let clock = 0
+    const slowFirst: TextProvider = {
+      name: 'claude',
+      generateReading: vi.fn(async () => {
+        // 받은 신호의 시간을 다 쓰고 끊긴 상황을 시계로 흉내 낸다(claude.ts 가 던지는 메시지).
+        clock += READING_CHAIN_BUDGET_MS - FALLBACK_RESERVE_MS
+        throw new Error('time budget exceeded (retries included)')
+      }),
+    }
+    const second = ok('workers-ai', 'free text')
+    const log = logger()
+    const result = await createTextChain([slowFirst, second], { logger: log, now: () => clock }).generateReading(input)
+    expect(result).toMatchObject({ provider: 'workers-ai', reading: 'free text' })
+    expect(timeout).toHaveBeenLastCalledWith(FALLBACK_RESERVE_MS)
+    expect(log.error).not.toHaveBeenCalled()
+  })
+
+  it('예산 배분 상수: 첫 제공자에게 준 시간이 최소 시도 시간 이상이라 처음부터 건너뛰지 않는다', () => {
+    expect(READING_CHAIN_BUDGET_MS - FALLBACK_RESERVE_MS).toBeGreaterThanOrEqual(MIN_REMAINING_MS)
+    expect(FALLBACK_RESERVE_MS).toBeGreaterThanOrEqual(MIN_REMAINING_MS)
   })
 
   it('빈 체인은 로그 없이 mock', async () => {

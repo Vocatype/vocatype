@@ -71,7 +71,12 @@ export interface ChainLogger {
 }
 
 /** 이보다 적게 남으면 다음 제공자를 시도하지 않는다(제대로 답할 시간이 없다). */
-const MIN_REMAINING_MS = 3_000
+export const MIN_REMAINING_MS = 3_000
+/**
+ * 뒤에 시도할 제공자가 남아 있으면 그 몫으로 남겨 두는 시간. 앞 제공자는 남은 예산에서 이만큼을 뺀 시간만 신호로 받는다.
+ * Workers AI(Llama 4 Scout) 실측 2~9초(011)에 여유를 더했다. 그래서 앞 제공자가 느리게 실패해도 뒤 제공자가 시도된다.
+ */
+export const FALLBACK_RESERVE_MS = 10_000
 
 export interface TextChainOptions {
   fallback?: TextProvider
@@ -88,7 +93,8 @@ function describe(cause: unknown): string {
 
 /**
  * 폴백 체인. 앞에서부터 시도하고, 예외(할당량 소진·429·타임아웃·거부·형식 불일치)가 나면 이유를 로그에 남기고 다음으로 넘어간다.
- * 체인 전체에 시간 예산이 있어, 앞 제공자가 오래 끌면 남은 제공자는 건너뛰고(mock), 시도하는 제공자에는 남은 예산을 신호로 넘긴다.
+ * 체인 전체에 시간 예산이 있어, 시도하는 제공자에는 남은 예산을 신호로 넘긴다. 뒤에 제공자가 남아 있으면 그 몫(FALLBACK_RESERVE_MS)을 빼고 넘긴다.
+ * 그래도 앞 제공자가 오래 끌어 3초 미만이 남으면 남은 제공자는 건너뛰고 mock 으로 끝낸다.
  * 로그에는 오류 이름·메시지만 들어간다(요청 본문·축 값 없음).
  */
 export function createTextChain(providers: readonly TextProvider[], options: TextChainOptions = {}): TextChain {
@@ -102,15 +108,17 @@ export function createTextChain(providers: readonly TextProvider[], options: Tex
     async generateReading(input: ReadingInput): Promise<ReadingResult> {
       const started = now()
       const failures: string[] = []
-      for (const provider of providers) {
+      for (const [index, provider] of providers.entries()) {
         const remaining = timeBudgetMs - (now() - started)
-        if (remaining < MIN_REMAINING_MS) {
+        // 뒤에 시도할 제공자가 있으면 그 몫을 남겨 둔다. 마지막 제공자는 남은 예산을 다 쓴다.
+        const allowed = index < providers.length - 1 ? remaining - FALLBACK_RESERVE_MS : remaining
+        if (allowed < MIN_REMAINING_MS) {
           failures.push(`${provider.name}: skipped, time budget exhausted`)
           logger.warn(`[reading] ${provider.name} skipped: time budget exhausted (${timeBudgetMs}ms)`)
           continue
         }
         try {
-          const output = await provider.generateReading(input, { signal: AbortSignal.timeout(remaining) })
+          const output = await provider.generateReading(input, { signal: AbortSignal.timeout(allowed) })
           return { ...output, provider: provider.name }
         } catch (cause) {
           const reason = describe(cause)
