@@ -60,11 +60,11 @@ describe('worker routes', () => {
   })
 
   it('workers-ai 제공자는 data URL을 돌려준다', async () => {
-    const ai = { run: async () => ({ image: 'QUJD' }) } as unknown as Ai
+    const ai = { run: async () => ({ image: '/9j/QUJD' }) } as unknown as Ai
     const env = { AI_PROVIDER: 'workers-ai', AI: ai } as unknown as FakeEnv
     expect(await (await call('/api/config', undefined, env)).json()).toEqual({ provider: 'workers-ai', features: { portrait: true } })
     const response = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"CLME","seed":3}' }, env)
-    expect(await response.json()).toEqual({ image: 'data:image/jpeg;base64,QUJD', provider: 'workers-ai' })
+    expect(await response.json()).toEqual({ image: 'data:image/jpeg;base64,/9j/QUJD', provider: 'workers-ai' })
   })
 
   it('모르는 API 경로는 404', async () => {

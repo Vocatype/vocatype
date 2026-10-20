@@ -87,14 +87,14 @@ AI는 어댑터(`worker/ai/`) 뒤에 있고, 기본값은 이미지를 만들지
 | 제공자 | 설정 | 하는 일 |
 | --- | --- | --- |
 | `mock` (기본) | `AI_PROVIDER` 없음 또는 `mock` | 초상 생성 안 함 (`/api/config` → `features.portrait: false`) |
-| `workers-ai` | `AI_PROVIDER = "workers-ai"` + `ai` 바인딩 | `@cf/black-forest-labs/flux-1-schnell`로 실사 초상 생성 |
+| `workers-ai` | `AI_PROVIDER = "workers-ai"` + `ai` 바인딩 | `@cf/leonardo/lucid-origin`으로 실사 초상 생성 (`seed` 지원) |
 
 ### Workers AI 켜기
 
 1. `wrangler.jsonc`의 `vars.AI_PROVIDER`를 `"workers-ai"`로 바꿔 커밋·푸시한다. (`ai` 바인딩과 속도 제한은 이미 들어 있다.)
    대시보드의 변수 화면에서 바꾸면 안 된다. `wrangler deploy`가 다음 푸시 때 설정 파일 값으로 덮어써 조용히 `mock`으로 돌아간다.
 2. 푸시하면 Cloudflare가 빌드·배포한다. 배포 후 `https://<worker>/api/config`가 `{"provider":"workers-ai","features":{"portrait":true}}`를 돌려주면 켜진 것이다.
-3. 같은 요청을 두 번 보내 같은 이미지가 나오는지 확인한다. Flux 1 schnell의 `seed` 파라미터는 Cloudflare 예제 코드에만 나오고 파라미터 표에는 없어 지원이 확실하지 않다. 다르게 나오면 "같은 녹음 = 같은 얼굴"이 성립하지 않으므로 `seed`를 지원하는 모델로 바꾸는 것을 검토한다.
+3. 같은 요청을 두 번 보내 같은 이미지가 나오는지 확인한다(`seed` 결정성). Flux 1 schnell은 `seed` 입력을 거부해 Leonardo Lucid Origin으로 바꿨다. 503이 계속 나오면 Worker 로그(`npx wrangler tail --name <worker>`)에서 `[portrait] provider failed:` 줄을 확인한다. 무료 플랜은 Workers AI 일일 할당량(10,000 neurons)이 있어 소진되면 `4006` 오류로 503이 나며, 이때 결과 화면은 자리표시 초상으로 진행한다.
    ```bash
    curl -s -X POST https://<worker>/api/portrait -H 'content-type: application/json' -d '{"typeCode":"WFQV","seed":123}' | shasum
    ```
