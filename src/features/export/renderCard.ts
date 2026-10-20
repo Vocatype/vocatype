@@ -37,8 +37,8 @@ const CONTENT_WIDTH = CARD_WIDTH - MARGIN * 2
 /** 이 선 아래로는 본문을 그리지 않는다. 하단 문구 영역. */
 const FOOTER_TOP = CARD_HEIGHT - 120
 
-function font(weight: number, size: number, style = ''): string {
-  return `${style ? `${style} ` : ''}${weight} ${size}px ${FONT}`
+function font(weight: number, size: number): string {
+  return `${weight} ${size}px ${FONT}`
 }
 
 function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -180,10 +180,11 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
     y += 36
   }
 
-  // 리딩 캡션. 한 줄만, 넘치면 말줄임. 없으면 공간도 쓰지 않는다.
+  // 리딩 캡션. 한 줄만(한글 약 33자·영문 약 60자), 넘치면 말줄임. 없으면 공간도 쓰지 않는다.
+  // 한글 글꼴에는 이탤릭이 없어 합성 기울임이 되므로 굵기로만 구분한다.
   if (labels.caption) {
     y += 8
-    ctx.font = font(500, 27, 'italic')
+    ctx.font = font(600, 26)
     for (const line of clampLines(wrapText(labels.caption, CONTENT_WIDTH - 60, measure), 1, CONTENT_WIDTH - 60, measure)) {
       ctx.fillText(line, CARD_WIDTH / 2, y)
       y += 36

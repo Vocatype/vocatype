@@ -3,6 +3,7 @@ import type { FlowStep } from '../app/flow'
 import { Button } from '../components/Button'
 import { Screen } from '../components/Screen'
 import { fetchAiConfig, requestPortrait, requestReading, toReadingAxes, type VoiceReading } from '../features/ai/client'
+import { planGeneration } from '../features/ai/reading'
 import { analyzeRecording, type AnalysisStage } from '../features/analysis/analyze'
 import type { VoiceProfile } from '../features/profile/types'
 import type { Capture } from '../features/recorder/types'
@@ -76,13 +77,20 @@ export function GeneratingScreen({ capture, onNavigate, onGenerated }: Props) {
       //    어느 쪽이 실패해도 null 로 받아 결과로 진행한다(초상은 자리표시, 리딩은 카탈로그 설명).
       const config = await configPromise
       if (signal.aborted) return
-      const wantPortrait = config.features.portrait
-      const wantReading = config.features.reading
-      if (wantPortrait || wantReading) setProgress({ stage: wantPortrait ? 'portrait' : 'reading', value: 0.9 })
-      const [portrait, reading] = await Promise.all([
-        wantPortrait ? requestPortrait({ typeCode: profile.typeCode, seed: profile.seed }, signal) : Promise.resolve(null),
-        wantReading ? requestReading({ typeCode: profile.typeCode, axes: toReadingAxes(profile.axes), locale: localeRef.current }, signal) : Promise.resolve(null),
-      ])
+      const plan = planGeneration(config.features, profile.quality)
+      if (plan.stage) setProgress({ stage: plan.stage, value: 0.9 })
+      let readingSettled = false
+      const portraitPromise = plan.wantPortrait ? requestPortrait({ typeCode: profile.typeCode, seed: profile.seed }, signal) : Promise.resolve(null)
+      const readingPromise = plan.wantReading
+        ? requestReading({ typeCode: profile.typeCode, axes: toReadingAxes(profile.axes), locale: localeRef.current }, signal).finally(() => {
+            readingSettled = true
+          })
+        : Promise.resolve(null)
+      // 초상이 먼저 끝났는데 리딩을 아직 기다리면 단계 문구를 리딩으로 바꾼다(요청은 둘 다 null 로 끝나므로 reject 하지 않는다).
+      void portraitPromise.then(() => {
+        if (plan.wantReading && !readingSettled && !signal.aborted) setProgress({ stage: 'reading', value: 0.9 })
+      })
+      const [portrait, reading] = await Promise.all([portraitPromise, readingPromise])
       if (signal.aborted) return
 
       const remaining = MIN_DISPLAY_MS - (performance.now() - startedAt)

@@ -6,7 +6,7 @@ interface __BaseEnv_Env {
 	READING_LIMITER: RateLimit;
 	AI: Ai;
 	TEXT_PROVIDER: "mock";
-	AI_PROVIDER: string;
+	AI_PROVIDER: "workers-ai";
 }
 declare namespace Cloudflare {
 	interface GlobalProps {

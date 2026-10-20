@@ -11,13 +11,25 @@ export function isTextModel(value: unknown): value is string {
   return typeof value === 'string' && /^claude-[a-z0-9][a-z0-9.-]{0,63}$/.test(value)
 }
 
-/** SDK 타임아웃은 밀리초. 재시도 1회를 더해도 클라이언트 타임아웃(30초) 안에 끝난다. */
+/** SDK 타임아웃은 밀리초(요청 1회 기준). 재시도 1회를 더해도 클라이언트 타임아웃(30초) 안에 끝나도록 둔다. */
 const REQUEST_TIMEOUT_MS = 12_000
 const MAX_RETRIES = 1
-/** 적응형 사고가 켜져 있어 사고 토큰까지 포함한 여유. 실제 출력은 200토큰 안팎이다. */
-const MAX_TOKENS = 1024
+/**
+ * 재시도·대기(retry-after)까지 합친 전체 상한. SDK 는 서버가 준 retry-after 를 그대로 기다리므로,
+ * 이 신호가 없으면 클라이언트가 포기한 뒤에도 Worker 가 두 번째 호출을 보내 비용을 쓸 수 있다.
+ */
+const TOTAL_TIMEOUT_MS = 25_000
+/**
+ * 적응형 사고가 켜져 있어 사고 토큰이 max_tokens 에 포함된다. 실제 출력은 200토큰 안팎이지만
+ * 사고가 길어져 잘리면(503 → 폴백) 사용자에게 리딩이 조용히 사라지므로 넉넉히 둔다. 쓴 토큰만 과금된다.
+ */
+const MAX_TOKENS = 4096
 
-export type CreateMessage = (params: Anthropic.MessageCreateParamsNonStreaming) => Promise<Anthropic.Message>
+export interface CreateMessageOptions {
+  signal?: AbortSignal
+}
+
+export type CreateMessage = (params: Anthropic.MessageCreateParamsNonStreaming, options?: CreateMessageOptions) => Promise<Anthropic.Message>
 
 export interface ClaudeTextProviderOptions {
   apiKey: string
@@ -69,12 +81,13 @@ export function createClaudeTextProvider(options: ClaudeTextProviderOptions): Te
   const model = options.model ?? DEFAULT_TEXT_MODEL
   const createMessage: CreateMessage =
     options.createMessage ??
-    ((params) => new Anthropic({ apiKey: options.apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: MAX_RETRIES }).messages.create(params))
+    ((params, requestOptions) =>
+      new Anthropic({ apiKey: options.apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: MAX_RETRIES }).messages.create(params, requestOptions))
   return {
     name: 'claude',
     supportsReading: true,
     async generateReading(input: ReadingInput): Promise<ReadingOutput> {
-      const message = await createMessage(buildReadingParams(input, model))
+      const message = await createMessage(buildReadingParams(input, model), { signal: AbortSignal.timeout(TOTAL_TIMEOUT_MS) })
       return parseReadingMessage(message)
     },
   }

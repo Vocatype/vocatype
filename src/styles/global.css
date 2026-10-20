@@ -829,7 +829,7 @@ p {
   margin: 0;
 }
 
-/* 목소리 리딩 카드(009). 문단은 본문 색, 캡션은 강조색 한 줄. */
+/* 목소리 리딩 카드(009). 문단은 본문 색, 캡션은 강조색 한 줄(한글 글꼴에 이탤릭이 없어 기울임은 쓰지 않는다). */
 .reading__text {
   font-size: 1rem;
   line-height: 1.7;
@@ -840,7 +840,6 @@ p {
 .reading__caption {
   font-size: 1.05rem;
   font-weight: 600;
-  font-style: italic;
   color: var(--accent);
   padding-left: 12px;
   border-left: 3px solid var(--accent);

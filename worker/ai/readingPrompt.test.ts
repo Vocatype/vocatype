@@ -6,11 +6,13 @@ const axes = { warmth: 0.8, density: 0.25, pace: 0.5, variation: 0.123, pitch: 0
 
 describe('READING_SYSTEM_PROMPT', () => {
   it('성별·나이·인종 추정과 진단을 금지하고 수치 인용을 막는다', () => {
-    for (const word of ['gender', 'age', 'ethnicity', 'nationality', 'health', 'diagnose', 'numbers', 'type code']) {
+    for (const word of ['gender', 'age', 'ethnicity', 'nationality', 'health', 'diagnose', 'gendered or age-coded words', 'no numbers', 'no axis names', 'no type code']) {
       expect(READING_SYSTEM_PROMPT.toLowerCase()).toContain(word)
     }
     expect(READING_SYSTEM_PROMPT).toContain('3 to 4 sentences')
     expect(READING_SYSTEM_PROMPT).toContain('never the audio')
+    // 캡션 상한은 저장 이미지 한 줄 폭(한글 약 33자·영문 약 60자) 안이어야 한다.
+    expect(READING_SYSTEM_PROMPT).toContain('28 characters in Korean or 60 characters in English')
   })
 })
 

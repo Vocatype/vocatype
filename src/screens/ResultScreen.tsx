@@ -6,6 +6,7 @@ import { PortraitFrame } from '../components/PortraitFrame'
 import { Screen } from '../components/Screen'
 import { SoundSignature } from '../components/SoundSignature'
 import type { VoiceReading } from '../features/ai/client'
+import { visibleReading } from '../features/ai/reading'
 import { loadImage, renderCard } from '../features/export/renderCard'
 import { canShareFiles, downloadBlob, shareBlob } from '../features/export/save'
 import { presentResult, type ResultView } from '../features/profile/present'
@@ -34,7 +35,7 @@ export function ResultScreen({ capture, profile, portrait, reading, onNavigate }
 
   const view = useMemo(() => (profile ? presentResult(profile, capture, locale) : null), [profile, capture, locale])
   // 리딩은 생성 시점 언어로 한 번만 만든다. 언어를 바꾸면 다른 언어의 글을 섞어 보이지 않고 카탈로그 설명으로 돌아간다.
-  const shownReading = reading && reading.locale === locale ? reading : null
+  const shownReading = visibleReading(reading, locale)
   const caption = shownReading?.caption ?? ''
 
   const statLines = view ? [t('result.stat.pitch', { hz: view.stats.pitchHz }), t('result.stat.pace', { count: view.stats.syllablesPerMinute })] : []

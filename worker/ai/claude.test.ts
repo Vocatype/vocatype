@@ -65,19 +65,22 @@ describe('parseReadingMessage', () => {
 })
 
 describe('createClaudeTextProvider', () => {
-  it('주입한 createMessage 로 호출하고 결과를 파싱한다', async () => {
-    const calls: Anthropic.MessageCreateParamsNonStreaming[] = []
+  it('주입한 createMessage 로 호출하고(전체 상한 신호 포함) 결과를 파싱한다', async () => {
+    const calls: { params: Anthropic.MessageCreateParamsNonStreaming; signal: AbortSignal | undefined }[] = []
     const provider = createClaudeTextProvider({
       apiKey: 'sk-ant-test',
       model: 'claude-sonnet-5-5',
-      createMessage: async (params) => {
-        calls.push(params)
+      createMessage: async (params, options) => {
+        calls.push({ params, signal: options?.signal })
         return message([text(JSON.stringify(GOOD))])
       },
     })
     expect(provider.name).toBe('claude')
     await expect(provider.generateReading(input)).resolves.toEqual(GOOD)
-    expect(calls[0]?.model).toBe('claude-sonnet-5-5')
+    expect(calls[0]?.params.model).toBe('claude-sonnet-5-5')
+    // 재시도·retry-after 대기까지 합친 전체 상한. 클라이언트가 포기한 뒤 Worker 가 두 번째 호출을 보내지 않게 한다.
+    expect(calls[0]?.signal).toBeInstanceOf(AbortSignal)
+    expect(calls[0]?.signal?.aborted).toBe(false)
   })
 
   it('제공자 오류는 그대로 전파된다(라우트가 503으로 바꾼다)', async () => {
