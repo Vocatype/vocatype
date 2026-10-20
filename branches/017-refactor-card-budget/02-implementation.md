@@ -9,7 +9,7 @@
 
 | 파일 | 내용 |
 | --- | --- |
-| `src/features/export/renderCard.ts` | 상수 `BUDGET_RESERVE`(60, export)·`DESCENT`(4)·`SECTION_GAP`(40) 추가, `FOOTER_TOP` export. 예산에 들어가는 간격 7곳 + 정렬용 1곳 조정(아래 표). 향 노트 줄 간격을 `NOTE_LINE`(34)으로 묶음(1차 리뷰 #4). 서명 블록·초상 아래·`SECTION_GAP` 주석을 현재 값으로 갱신 |
+| `src/features/export/renderCard.ts` | 상수 `BUDGET_RESERVE`(60, export)·`DESCENT`(4)·`SECTION_GAP`(40) 추가, `FOOTER_TOP` export. 예산에 들어가는 간격 7곳 + 정렬용 1곳 조정(아래 표). 향 노트 줄 간격을 모듈 상단 상수 `NOTE_LINE`(34)으로 묶음(1차 리뷰 #4, 위치는 2차 리뷰 N1). 서명 블록·초상 아래·`SECTION_GAP` 주석을 현재 값으로 갱신 |
 | `src/features/export/renderCard.test.ts` | `FOOTER_TOP`·`BUDGET_RESERVE` import, `CARD_HEIGHT − 120` 리터럴 두 곳 → `FOOTER_TOP`, 최악 조합 테스트에 최대 y ≤ `FOOTER_TOP − BUDGET_RESERVE` 단언 추가. 테스트 이름에 "예산 60을 남기고"를 넣음(1차 리뷰 #6) |
 | `branches/017-refactor-card-budget/` | 설계·구현·리뷰 문서 |
 
