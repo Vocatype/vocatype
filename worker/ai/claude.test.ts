@@ -109,6 +109,19 @@ describe('createClaudeTextProvider', () => {
     expect(seen[1]).toBe(chainSignal)
   })
 
+  it('배분된 시간이 끝나 신호가 끊기면 SDK 의 중단 오류를 "time budget exceeded" 로 바꿔 던진다(체인 로그에서 구분되게)', async () => {
+    const controller = new AbortController()
+    const provider = createClaudeTextProvider({
+      apiKey: 'sk-ant-test',
+      createMessage: async () => {
+        // SDK 는 중단을 APIUserAbortError 로만 알린다. 신호가 끊긴 뒤의 거부를 흉내 낸다.
+        controller.abort()
+        throw Object.assign(new Error('Request was aborted.'), { name: 'APIUserAbortError' })
+      },
+    })
+    await expect(provider.generateReading(input, { signal: controller.signal })).rejects.toThrow('time budget exceeded (retries included)')
+  })
+
   it('제공자 오류는 그대로 전파된다(라우트가 503으로 바꾼다)', async () => {
     const provider = createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage: async () => { throw new Error('overloaded') } })
     await expect(provider.generateReading(input)).rejects.toThrow('overloaded')

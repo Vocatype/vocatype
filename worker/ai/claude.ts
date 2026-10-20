@@ -13,8 +13,9 @@ export function isTextModel(value: unknown): value is string {
 }
 
 /**
- * SDK 타임아웃은 밀리초(요청 1회 기준). 두 번(12초 × (1 + 재시도 1) = 24초)이 체인 예산(25초)을 넘지 않게 둔다.
- * 재시도·대기(retry-after)까지 합친 실제 상한은 SDK 설정이 아니라 중단 신호(체인의 남은 예산, 없으면 체인 예산 전체)가 건다.
+ * SDK 타임아웃은 밀리초(요청 1회 기준).
+ * 재시도·대기(retry-after)까지 합친 실제 상한은 SDK 설정이 아니라 중단 신호가 건다: 체인 안에서는 체인이 배분한 시간
+ * (운영 순서 claude,workers-ai 에서 13초라 요청 12초 한 번은 들어가고 재시도는 남은 시간 안에서만 된다), 체인 밖에서는 체인 예산 전체.
  */
 const REQUEST_TIMEOUT_MS = 12_000
 const MAX_RETRIES = 1
