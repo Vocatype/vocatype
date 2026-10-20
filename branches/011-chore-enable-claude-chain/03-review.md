@@ -22,8 +22,8 @@
 | # | 심각도 | 위치 | 내용 | 조치 |
 | --- | --- | --- | --- | --- |
 | 1 | minor | `workersAiText.ts` | Workers AI 호출에 자체 타임아웃이 없어 폭주 시 512토큰까지 달린 뒤에야 폴백된다. 3.3 70B 속도(약 35토큰/초)면 약 15초, Scout는 더 짧다 | 이번 범위 밖(코드 변경). 02 "알려진 한계"에 기록, 후속 작업 후보로 남김 |
-| 2 | nit | `01-design.md` | 할당량 초기화를 UTC 자정으로 가정했으나 12:06 소진 → 12:36 호출 가능으로 틀렸다 | 설계 문서는 그대로 두고 02 "설계 대비 달라진 점"에 기록 |
-| 3 | nit | 실측 | Scout 샘플이 8건이고 타입 코드는 두 가지(`WFQV`, `CFQV`)뿐이다 | 배포 후 확인에서 다른 타입으로 1~2회 더 보고 02에 추가 |
+| 2 | nit | `01-design.md` | 할당량 초기화를 UTC 자정으로 가정했으나 12:06 소진 → 12:26 호출 가능으로 틀렸다 | 설계 문서는 그대로 두고 02 "설계 대비 달라진 점"에 기록 |
+| 3 | nit | 실측 | Scout 샘플이 8건이고 타입 코드는 두 가지(`WFQV`, `CFQV`)뿐이다 | 배포 후 확인에서 `CLME`·`WLME`를 추가로 확인해 02에 기록(통과) |
 
 ### 1차 결론
 
@@ -33,10 +33,10 @@
 
 - 빌드본 체인: `/api/config` → `["workers-ai","claude"]`, ko/en 리딩 Scout 응답 200(02 문서 표)
 - 4006 → Claude 폴백 경로는 010에서 같은 체인 코드로 실증. 이번 변경은 설정값·상수뿐
-- 배포 후 확인(`/api/config`, `/api/reading`, 필요 시 `npx wrangler tail`)은 푸시·배포 뒤 02 문서 "배포 후 확인" 절에 기록한다
+- 배포 후 확인(02 문서 "배포 후 확인" 절): `/api/config`에 `claude`, ko/en 네 타입 `/api/reading` 200 `provider: "workers-ai"`, tail에 Scout 모델 줄. 폴백 경고 0건
 
 ## 최종
 
 - 병합: `git merge --no-ff chore/011-enable-claude-chain` → main
 - 브랜치 삭제: `git branch -d chore/011-enable-claude-chain`
-- 푸시는 사용자 확인 뒤. 대시보드 Git 연결이 아직이면(012 사용자 작업) 푸시만으로 배포되지 않으므로 그때는 `npx wrangler deploy`를 사용자 확인 뒤 실행한다
+- 푸시: 사용자 확인 뒤 main `cf6c122` → origin (12:35 KST). 배포 12:35 KST, 배포 후 확인 완료(02 문서)

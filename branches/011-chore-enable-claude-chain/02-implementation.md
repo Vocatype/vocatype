@@ -26,13 +26,13 @@
 - 저장소 밖 임시 하네스(`wrangler dev`, AI 바인딩만)가 프로젝트의 `buildWorkersAiTextInput`·`parseWorkersAiTextResult`를 그대로 import해 모델 이름만 바꿔 호출했다. 즉 **운영과 같은 시스템 프롬프트·사용자 메시지·JSON 스키마·`max_tokens: 1024`(당시)·같은 파서**다.
 - 입력은 README의 curl 예시(`WFQV`, ko)와 010이 쓴 `CFQV`(en), 교차로 `WFQV` en·`CFQV` ko. 축 값은 README 예시 그대로.
 - 판정 기준: 문장 수 3~4, 캡션 ko 28자 / en 60자 이내, 성별·나이·외모 표현 없음, 수치·축 이름·타입 코드 인용 없음, 한국어는 해요체·"당신" 반복 없음, 파서 통과 여부, 소요 시간, 뉴런(`usage.neurons`).
-- 2026-10-20 12:06 KST에는 할당량 소진(`4006`)이었으나 12:36 KST에 다시 호출이 됐다. 설계의 "UTC 자정 초기화" 가정은 틀렸고 실제 경계는 확인하지 못했다(관찰만 기록).
+- 2026-10-20 12:06 KST에는 할당량 소진(`4006`)이었으나 12:26 KST에 다시 호출이 됐다. 설계의 "UTC 자정 초기화" 가정은 틀렸고 실제 경계는 확인하지 못했다(관찰만 기록).
 
 ### 결과
 
 | 시각(KST) | 모델 | 언어/타입 | 시간 | 출력 토큰 | 뉴런 | 결과 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 12:36 | Llama 3.3 70B (빌드본 체인, 8788) | ko WFQV | 4.0s | 92 | — | 통과했지만 네 절이 **쉼표로 이어진 한 문장**(마침표 없음) |
+| 12:26 | Llama 3.3 70B (빌드본 체인, 8788) | ko WFQV | 4.0s | 92 | — | 통과했지만 네 절이 **쉼표로 이어진 한 문장**(마침표 없음) |
 | 12:26 | Llama 3.3 70B | ko WFQV | 4.7s | 143 | 47.4 | 통과. 4문장 200자, 캡션 "따뜻한 불꽃"(6자) |
 | 12:27 | Llama 3.3 70B | **en CFQV** | **30.6s** | **1024(상한)** | **227.2** | **실패**: 문장을 끝내지 못하고 상한까지 달림 → JSON 잘림 → `response is not JSON` |
 | 12:27 | Llama 3.3 70B | ko CFQV | 3.3s | 117 | 41.9 | 통과. 4문장 155자, 캡션 "새벽 도시의 앵커"(9자) |
@@ -79,7 +79,7 @@ Llama 4 Scout, en `WFQV` (통과):
 | `GET /api/config` | `{"provider":"workers-ai","textProviders":["workers-ai","claude"],"features":{"portrait":true,"reading":true}}` |
 | `POST /api/reading` ko `WFQV` | 200, `provider: "workers-ai"`, 5.2초, 로그 `[reading] workers-ai @cf/meta/llama-4-scout-17b-16e-instruct in=651 out=91` |
 | `POST /api/reading` en `CFQV` | 200, `provider: "workers-ai"`, 7.6초, `in=637 out=89` |
-| 같은 빌드본, 모델 교체 전(12:36) | ko 4.0초 `provider: "workers-ai"`(3.3 70B, 쉼표 나열) — 할당량 소진 상태였던 12:06에는 `4006` → `provider: "mock"` |
+| 같은 빌드본, 모델 교체 전(12:26) | ko 4.0초 `provider: "workers-ai"`(3.3 70B, 쉼표 나열) — 할당량 소진 상태였던 12:06에는 `4006` → `provider: "mock"` |
 
 4006 → Claude 폴백 경로는 010에서 같은 체인 코드로 실증했고 이번 변경은 설정값·모델 상수뿐이라 다시 유료 호출을 내지 않았다.
 
@@ -87,7 +87,7 @@ Llama 4 Scout, en `WFQV` (통과):
 
 | 설계 | 구현 | 이유 |
 | --- | --- | --- |
-| 할당량 초기화(UTC 자정 가정)를 기다려 실측 | 같은 날 12:36 KST에 호출이 돼 바로 실측 | 12:06 소진 → 12:36 가능. 초기화 경계는 UTC 자정이 아니며 실제 규칙은 확인 못 함 |
+| 할당량 초기화(UTC 자정 가정)를 기다려 실측 | 같은 날 12:26 KST에 호출이 돼 바로 실측 | 12:06 소진 → 12:26 가능. 초기화 경계는 UTC 자정이 아니며 실제 규칙은 확인 못 함 |
 | 모델 상수만 교체 | 상수 + `MAX_TOKENS` 1024 → 512 | 실측된 실패 형태가 "문장이 끝나지 않는 폭주"라 상한이 곧 시간 제동이다. 실측 출력(80~143토큰)의 5배 여유 |
 | 비밀 등록 요청 후 대기 | 재개 시점에 이미 등록돼 있었음(`secret list`, 03:10Z "Secret Change" 배포) | 012 구현 문서의 안내로 사용자가 먼저 넣었다 |
 | README에 `--name` 안내 추가 | 불필요 | 012로 설정 이름 = 배포 이름 = `vocatype` |
@@ -113,4 +113,17 @@ Llama 4 Scout, en `WFQV` (통과):
 
 ## 배포 후 확인
 
-(병합·푸시·배포 뒤 기록)
+main `cf6c122`(병합 커밋)이 12:35 KST에 origin에 푸시됐고, 12:35:49Z(12:35 KST) 배포(`wrangler deployments list` Source "Unknown (deployment)")가 그 내용을 올렸다. 12:37~12:40 KST에 배포 주소 `https://vocatype.hs827.workers.dev`에서 확인:
+
+| 호출 | 결과 |
+| --- | --- |
+| `GET /api/config` | `{"provider":"workers-ai","textProviders":["workers-ai","claude"],"features":{"portrait":true,"reading":true}}` — **claude가 체인에 들어감** |
+| `POST /api/reading` ko `WFQV` | 200, `provider: "workers-ai"`, 2.8초. 4문장, 캡션 "따뜻한 말투가 이야기를 가득 채우네요"(17자) |
+| `POST /api/reading` en `CFQV` | 200, `provider: "workers-ai"`, 2.6초. 4문장, 캡션 "Your voice cuts through with clarity"(36자) |
+| `POST /api/reading` ko `CLME`(느긋·가벼운 쪽 타입) | 200, `provider: "workers-ai"`, 4.4초. "목소리가 맑고 가벼운 느낌을 주네요. 말하는 속도가 느긋하고, 음의 흐름이 고르며 안정감이 있어요. …" 캡션 "아침의 고요함을 담은 목소리"(14자) |
+| `POST /api/reading` en `WLME` | 200, `provider: "workers-ai"`, 3.6초. 4문장, 캡션 "Soothing voice, calm and gentle"(31자) |
+| `npx wrangler tail --format json` | `[reading] workers-ai @cf/meta/llama-4-scout-17b-16e-instruct in=651 out=103`, `in=637 out=87` — **배포본이 Scout를 쓴다.** `falling back`·`all providers failed` 0건 |
+
+- 네 타입(`WFQV`, `CFQV`, `CLME`, `WLME`) 모두 성별·나이 표현·숫자·"당신" 없음, 캡션 길이 한도 안. 리뷰 #3(타입 다양성)은 이것으로 보완.
+- 확인 시점에는 무료 할당량이 남아 있어 Claude 경로는 운영에서 타지 않았다. 할당량 소진 뒤에는 로그에 `[reading] workers-ai failed, falling back: AiError: 4006 …` 다음 `[reading] claude claude-haiku-5-5 in=… out=…`가 찍히고 응답 `provider: "claude"`가 와야 한다(010에서 같은 코드로 실증).
+- tail 원본(JSON)은 요청 메타데이터가 들어 있어 `[reading]` 줄만 옮겨 적고 지웠다.
