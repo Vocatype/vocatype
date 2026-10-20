@@ -43,6 +43,7 @@ const DESCENT = 4
 /**
  * 섹션 제목 위 간격. 이전 블록의 시각적 바닥(글자는 기준선 + DESCENT, 막대·견본·원은 아랫변)에서 제목 기준선까지.
  * 제목 글자 윗선까지는 약 24px이 남는다. 017에서 세 섹션을 같은 규칙으로 맞췄다.
+ * 예외: 축 막대가 없는 low-signal 카드는 설명/캡션 블록의 커서가 한 줄 간격만큼 내려간 채 퍼스널 컬러 제목을 만나 간격이 더 넓다(약 55). 예산이 남아 그대로 둔다.
  */
 const SECTION_GAP = 40
 
@@ -289,6 +290,8 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   }
   sy += 4
   ctx.font = font(400, 25)
+  /** 향 노트(25px) 줄 간격. 아래에서 마지막 줄의 시각적 바닥을 되짚을 때도 쓴다. */
+  const NOTE_LINE = 34
   const noteLines = [
     `${labels.top} · ${view.scent.top.join(', ')}`,
     `${labels.middle} · ${view.scent.middle.join(', ')}`,
@@ -298,11 +301,11 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
     for (const line of clampLines(wrapText(note, columnWidth, measure), 1, columnWidth, measure)) {
       ctx.fillStyle = FG
       ctx.fillText(line, MARGIN, sy)
-      sy += 34
+      sy += NOTE_LINE
     }
   }
   // sy는 다음 줄의 기준선이므로 마지막 줄의 시각적 바닥은 한 줄 간격을 되돌린 기준선 + DESCENT.
-  const scentBottom = sy - 34 + DESCENT
+  const scentBottom = sy - NOTE_LINE + DESCENT
 
   // 서명 반지름 110 → 100(009). 원 윗점은 구분선 아래 22px로 향 이름 글자 윗선과 비슷한 높이(017에서 56 → 36),
   // 라벨은 원 아랫점 + 32, 통계 줄 간격 26. 이 칼럼이 향 칼럼보다 길어 섹션 바닥을 정하므로 예산은 여기서 회수한다.

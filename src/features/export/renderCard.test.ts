@@ -208,7 +208,7 @@ describe('drawCard', () => {
 })
 
 describe('drawCard 예산', () => {
-  it('모든 줄 수 제한이 꽉 찬 최악 조합도 하단 문구 위에서 끝난다', () => {
+  it('모든 줄 수 제한이 꽉 찬 최악 조합도 하단 문구 위에서, 다음 요소를 위한 예산 60을 남기고 끝난다', () => {
     const base = presentResult(profileFor('WFQV'), null, 'en')
     const long = (n: number) => Array.from({ length: n }, (_, i) => `Word${i}`).join(' ')
     const view = {
