@@ -15,6 +15,7 @@
 | `src/styles/global.css` | `.voice-loader`(높이 72px, 간격 6px), `.voice-loader__bar`(폭 6px, 브랜드 그라데이션, `scaleY`로 0.3×h ↔ h를 1.1초 주기로 오르내리고, 순번마다 −0.09초씩 음수 지연), `@keyframes voice-loader-wave`, 움직임 줄이기에서 `animation: none` |
 | `src/i18n/messages/ko.ts`, `en.ts` | `result.portraitPending` 문구 |
 | `src/screens/GeneratingScreen.test.tsx` | 새 테스트 파일, 3건(아래) |
+| `src/screens/ResultScreen.test.tsx` | 기존 테스트 이름의 "준비 중 안내" → "초상 실패 안내"(1차 리뷰 #2, 동작 변경 없음) |
 
 ## 추가한 테스트
 
@@ -54,5 +55,6 @@
 - 할당량 소진(하루 6~7장 뒤)으로 초상이 실패하는 것 자체는 그대로다. 늘 초상까지 나오게 하려면 Cloudflare Workers 유료 플랜이 필요하다(초과분 1,000뉴런당 $0.011, 초상 1장 약 $0.016). 사용자 결정 사항이다.
 - 기존 진행 막대의 대기 단계 깜빡임(`meter-pulse`)은 움직임 줄이기에서 전역 규칙에만 기대고 있다. 이번 범위 밖이다.
 - 초상 기능이 꺼져 있거나(`features.portrait=false`) 설정 조회가 실패해 오프라인 설정을 쓸 때도 같은 문구("이번에는 … 만들지 못해")가 나온다. 지금 배포본은 기능이 켜져 있어 영향이 작다(1차 리뷰 #1).
+- 실패 화면에 음파가 없다는 점은 테스트하지 않았다. 정적 렌더로는 실패 상태에 갈 수 없다(1차 리뷰 #6).
 - 화면 확인은 내장 브라우저(Chromium)에서만 했다. iPhone Safari 실기기에서 음파 모양(가장 짧을 때 둥근 끝이 납작해짐 포함)을 한 번 보는 것이 좋다(1차 리뷰 #5·#6).
 - 다른 문구의 "당신만의 목소리 지문"(`ko.ts`)은 이번 범위 밖이다(1차 리뷰 #4).
