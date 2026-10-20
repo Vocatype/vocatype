@@ -9,8 +9,8 @@
 
 | 파일 | 내용 |
 | --- | --- |
-| `src/features/export/renderCard.ts` | 상수 `BUDGET_RESERVE`(60, export)·`DESCENT`(4)·`SECTION_GAP`(40) 추가, `FOOTER_TOP` export. 간격 7곳 조정(아래 표). 서명 블록·초상 아래 주석을 현재 값으로 갱신 |
-| `src/features/export/renderCard.test.ts` | `FOOTER_TOP`·`BUDGET_RESERVE` import, `CARD_HEIGHT − 120` 리터럴 두 곳 → `FOOTER_TOP`, 최악 조합 테스트에 최대 y ≤ `FOOTER_TOP − BUDGET_RESERVE` 단언 추가 |
+| `src/features/export/renderCard.ts` | 상수 `BUDGET_RESERVE`(60, export)·`DESCENT`(4)·`SECTION_GAP`(40) 추가, `FOOTER_TOP` export. 예산에 들어가는 간격 7곳 + 정렬용 1곳 조정(아래 표). 향 노트 줄 간격을 `NOTE_LINE`(34)으로 묶음(1차 리뷰 #4). 서명 블록·초상 아래·`SECTION_GAP` 주석을 현재 값으로 갱신 |
+| `src/features/export/renderCard.test.ts` | `FOOTER_TOP`·`BUDGET_RESERVE` import, `CARD_HEIGHT − 120` 리터럴 두 곳 → `FOOTER_TOP`, 최악 조합 테스트에 최대 y ≤ `FOOTER_TOP − BUDGET_RESERVE` 단언 추가. 테스트 이름에 "예산 60을 남기고"를 넣음(1차 리뷰 #6) |
 | `branches/017-refactor-card-budget/` | 설계·구현·리뷰 문서 |
 
 ## 주요 구현 내용
@@ -23,14 +23,19 @@
 | 4 | 서명 원 윗점 | 제목 `+ 56` | 제목 `+ 36` | 20 |
 | 5 | 원 아랫점 → 「사운드 시그니처」 라벨 | `+ 38` | `+ 32` | 6 |
 | 6 | 통계 줄 간격 | 28 | 26 | 4 |
-| 7 | 향/서명 블록 끝 | `max(sy, statY) + 40` | `max(scentBottom, statY + DESCENT) + SECTION_GAP`, `scentBottom = sy − 34 + DESCENT` | −4 |
+| 7 | 향/서명 블록 끝 | `max(sy, statY) + 40` | `max(scentBottom, statY + DESCENT) + SECTION_GAP`, `scentBottom = sy − NOTE_LINE + DESCENT` | −4 |
 | 8 | 향 이름 기준선 | 제목 `+ 56` | 제목 `+ 54` | 0 (바닥 아님) |
 | | 섹션 제목 위 `y += 40` 두 곳 | 리터럴 | `SECTION_GAP` | 0 |
 | | **합계** | | | **62** |
 
 ## 설계 대비 달라진 점
 
-없음. 설계의 결정 표 1~8을 그대로 구현했고, 수치(최악 1728, 여유 72)도 설계의 계산과 일치한다.
+설계의 결정 표 1~8을 그대로 구현했고, 수치(최악 1728, 여유 72)도 설계의 계산과 일치한다. 1차 리뷰 뒤 좌표에 영향 없는 정리 두 가지를 더했다.
+
+| 설계 | 구현 | 이유 |
+| --- | --- | --- |
+| 향 노트 줄 간격 34를 두 곳에 리터럴로 | `NOTE_LINE` 상수 하나를 줄 간격과 `scentBottom` 되짚기에 함께 사용 | 1차 리뷰 #4. 두 숫자가 어긋나면 블록 바닥이 틀어지므로 한 곳에 둔다 |
+| 최악 조합 테스트 이름 그대로 | "…다음 요소를 위한 예산 60을 남기고 끝난다" | 1차 리뷰 #6. 단언의 의도가 이름에 드러나게 |
 
 ## 요소별 y (최악 조합, fakeContext 좌표 덤프)
 
@@ -86,5 +91,5 @@
 ## 알려진 한계
 
 - fakeContext의 폭 어림(한글 1em, 그 외 0.58em)은 실제 글꼴과 다를 수 있어 줄 수가 달라질 수 있지만, 모든 줄 수 제한을 꽉 채운 최악 조합을 테스트하므로 예산 결론은 글꼴에 의존하지 않는다.
-- 신호 부족(`low-signal`) 카드는 축 막대가 없어 설명/캡션 블록이 한 줄 간격(36)만큼 내려간 커서에 `SECTION_GAP`을 더한다(제목 글자 윗선까지 약 55). 예산이 충분하고(최대 y 1590 − 56 = 1534 근처) 기존 배치라 이번에는 손대지 않았다.
+- 신호 부족(`low-signal`) 카드는 축 막대가 없어 설명/캡션 블록이 한 줄 간격(36)만큼 내려간 커서에 `SECTION_GAP`을 더한다(제목 글자 윗선까지 약 55). 축 막대 블록(캡션 뒤 10 + 막대 22 = 32)만큼 위로 올라가 최대 y는 ko 1558, 최악 조합 1696이라 예산이 충분하고(1차 리뷰 #1에서 실측), 기존 배치라 이번에는 손대지 않았다. `SECTION_GAP` 주석에 예외로 적어 두었다(1차 리뷰 #5).
 - 눈 확인은 macOS 시스템 글꼴(Apple SD Gothic Neo / SF) 기준이다. 다른 글꼴에서는 디센더 어림(`DESCENT` 4)보다 글자가 더 내려올 수 있지만, 섹션 간격 24에 비해 작다.
