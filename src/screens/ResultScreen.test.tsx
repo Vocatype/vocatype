@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { VoiceReading } from '../features/ai/client'
-import { BOUNDARY_PERCENT } from '../features/profile/axisStrength'
 import { presentResult } from '../features/profile/present'
 import type { VoiceProfile } from '../features/profile/types'
 import type { Capture } from '../features/recorder/types'
@@ -16,7 +15,7 @@ import { ResultScreen } from './ResultScreen'
  * DOM 라이브러리 없이 열림 태그의 속성과 요소의 텍스트만 읽는다. 효과(useEffect)와 캔버스는 실행되지 않는다.
  */
 
-/** React가 텍스트·속성값에 쓰는 이스케이프. 기대 문자열을 마크업과 같은 형태로 맞출 때 쓴다. */
+/** React가 텍스트·속성값에 쓰는 이스케이프. 기대 문자열을 마크업과 같은 형태로 맞출 때 쓴다(아래 '헬퍼' 테스트가 React와 대조한다). */
 const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' }
 const escape = (text: string) => text.replace(/[&<>"']/g, (char) => ESCAPES[char] ?? char)
 
@@ -40,8 +39,11 @@ function textOf(html: string, id: string): string | null {
 
 const meters = (html: string) => openingTags(html, /<div[^>]*\brole="meter"[^>]*>/g)
 
-/** 경계 축 하나(밀도 52%)와 비경계 축 셋(80·80·55%)이 섞인 프로필. 타입 코드는 축 값과 일치하는 WFME. */
-function profile(overrides: Partial<VoiceProfile> = {}): VoiceProfile {
+/**
+ * 경계 축 하나(밀도 52%)와 비경계 축 셋(80·80·55%)이 섞인 프로필. 타입 코드는 축 값과 일치하는 WFME.
+ * 55%는 경계가 아니어야 한다(표시값 < 55 규칙. 규칙 자체는 axisStrength.test.ts가 검사한다).
+ */
+function makeProfile(overrides: Partial<VoiceProfile> = {}): VoiceProfile {
   return {
     typeCode: 'WFME',
     axes: { warmth: 0.8, density: 0.52, pace: 0.2, variation: 0.45, pitch: 0.4, brightness: 0.4 },
@@ -76,9 +78,10 @@ const readingKo: VoiceReading = {
   caption: '천천히 스며드는 이야기꾼',
 }
 
+/** 녹음 길이(75,000ms → 1:15)는 프로필의 durationSec(12)과 겹치지 않게 둔다. 머리글이 캡처의 길이를 쓰는지 가려내기 위해. */
 const capture: Capture = {
   script: { id: 'seosi', locale: 'ko', title: '서시', author: '윤동주', year: '1941', excerpt: false, lines: ['죽는 날까지 하늘을 우러러'] },
-  recording: { blob: new Blob(['x']), mimeType: 'audio/webm', durationMs: 12_345 },
+  recording: { blob: new Blob(['x']), mimeType: 'audio/webm', durationMs: 75_000 },
 }
 
 interface RenderOptions {
@@ -89,17 +92,25 @@ interface RenderOptions {
   capture?: Capture | null
 }
 
-function render({ locale = 'ko', profile: current = profile(), portrait = null, reading = null, capture: captured = null }: RenderOptions = {}): string {
+function render({ locale = 'ko', profile = makeProfile(), portrait = null, reading = null, capture: captured = null }: RenderOptions = {}): string {
   return renderToStaticMarkup(
     <I18nProvider initialLocale={locale}>
-      <ResultScreen capture={captured} profile={current} portrait={portrait} reading={reading} onNavigate={() => undefined} />
+      <ResultScreen capture={captured} profile={profile} portrait={portrait} reading={reading} onNavigate={() => undefined} />
     </I18nProvider>,
   )
 }
 
+describe('헬퍼', () => {
+  it('escape는 React의 텍스트 이스케이프와 같은 결과를 낸다', () => {
+    const raw = `a&b<c>d"e'f`
+    expect(renderToStaticMarkup(<p>{raw}</p>)).toBe(`<p>${escape(raw)}</p>`)
+    expect(escape(raw)).toBe('a&amp;b&lt;c&gt;d&quot;e&#x27;f')
+  })
+})
+
 describe('ResultScreen 축 막대', () => {
   it('네 축이 타입 코드 글자 순서로 0~100 눈금의 meter로 읽힌다', () => {
-    const view = presentResult(profile(), null, 'ko')
+    const view = presentResult(makeProfile(), null, 'ko')
     // 픽스처가 의도한 값인지 먼저 고정한다(경계 하나, 비경계 셋).
     expect(view.axes.map((axis) => axis.letter).join('')).toBe('WFME')
     expect(view.axes.map((axis) => axis.percent)).toEqual([80, 52, 80, 55])
@@ -128,7 +139,8 @@ describe('ResultScreen 축 막대', () => {
   })
 
   it.each(['ko', 'en'] as const)('경계 축만 안내 문구에 연결되고 비경계 축에는 연결이 없다 (%s)', (locale) => {
-    const view = presentResult(profile(), null, locale)
+    const view = presentResult(makeProfile(), null, locale)
+    // 픽스처 고정: 밀도(52%)만 경계, 55%인 흐름 축은 경계가 아니다.
     expect(view.axes.filter((axis) => axis.boundary).map((axis) => axis.key)).toEqual(['texture'])
 
     const html = render({ locale })
@@ -136,13 +148,11 @@ describe('ResultScreen 축 막대', () => {
     view.axes.forEach((axis, i) => {
       const meter = found[i]!
       const noteId = `axis-note-${axis.key}`
-      if (axis.percent < BOUNDARY_PERCENT) {
-        expect(axis.boundary, axis.key).toBe(true)
+      if (axis.boundary) {
         expect(meter['aria-describedby'], axis.key).toBe(noteId)
         const other = locale === 'en' ? axis.otherLabel.toLowerCase() : axis.otherLabel
         expect(textOf(html, noteId), axis.key).toBe(escape(formatMessage(messages[locale]['result.axisBoundary'], { other })))
       } else {
-        expect(axis.boundary, axis.key).toBe(false)
         expect(meter['aria-describedby'], axis.key).toBeUndefined()
         expect(textOf(html, noteId), axis.key).toBeNull()
       }
@@ -150,20 +160,23 @@ describe('ResultScreen 축 막대', () => {
   })
 
   it('영어 경계 안내는 반대 라벨을 소문자로 쓴다', () => {
+    const texture = presentResult(makeProfile(), null, 'en').axes.find((axis) => axis.key === 'texture')!
+    // 카탈로그 라벨이 대문자로 시작해야 소문자 변환이 실제로 검사된다.
+    expect(texture.otherLabel).not.toBe(texture.otherLabel.toLowerCase())
     const html = render({ locale: 'en' })
-    expect(textOf(html, 'axis-note-texture')).toBe('A little light, too')
-    expect(html).not.toContain('A little Light, too')
+    expect(textOf(html, 'axis-note-texture')).toBe(escape(formatMessage(messages.en['result.axisBoundary'], { other: texture.otherLabel.toLowerCase() })))
+    expect(html).not.toContain(escape(formatMessage(messages.en['result.axisBoundary'], { other: texture.otherLabel })))
   })
 
   it('신호가 부족하면 막대 없이 안내만 보인다', () => {
-    const html = render({ profile: profile({ quality: 'low-signal' }) })
+    const html = render({ profile: makeProfile({ quality: 'low-signal' }) })
     expect(meters(html)).toHaveLength(0)
     expect(html).not.toContain('axis-note-')
     expect(html).toContain(escape(messages.ko['result.lowSignal']))
   })
 })
 
-describe('ResultScreen 리딩·초상·머리글', () => {
+describe('ResultScreen 리딩·초상·머리글·버튼', () => {
   it('리딩은 생성 언어와 화면 언어가 같을 때만 보인다', () => {
     const same = render({ locale: 'ko', reading: readingKo })
     expect(same).toContain(escape(messages.ko['result.section.reading']))
@@ -175,11 +188,11 @@ describe('ResultScreen 리딩·초상·머리글', () => {
     expect(other).not.toContain(escape(messages.en['result.section.reading']))
     expect(other).not.toContain(escape(readingKo.reading))
     // 리딩이 빠져도 카탈로그의 타입 설명은 그대로 보인다.
-    expect(other).toContain(escape(presentResult(profile(), null, 'en').description))
+    expect(other).toContain(escape(presentResult(makeProfile(), null, 'en').description))
   })
 
   it('초상이 없으면 자리표시 초상과 준비 중 안내, 있으면 이미지가 보인다', () => {
-    const alt = escape(formatMessage(messages.ko['result.portraitAlt'], { name: presentResult(profile(), null, 'ko').name }))
+    const alt = escape(formatMessage(messages.ko['result.portraitAlt'], { name: presentResult(makeProfile(), null, 'ko').name }))
 
     const without = render()
     const placeholders = openingTags(without, /<div[^>]*\bclass="portrait portrait--placeholder"[^>]*>/g)
@@ -199,9 +212,18 @@ describe('ResultScreen 리딩·초상·머리글', () => {
     expect(withPortrait).not.toContain(escape(messages.ko['result.portraitPending']))
   })
 
-  it('낭독 정보가 있으면 머리글에 제목과 길이를 쓰고, 없으면 머리글 설명이 없다', () => {
-    expect(render({ capture })).toContain(escape(formatMessage(messages.ko['result.lead'], { title: '서시', duration: '0:12' })))
+  it('낭독 정보가 있으면 머리글에 제목과 캡처의 녹음 길이를 쓰고, 없으면 머리글 설명이 없다', () => {
+    const html = render({ capture })
+    expect(html).toContain(escape(formatMessage(messages.ko['result.lead'], { title: '서시', duration: '1:15' })))
+    // 프로필의 분석 길이(12초)가 아니라 캡처의 녹음 길이를 써야 한다.
+    expect(html).not.toContain(escape(formatMessage(messages.ko['result.lead'], { title: '서시', duration: '0:12' })))
     expect(render()).not.toContain('screen__lead')
+  })
+
+  it('저장·다시 녹음·처음으로 버튼과 저장 상태 영역이 있다', () => {
+    const html = render()
+    for (const key of ['result.save', 'common.retry', 'common.home'] as const) expect(html, key).toContain(escape(messages.ko[key]))
+    expect(openingTags(html, /<p[^>]*\brole="status"[^>]*>/g)).toHaveLength(1)
   })
 
   it('결과가 없으면 안내와 처음으로 버튼만 보인다', () => {
@@ -209,7 +231,8 @@ describe('ResultScreen 리딩·초상·머리글', () => {
     expect(html).toContain(escape(messages.ko['result.missing']))
     expect(html).toContain(escape(messages.ko['common.home']))
     expect(meters(html)).toHaveLength(0)
-    expect(html).not.toContain('<section class="card')
-    expect(html).not.toContain(escape(messages.ko['result.save']))
+    for (const key of ['result.section.color', 'result.section.scent', 'result.section.signature', 'result.section.match', 'result.save', 'common.retry'] as const) {
+      expect(html, key).not.toContain(escape(messages.ko[key]))
+    }
   })
 })
