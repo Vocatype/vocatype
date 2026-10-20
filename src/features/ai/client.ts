@@ -8,10 +8,10 @@ import {
   type PortraitResponse,
   type ReadingAxes,
   type ReadingAxisKey,
-  type ReadingLocale,
   type ReadingRequest,
   type ReadingResponse,
 } from '../../../shared/api'
+import type { Locale } from '../../i18n/locales'
 
 const CONFIG_TIMEOUT_MS = 5000
 const PORTRAIT_TIMEOUT_MS = 60000
@@ -24,7 +24,7 @@ const OFFLINE_CONFIG: ApiConfigResponse = { provider: 'mock', textProviders: [],
 
 /** 서버가 만든 목소리 리딩. locale 은 생성 시점의 화면 언어다. */
 export interface VoiceReading {
-  locale: ReadingLocale
+  locale: Locale
   reading: string
   caption: string
 }

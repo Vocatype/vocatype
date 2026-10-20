@@ -1,9 +1,8 @@
+import type { Locale } from './locale.ts'
 import { ALL_TYPE_CODES, type TypeCode } from './typeCode.ts'
 
-export interface Localized {
-  ko: string
-  en: string
-}
+/** 지원 언어마다 같은 뜻의 문구 하나. 언어를 더하면(shared/locale.ts) 빠진 문구가 타입 오류로 드러난다. */
+export type Localized = Record<Locale, string>
 
 /* ---------- 축 ---------- */
 

@@ -1,3 +1,4 @@
+import type { Locale } from './locale.ts'
 import type { TypeCode } from './typeCode.ts'
 
 /** 클라이언트와 Worker가 함께 쓰는 API 계약. 개인정보가 담길 수 있는 필드는 없다. */
@@ -45,8 +46,6 @@ export const PORTRAIT_IMAGE_MAX_CHARS = 4 * 1024 * 1024
 
 /* ---------- 목소리 리딩 ---------- */
 
-export type ReadingLocale = 'ko' | 'en'
-
 /** 리딩 요청에 들어가는 여섯 축. 분석의 VoiceAxes 와 같은 키다. */
 export const READING_AXIS_KEYS = ['warmth', 'density', 'pace', 'variation', 'pitch', 'brightness'] as const
 export type ReadingAxisKey = (typeof READING_AXIS_KEYS)[number]
@@ -57,7 +56,7 @@ export interface ReadingRequest {
   typeCode: TypeCode
   axes: ReadingAxes
   /** 리딩을 쓸 언어. 생성 시점의 화면 언어다. */
-  locale: ReadingLocale
+  locale: Locale
 }
 
 export interface ReadingResponse {
