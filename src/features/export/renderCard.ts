@@ -35,7 +35,16 @@ const MUTED = '#b5afa6'
 const MARGIN = 72
 const CONTENT_WIDTH = CARD_WIDTH - MARGIN * 2
 /** 이 선 아래로는 본문을 그리지 않는다. 하단 문구 영역. */
-const FOOTER_TOP = CARD_HEIGHT - 120
+export const FOOTER_TOP = CARD_HEIGHT - 120
+/** 줄 수 제한이 모두 꽉 찬 최악 조합도 FOOTER_TOP에서 이만큼은 위에서 끝나야 한다(테스트가 단언). 다음 요소를 넣을 때 쓸 수 있는 예산. */
+export const BUDGET_RESERVE = 60
+/** 기준선 아래로 내려가는 글자 부분(디센더)의 어림값. 글자 블록의 시각적 바닥 = 마지막 기준선 + DESCENT. */
+const DESCENT = 4
+/**
+ * 섹션 제목 위 간격. 이전 블록의 시각적 바닥(글자는 기준선 + DESCENT, 막대·견본·원은 아랫변)에서 제목 기준선까지.
+ * 제목 글자 윗선까지는 약 24px이 남는다. 017에서 세 섹션을 같은 규칙으로 맞췄다.
+ */
+const SECTION_GAP = 40
 
 function font(weight: number, size: number): string {
   return `${weight} ${size}px ${FONT}`
@@ -99,7 +108,7 @@ function drawPortraitPlaceholder(ctx: CanvasRenderingContext2D, view: ResultView
 /**
  * 결과 카드를 1080×1920 PNG로 그린다. 외부 리소스를 쓰지 않아 캔버스가 오염되지 않는다.
  * 세로 배치는 커서(y)로 누적하며, 이름 2줄·설명 3줄·캡션 1줄·향 이름 2줄로 줄 수를 제한해 하단 문구 영역(FOOTER_TOP) 위에서 끝나도록 설계했다.
- * 그래도 넘치면 예외를 던진다(테스트가 모든 타입·언어로 검사한다).
+ * 모든 제한이 꽉 찬 최악 조합도 FOOTER_TOP − BUDGET_RESERVE 위에서 끝난다(테스트가 단언). 그래도 넘치면 예외를 던진다(테스트가 모든 타입·언어로 검사한다).
  */
 export async function renderCard(view: ResultView, portrait: HTMLImageElement | null, labels: CardLabels): Promise<Blob> {
   const canvas = document.createElement('canvas')
@@ -160,8 +169,8 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   ctx.stroke()
   ctx.restore()
 
-  // 타입 코드·이름·설명
-  let y = portraitY + portraitSize + 64
+  // 타입 코드·이름·설명. 초상 아랫변에서 코드 글자 윗선까지 약 34px(017에서 64 → 56).
+  let y = portraitY + portraitSize + 56
   ctx.textAlign = 'center'
   ctx.fillStyle = MUTED
   ctx.font = font(700, 30)
@@ -226,7 +235,8 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
       ctx.fill()
     }
     ctx.textAlign = 'center'
-    y += 46
+    // 커서를 막대 아랫변(라벨 기준선 + 12 + 10)에 둔다. 섹션 간격은 아래에서 SECTION_GAP으로 한 번만 더한다.
+    y += 22
   }
 
   const section = (title: string, top: number) => {
@@ -243,7 +253,7 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   }
 
   // 퍼스널 컬러
-  y += 40
+  y += SECTION_GAP
   section(labels.color, y)
   y += 54
   ctx.fillStyle = FG
@@ -263,13 +273,14 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
     ctx.fillText((view.color.palette[i] ?? '').toUpperCase(), sx + swatch / 2, y + 90)
     ctx.textAlign = 'left'
   }
-  y += 98
+  // 16진수 라벨 기준선(견본 윗변 + 90)의 시각적 바닥까지.
+  y += 90 + DESCENT
 
   // 향 (왼쪽) + 사운드 시그니처 (오른쪽)
-  y += 40
+  y += SECTION_GAP
   section(labels.scent, y)
   const columnWidth = 560
-  let sy = y + 56
+  let sy = y + 54
   ctx.fillStyle = FG
   ctx.font = font(700, 32)
   for (const line of clampLines(wrapText(view.scent.name, columnWidth, measure), 2, columnWidth, measure)) {
@@ -290,24 +301,27 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
       sy += 34
     }
   }
+  // sy는 다음 줄의 기준선이므로 마지막 줄의 시각적 바닥은 한 줄 간격을 되돌린 기준선 + DESCENT.
+  const scentBottom = sy - 34 + DESCENT
 
-  // 서명 반지름 110 → 100, 아래 여백 48 → 40: 캡션 한 줄 예산 회수(009).
+  // 서명 반지름 110 → 100(009). 원 윗점은 구분선 아래 22px로 향 이름 글자 윗선과 비슷한 높이(017에서 56 → 36),
+  // 라벨은 원 아랫점 + 32, 통계 줄 간격 26. 이 칼럼이 향 칼럼보다 길어 섹션 바닥을 정하므로 예산은 여기서 회수한다.
   const sigR = 100
   const sigCx = CARD_WIDTH - MARGIN - 150
-  const sigCy = y + 56 + sigR
+  const sigCy = y + 36 + sigR
   drawSignature(ctx, view.signature, sigCx, sigCy, sigR * 0.45, sigR, primary)
-  let statY = sigCy + sigR + 38
+  let statY = sigCy + sigR + 32
   ctx.textAlign = 'center'
   ctx.fillStyle = MUTED
   ctx.font = font(600, 21)
   ctx.fillText(labels.signature, sigCx, statY)
   ctx.font = font(400, 21)
   for (const stat of labels.stats) {
-    statY += 28
+    statY += 26
     for (const line of clampLines(wrapText(stat, 300, measure), 1, 300, measure)) ctx.fillText(line, sigCx, statY)
   }
   ctx.textAlign = 'left'
-  y = Math.max(sy, statY) + 40
+  y = Math.max(scentBottom, statY + DESCENT) + SECTION_GAP
 
   // 궁합
   section(labels.match, y)
