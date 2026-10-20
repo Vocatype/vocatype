@@ -4,7 +4,7 @@
 
 `GeneratingScreen`의 `useEffect` 안에 있던 생성 흐름(분석 → 설정 → 초상·리딩 병렬 요청 → 단계 전환 → 취소 확인)을 React와 무관한 `runGeneration`(`src/features/ai/generate.ts`)으로 옮겼다. `GenerationResult` 타입도 함께 옮겼다.
 화면에는 표시 규칙(최소 표시 시간 1400ms, 진행률 ×0.85·0.9, 실패 표시)만 남았다.
-`runGeneration` 테스트 20개를 추가했다(테스트 파일 29 → 30, 테스트 193 → 213). 흐름 규칙을 하나씩 깨는 회귀 13건이 모두 테스트에 잡혔다. 1차 리뷰(03 문서) 반영분이 들어 있다.
+`runGeneration` 테스트 21개를 추가했다(테스트 파일 29 → 30, 테스트 193 → 214). 흐름 규칙을 하나씩 깨는 회귀 13건이 모두 테스트에 잡혔다. 1차·2차 리뷰(03 문서) 반영분이 들어 있다.
 
 ## 변경 파일
 
@@ -12,7 +12,7 @@
 | --- | --- |
 | `src/features/ai/generate.ts` | 신설. `GenerationResult`, `WaitingStage`, `GenerateOptions`, `runGeneration` |
 | `src/screens/GeneratingScreen.tsx` | 흐름 코드를 `runGeneration` 호출로 바꿈. `GenerationResult` 정의 제거(새 파일에서 import), `Stage = AnalysisStage \| WaitingStage`, 쓰지 않게 된 import(`client`·`reading`·`analyzeRecording`·`VoiceProfile`) 제거 |
-| `src/features/ai/generate.test.ts` | 신설. 테스트 20개 |
+| `src/features/ai/generate.test.ts` | 신설. 테스트 21개 |
 | `branches/021-refactor-generation-orchestration/` | 설계·구현·리뷰 문서 |
 
 `App.tsx`는 `GenerationResult`를 이름으로 import하지 않고 콜백 인자를 구조 분해만 하므로 바뀌지 않았다.
@@ -59,6 +59,7 @@ const result = await runGeneration(capture, {
 | 2 | low-signal 이고 초상이 꺼져 있으면 요청도 대기 단계도 없다 | 요청 `[config]`, 단계 없음 |
 | 6 | 초상이 먼저 끝나면 리딩을 기다리는 동안 단계를 리딩으로 바꾼다 | 응답을 직접 풀어 순서를 정함. 초상 응답 뒤 단계 `['portrait', 'reading']`, 리딩 응답 뒤 결과 |
 | 6 | 초상이 실패로 먼저 끝나도 리딩을 기다리면 단계를 리딩으로 바꾼다 | 초상 HTTP 오류 + 리딩 보류. 단계 `['portrait', 'reading']`, 결과의 초상 null(1차 리뷰 #2) |
+| 6 | 리딩이 실패로 먼저 끝난 뒤 초상이 끝나도 단계를 바꾸지 않는다 | 초상 보류 + 리딩 HTTP 오류 → 초상 응답. 단계 `['portrait']`, 리딩 null(2차 리뷰 N1. 원본의 `.finally`는 결과와 무관하게 리딩을 끝난 것으로 본다) |
 | 6 | 리딩이 먼저 끝나면 단계를 바꾸지 않는다 | 리딩 응답 → 대기 → 초상 응답. 단계 `['portrait']` |
 | 7 | 초상 HTTP 오류 / 초상 네트워크 오류 / 리딩 HTTP 오류 / 리딩 네트워크 오류 / 둘 다 실패 | 거부하지 않고 해당 값만 null, 프로필은 그대로 |
 | 9 | 분석이 실패하면 그 오류로 거부하고 초상·리딩은 요청하지 않는다 | 같은 오류 객체로 거부, 요청 `[config]`, 단계 없음 |
@@ -70,11 +71,12 @@ const result = await runGeneration(capture, {
 
 | 설계 | 구현 | 이유 |
 | --- | --- | --- |
-| 검사 항목 10개 | 테스트 20개 | 기능 조합 4가지와 실패 5가지를 `it.each`로 펼쳤고, 1차 리뷰 #2로 "초상 실패 먼저" 전환 테스트를 더했다 |
+| 검사 항목 10개 | 테스트 21개 | 기능 조합 4가지와 실패 5가지를 `it.each`로 펼쳤고, 1차 리뷰 #2로 "초상 실패 먼저", 2차 리뷰 N1로 "리딩 실패 먼저" 전환 테스트를 더했다 |
 | 분석 중 취소: "분석이 끝나도 요청 없음" | + 설정 응답이 오지 않아도 바로 거부 | 처음 쓴 테스트는 설정이 바로 와서, 분석 직후 취소 확인을 지워도 설정 뒤 확인이 대신 잡아 통과했다. 원래 코드도 분석 직후 `return`해 설정을 기다리지 않았으므로 그 동작을 고정했다(아래 회귀 4번) |
 | (없음) | low-signal에서 `getLocale`을 부르지 않음 단언 | 리딩을 요청하지 않으면 언어도 읽지 않는다는 "요청 순간에 읽는다"의 반대쪽 |
 | 분석 인자를 `toMatchObject({ locale, signal })`로 | `locale`은 `toBe('en')`, `signal`은 `toBe(controller.signal)` | 1차 리뷰 #1. `toMatchObject`는 `AbortSignal` 둘을 구조로 비교해 다른 신호도 통과시켰다(분석에 엉뚱한 신호를 넘기는 회귀가 통과) |
 | `untilAborted` 스텁은 `abort` 이벤트만 들음 | 이미 끊긴 신호면 바로 거부 | 1차 리뷰 #3. 실제 `fetch`와 같게. 지금 이 경로를 타는 테스트는 없지만 스텁이 실제와 어긋나지 않게 했다 |
+| 언어 타입 `ReadingLocale`(`shared/api`) | `Locale`(`src/i18n/locales`) | 2차 리뷰 뒤. 같은 날 진행 중인 020이 `ReadingLocale`을 지운다. 두 타입은 지금 같은 `'ko' \| 'en'`이고 `Locale`은 main에 이미 있으며 `analyze.ts`도 같은 곳에서 가져오므로, 이렇게 두면 020과 021을 어느 순서로 병합해도 타입 검사가 깨지지 않는다 |
 | "단계 전환" 테스트에서 응답 처리 대기 | `settle()`(매크로태스크 5번)을 두 테스트에 똑같이 씀 | "초상 먼저" 테스트가 같은 `settle()`로 전환까지 흘러감을 보이므로, "리딩 먼저" 테스트의 음성 단언(전환 없음)이 대기 부족으로 거짓 통과하지 않는다 |
 
 ## 검증 결과
@@ -83,13 +85,13 @@ const result = await runGeneration(capture, {
 | --- | --- | --- |
 | 타입 검사 | `npm run typecheck` | 종료 코드 0 |
 | 린트 | `npm run lint` | 종료 코드 0, 출력 없음 |
-| 단위 테스트 | `npm test` | 30 파일 213 테스트 통과, 종료 코드 0 |
+| 단위 테스트 | `npm test` | 30 파일 214 테스트 통과, 종료 코드 0 |
 | 빌드 | `npm run build` | 종료 코드 0 |
-| 반복 실행 | `npx vitest run src/features/ai/generate.test.ts` 3회 | 매번 20개 통과 |
+| 반복 실행 | `npx vitest run src/features/ai/generate.test.ts` 3회 | 매번 21개 통과 |
 
 ### 회귀 감지 (구현자 확인)
 
-`generate.ts`를 한 군데씩 바꿔 새 테스트 파일을 돌리고 원본으로 되돌렸다(마지막에 원본과 같음을 확인). 13건 모두 1개 이상 실패했다. 14·15번은 1차 리뷰에서 리뷰어가 찾은 놓친 회귀로, 테스트를 보강한 뒤 다시 넣어 잡히는지 확인했다.
+`generate.ts`를 한 군데씩 바꿔 새 테스트 파일을 돌리고 원본으로 되돌렸다(마지막에 원본과 같음을 확인). 13건 모두 1개 이상 실패했다. 14·15번은 1차, 16번은 2차 리뷰에서 리뷰어가 찾은 놓친 회귀로, 테스트를 보강한 뒤 다시 넣어 잡히는지 확인했다.
 
 | # | 회귀 | 실패한 테스트 |
 | --- | --- | --- |
@@ -108,6 +110,7 @@ const result = await runGeneration(capture, {
 | 13 | 리딩 축을 반올림하지 않고 보냄 | 정상 흐름 |
 | 14 (1차 리뷰 뒤) | 초상이 성공(null 아님)일 때만 리딩으로 전환 | 초상이 실패로 먼저 끝나도 리딩 단계로 바꾼다. 리뷰 전에는 통과했던 회귀 |
 | 15 (1차 리뷰 뒤) | 분석에 다른 `AbortController`의 신호를 넘김 | 정상 흐름. 리뷰 전에는 통과했던 회귀 |
+| 16 (2차 리뷰 뒤) | 리딩이 성공(null 아님)일 때만 `readingSettled`를 true로 | 리딩이 실패로 먼저 끝난 뒤 초상이 끝나도 단계를 바꾸지 않는다. 리뷰 전에는 통과했던 회귀 |
 
 ### 브라우저 확인 (구현자 확인)
 
@@ -130,6 +133,6 @@ const result = await runGeneration(capture, {
 
 ## 알려진 한계
 
-- 화면 쪽 연결은 단위 테스트가 없다: 표시 규칙(×0.85, 0.9, 1400ms, 실패 표시), `getLocale: () => localeRef.current` 연결, 취소로 끝난 거부를 실패로 보이지 않게 하는 `catch`의 `signal.aborted` 가드(1차 리뷰 #4). 016과 같은 정적 렌더로는 `useEffect`가 돌지 않아 설계에서 범위 밖으로 두었다. 브라우저 확인이 표시 규칙과 취소 가드(취소 뒤 실패 문구 없음)를 대신 확인했고, 생성 중 언어 전환은 확인하지 않았다.
+- 화면 쪽 연결은 단위 테스트가 없다: 표시 규칙(×0.85, 0.9, 1400ms, 실패 표시), `getLocale: () => localeRef.current` 연결, 취소로 끝난 거부를 실패로 보이지 않게 하는 `catch`의 `signal.aborted` 가드(1차 리뷰 #4). 016과 같은 정적 렌더로는 `useEffect`가 돌지 않아 설계에서 범위 밖으로 두었다. 브라우저 확인은 최소 표시 시간(1,437ms), 단계 문구, 대기 단계의 `aria-valuenow` 생략, 취소 가드(취소 뒤 실패 문구 없음)만 대신 확인했다. ×0.85·0.9 진행률 값, 실패 화면 표시, 생성 중 언어 전환은 확인하지 않았다(2차 리뷰 N2로 범위를 좁혀 적음).
 - 두 요청이 거의 같은 때 끝나면 "목소리를 읽는 중"이 한 프레임도 그려지지 않을 수 있다(React가 다음 상태와 묶음). 원래 코드와 같은 동작이다.
-- 같은 날 진행 중인 020(locale 단일 출처)이 `ReadingLocale`을 바꾸면 `generate.ts`의 import 한 줄이 겹칠 수 있다.
+- 020(locale 단일 출처)과는 글자 충돌이 없고, `Locale`을 쓰도록 바꿔 타입 충돌도 없앴다(설계 대비 달라진 점). 두 브랜치를 함께 병합한 트리의 검사는 03 문서 끝에 있다.

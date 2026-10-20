@@ -41,7 +41,7 @@
 ```ts
 export interface GenerateOptions {
   /** 리딩 요청을 보내는 순간에 읽는 화면 언어. */
-  getLocale: () => ReadingLocale
+  getLocale: () => Locale
   /** 취소. 중단되면 AbortError로 거부되고, 그 뒤로는 콜백을 부르지 않는다. */
   signal?: AbortSignal
   /** 기기 안 분석의 진행(analyzeRecording의 진행을 그대로 전달). */
@@ -111,4 +111,4 @@ const result = await runGeneration(capture, {
 
 ## 형제 작업과의 관계
 
-같은 날 병렬로 진행 중인 020(`refactor/020-contract-cleanup`, locale 단일 출처)이 `ReadingLocale`·`Locale` 정의를 바꿀 수 있다. 이 브랜치는 `ReadingLocale`을 타입으로만 쓰고 두 타입은 지금 같은 합집합(`'ko' | 'en'`)이라, 어느 쪽이 먼저 병합되어도 충돌은 import 줄 수준이다.
+같은 날 병렬로 진행 중인 020(`refactor/020-contract-cleanup`, locale 단일 출처)이 `ReadingLocale`·`Locale` 정의를 바꿀 수 있다. 이 브랜치는 언어를 타입으로만 쓰고 두 타입은 지금 같은 합집합(`'ko' | 'en'`)이라, 어느 쪽이 먼저 병합되어도 충돌은 import 줄 수준이다. (2차 리뷰 뒤 정정: 020이 `ReadingLocale`을 지우므로 처음부터 `Locale`(`src/i18n/locales`)을 쓰도록 바꿔 병합 순서와 무관하게 했다. 02 문서 참조)
