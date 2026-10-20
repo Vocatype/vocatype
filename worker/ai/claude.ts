@@ -13,8 +13,9 @@ export function isTextModel(value: unknown): value is string {
 }
 
 /**
- * SDK 타임아웃은 밀리초(요청 1회 기준). 두 번(12초 × (1 + 재시도 1) = 24초)이 체인 예산(25초)을 넘지 않게 둔다.
- * 재시도·대기(retry-after)까지 합친 실제 상한은 SDK 설정이 아니라 중단 신호(체인의 남은 예산, 없으면 체인 예산 전체)가 건다.
+ * SDK 타임아웃은 밀리초(요청 1회 기준).
+ * 재시도·대기(retry-after)까지 합친 실제 상한은 SDK 설정이 아니라 중단 신호가 건다: 체인 안에서는 체인이 배분한 시간
+ * (운영 순서 claude,workers-ai 에서 13초라 요청 12초 한 번은 들어가고 재시도는 남은 시간 안에서만 된다), 체인 밖에서는 체인 예산 전체.
  */
 const REQUEST_TIMEOUT_MS = 12_000
 const MAX_RETRIES = 1
@@ -73,7 +74,7 @@ export function createClaudeTextProvider(options: ClaudeTextProviderOptions): Te
   return {
     name: 'claude',
     async generateReading(input: ReadingInput, options?: GenerateOptions): Promise<ReadingOutput> {
-      // 체인이 남은 시간 예산을 신호로 주면 그걸 쓰고, 없으면 체인 예산 전체를 자체 상한으로 건다.
+      // 체인이 배분한 시간을 신호로 주면 그걸 쓰고, 없으면 체인 예산 전체를 자체 상한으로 건다.
       // SDK 는 서버가 준 retry-after 를 그대로 기다리므로, 신호가 없으면 클라이언트가 포기한 뒤에도 두 번째 호출이 나가 비용을 쓸 수 있다.
       const signal = options?.signal ?? AbortSignal.timeout(READING_CHAIN_BUDGET_MS)
       let message: Anthropic.Message

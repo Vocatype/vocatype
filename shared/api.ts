@@ -77,7 +77,7 @@ export const READING_REQUEST_MAX_BYTES = 1024
  * 그래야 클라이언트가 포기한 뒤에 Worker 가 다음 제공자를 새로 불러 할당량·비용을 쓰는 일이 없다. 체인 순서(TEXT_PROVIDER)와 상관없이 성립한다.
  * 차이(5초)는 네트워크 왕복과 Worker 처리 여유로 잡은 값이다.
  */
-/** Worker 리딩 체인 전체(모든 제공자·재시도·retry-after 대기 포함)의 시간 예산. 제공자에게는 남은 예산이 중단 신호로 간다. */
+/** Worker 리딩 체인 전체(모든 제공자·재시도·retry-after 대기 포함)의 시간 예산. 제공자에게는 체인이 배분한 시간(남은 예산, 뒤 제공자가 있으면 그 몫을 뺀 값)이 중단 신호로 간다. */
 export const READING_CHAIN_BUDGET_MS = 25_000
 /** 클라이언트가 /api/reading 응답을 기다리는 시간. 초상 요청과 병렬이라 전체 대기는 늘지 않는다. */
 export const READING_CLIENT_TIMEOUT_MS = 30_000
