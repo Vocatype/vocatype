@@ -22,7 +22,7 @@ describe('fetchAiConfig', () => {
 
   it('실패하면 초상·리딩 기능이 꺼진 설정으로 본다', async () => {
     mockFetch(() => new Response('nope', { status: 500 }))
-    expect(await fetchAiConfig()).toEqual({ provider: 'mock', textProvider: 'mock', features: { portrait: false, reading: false } })
+    expect(await fetchAiConfig()).toEqual({ provider: 'mock', textProviders: [], features: { portrait: false, reading: false } })
   })
 })
 
@@ -58,6 +58,13 @@ describe('requestReading', () => {
     expect(await requestReading({ typeCode: 'WFQV', axes, locale: 'en' })).toBeNull()
     mockFetch(() => Response.json({ reading: 42, caption: ['x'], provider: 'claude' }))
     expect(await requestReading({ typeCode: 'WFQV', axes, locale: 'en' })).toBeNull()
+  })
+
+  it('서버 체인이 모두 실패해 mock 고정 문구가 오면 리딩 없음(null)으로 본다', async () => {
+    mockFetch(() => Response.json({ reading: '설정된 텍스트 제공자가 없거나 모두 실패해 모의 고정 문구가 왔어요. 이 문장은 화면에 보이지 않아요.', caption: '모의 리딩', provider: 'mock' }))
+    expect(await requestReading({ typeCode: 'WFQV', axes, locale: 'ko' })).toBeNull()
+    mockFetch(() => Response.json({ reading: '맑고 가벼운 소리가 또박또박 이어져요. 서두르지 않는데도 지루할 틈이 없어요.', caption: '기대게 되는 목소리', provider: 'workers-ai' }))
+    expect(await requestReading({ typeCode: 'WFQV', axes, locale: 'ko' })).toMatchObject({ locale: 'ko', caption: '기대게 되는 목소리' })
   })
 
   it('타임아웃이 지나면 요청을 끊고 null', async () => {

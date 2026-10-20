@@ -41,7 +41,7 @@ describe('worker routes', () => {
     const config = await call('/api/config')
     expect(config.status).toBe(200)
     expect(config.headers.get('cache-control')).toBe('no-store')
-    expect(await config.json()).toEqual({ provider: 'mock', textProvider: 'mock', features: { portrait: false, reading: false } })
+    expect(await config.json()).toEqual({ provider: 'mock', textProviders: [], features: { portrait: false, reading: false } })
     expect((await call('/api/config', { method: 'HEAD' })).status).toBe(200)
     const wrong = await call('/api/config', { method: 'POST' })
     expect(wrong.status).toBe(405)
@@ -87,7 +87,7 @@ describe('worker routes', () => {
   it('workers-ai 제공자는 data URL을 돌려준다', async () => {
     const ai = { run: async () => ({ image: '/9j/QUJD' }) } as unknown as Ai
     const env = { AI_PROVIDER: 'workers-ai', AI: ai } as unknown as FakeEnv
-    expect(await (await call('/api/config', undefined, env)).json()).toEqual({ provider: 'workers-ai', textProvider: 'mock', features: { portrait: true, reading: false } })
+    expect(await (await call('/api/config', undefined, env)).json()).toEqual({ provider: 'workers-ai', textProviders: [], features: { portrait: true, reading: false } })
     const response = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"CLME","seed":3}' }, env)
     expect(await response.json()).toEqual({ image: 'data:image/jpeg;base64,/9j/QUJD', provider: 'workers-ai' })
   })
@@ -133,7 +133,7 @@ describe('POST /api/reading', () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => Response.json(anthropicMessage('따뜻한 숨결이 문장을 데우고, 멈추는 자리마다 여운이 남아요. 빠르게 달리다가도 한 번씩 숨을 고르는 리듬이 있어요. 듣는 사람은 자기도 모르게 이야기 안으로 들어가게 돼요.', '이야기 한가운데로 끌어들이는 목소리')))
     vi.stubGlobal('fetch', fetchMock)
     const config = await call('/api/config', undefined, claudeEnv)
-    expect(await config.json()).toEqual({ provider: 'mock', textProvider: 'claude', features: { portrait: false, reading: true } })
+    expect(await config.json()).toEqual({ provider: 'mock', textProviders: ['claude'], features: { portrait: false, reading: true } })
     const response = await call('/api/reading', { method: 'POST', body: readingBody, headers: { 'cf-connecting-ip': '203.0.113.9', 'user-agent': 'TestBrowser' } }, claudeEnv)
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
@@ -159,20 +159,75 @@ describe('POST /api/reading', () => {
     expect(sent).not.toHaveProperty('metadata')
   })
 
-  it('claude 제공자가 실패하거나 거부하면 503이고 세부 내용은 숨긴다', async () => {
+  it('claude 제공자가 실패하거나 거부하면 체인 끝의 mock 고정 문구(200, provider mock)로 답하고 세부 내용은 로그에만 남긴다', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({ type: 'error', error: { type: 'invalid_request_error', message: 'boom-detail' } }, { status: 400 })))
     const failed = await call('/api/reading', { method: 'POST', body: readingBody }, claudeEnv)
-    expect(failed.status).toBe(503)
-    expect(await failed.text()).not.toContain('boom-detail')
+    expect(failed.status).toBe(200)
+    const failedBody = (await failed.json()) as { provider: string; reading: string }
+    expect(failedBody.provider).toBe('mock')
+    expect(JSON.stringify(failedBody)).not.toContain('boom-detail')
+    expect(warn.mock.calls[0]?.[0]).toContain('[reading] claude failed, falling back:')
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({ ...anthropicMessage('x', 'y'), content: [], stop_reason: 'refusal', stop_details: { type: 'refusal', category: 'general_harms', explanation: null } })))
     const refused = await call('/api/reading', { method: 'POST', body: readingBody }, claudeEnv)
-    expect(refused.status).toBe(503)
-    expect(await refused.json()).toEqual({ error: 'provider_failed' })
+    expect(refused.status).toBe(200)
+    expect(((await refused.json()) as { provider: string }).provider).toBe('mock')
+    expect(String(warn.mock.calls[1]?.[0])).toContain('refusal: general_harms')
   })
 
-  it('TEXT_PROVIDER=claude 라도 키가 없으면 mock 으로 동작한다', async () => {
+  it('체인: workers-ai 가 할당량 소진(4006)으로 실패하면 claude 가 답하고 provider 에 그 이름이 실린다', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const quota = Object.assign(new Error('4006: you have used up your daily free allocation of 10,000 neurons'), { name: 'AiError' })
+    const ai = { run: async () => { throw quota } } as unknown as Ai
+    const fetchMock = vi.fn(async () => Response.json(anthropicMessage('따뜻한 숨결이 문장을 데우고, 멈추는 자리마다 여운이 남아요. 빠르게 달리다가도 한 번씩 숨을 고르는 리듬이 있어요.', '이야기 한가운데로 끌어들이는 목소리')))
+    vi.stubGlobal('fetch', fetchMock)
+    const env = { AI_PROVIDER: 'mock', TEXT_PROVIDER: 'workers-ai,claude', AI: ai, ANTHROPIC_API_KEY: 'sk-ant-test-key' } as unknown as FakeEnv
+    expect(await (await call('/api/config', undefined, env)).json()).toEqual({ provider: 'mock', textProviders: ['workers-ai', 'claude'], features: { portrait: false, reading: true } })
+    const response = await call('/api/reading', { method: 'POST', body: readingBody }, env)
+    expect(response.status).toBe(200)
+    expect(((await response.json()) as { provider: string }).provider).toBe('claude')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]?.[0]).toContain('[reading] workers-ai failed, falling back: AiError: 4006')
+  })
+
+  it('체인: workers-ai 가 성공하면 claude 는 부르지 않는다', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const runs: unknown[] = []
+    const ai = {
+      run: async (model: string, built: unknown) => {
+        runs.push([model, built])
+        return { response: JSON.stringify({ reading: '맑고 가벼운 소리가 또박또박 이어져요. 서두르지 않는데도 지루할 틈이 없어요. 듣는 사람이 편하게 기대게 되는 결이에요.', caption: '편하게 기대게 되는 목소리' }) }
+      },
+    } as unknown as Ai
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const env = { AI_PROVIDER: 'mock', TEXT_PROVIDER: 'workers-ai,claude', AI: ai, ANTHROPIC_API_KEY: 'sk-ant-test-key' } as unknown as FakeEnv
+    const response = await call('/api/reading', { method: 'POST', body: readingBody }, env)
+    expect(await response.json()).toEqual({ reading: '맑고 가벼운 소리가 또박또박 이어져요. 서두르지 않는데도 지루할 틈이 없어요. 듣는 사람이 편하게 기대게 되는 결이에요.', caption: '편하게 기대게 되는 목소리', provider: 'workers-ai' })
+    expect(fetchMock).not.toHaveBeenCalled()
+    const [model, built] = runs[0] as [string, { messages: { role: string }[]; response_format: { type: string } }]
+    expect(model).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast')
+    expect(built.messages.map((m) => m.role)).toEqual(['system', 'user'])
+    expect(built.response_format.type).toBe('json_schema')
+  })
+
+  it('체인: 모두 실패하면 200 + provider mock, error 로그 한 줄', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const ai = { run: async () => { throw new Error('upstream exploded') } } as unknown as Ai
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ type: 'error', error: { type: 'overloaded_error', message: 'Overloaded' } }, { status: 529 })))
+    const env = { AI_PROVIDER: 'mock', TEXT_PROVIDER: 'workers-ai,claude', AI: ai, ANTHROPIC_API_KEY: 'sk-ant-test-key' } as unknown as FakeEnv
+    const response = await call('/api/reading', { method: 'POST', body: readingBody }, env)
+    expect(response.status).toBe(200)
+    expect(((await response.json()) as { provider: string }).provider).toBe('mock')
+    expect(error).toHaveBeenCalledTimes(1)
+    expect(String(error.mock.calls[0]?.[0])).toContain('all providers failed')
+  })
+
+  it('TEXT_PROVIDER=claude 라도 키가 없으면 체인이 비어 리딩이 꺼진다', async () => {
     const env = { AI_PROVIDER: 'mock', TEXT_PROVIDER: 'claude' } as unknown as FakeEnv
-    expect(await (await call('/api/config', undefined, env)).json()).toEqual({ provider: 'mock', textProvider: 'mock', features: { portrait: false, reading: false } })
+    expect(await (await call('/api/config', undefined, env)).json()).toEqual({ provider: 'mock', textProviders: [], features: { portrait: false, reading: false } })
   })
 })

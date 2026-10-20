@@ -2,7 +2,7 @@ import type { ApiConfigResponse, ApiErrorResponse, PortraitResponse, ReadingResp
 import { buildPortraitPrompt } from '../shared/catalog.ts'
 import { SERVICE_NAME } from '../shared/config.ts'
 import { selectProvider } from './ai/select.ts'
-import { selectTextProvider } from './ai/textSelect.ts'
+import { selectTextChain } from './ai/textChain.ts'
 import { parsePortraitRequest } from './portrait.ts'
 import { parseReadingRequest } from './reading.ts'
 
@@ -63,11 +63,11 @@ export default {
     if (url.pathname === '/api/config') {
       if (method !== 'GET') return methodNotAllowed('GET, HEAD')
       const provider = selectProvider(env)
-      const textProvider = selectTextProvider(env)
+      const textChain = selectTextChain(env)
       const config: ApiConfigResponse = {
         provider: provider.name,
-        textProvider: textProvider.name,
-        features: { portrait: provider.supportsPortrait, reading: textProvider.supportsReading },
+        textProviders: textChain.names,
+        features: { portrait: provider.supportsPortrait, reading: textChain.supportsReading },
       }
       return json(config)
     }
@@ -100,15 +100,16 @@ export default {
       if (await isRateLimited(limiterOf(env, 'READING_LIMITER'), request)) return error('rate_limited', 429, { 'retry-after': '60' })
       const parsed = await parseReadingRequest(request)
       if (!parsed.ok) return error(parsed.error, parsed.error === 'too_large' ? 413 : 400)
-      const provider = selectTextProvider(env)
+      const chain = selectTextChain(env)
       try {
         // 프롬프트는 제공자 안에서 서버가 만든다. 요청 본문의 타입 코드·축·언어만 쓰인다.
-        const output = await provider.generateReading(parsed.value)
-        const response: ReadingResponse = { reading: output.reading, caption: output.caption, provider: provider.name }
+        // 체인은 앞에서부터 시도하고 모두 실패하면 mock 고정 문구를 돌려주므로(provider: 'mock') 보통은 던지지 않는다.
+        const result = await chain.generateReading(parsed.value)
+        const response: ReadingResponse = { reading: result.reading, caption: result.caption, provider: result.provider }
         return json(response)
       } catch (cause) {
-        // 세부 내용은 응답에 노출하지 않는다(클라이언트는 카탈로그 설명으로 진행). 로그에는 오류 종류와 메시지만 남긴다.
-        console.error('[reading] provider failed:', cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause))
+        // 예상 못한 오류의 안전망. 세부 내용은 응답에 노출하지 않는다(클라이언트는 카탈로그 설명으로 진행).
+        console.error('[reading] chain failed:', cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause))
         return error('provider_failed', 503)
       }
     }

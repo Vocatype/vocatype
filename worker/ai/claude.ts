@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { CAPTION_MAX_CHARS, CAPTION_MIN_CHARS, READING_MAX_CHARS, READING_MIN_CHARS } from '../../shared/api.ts'
+import { parseReadingJson } from './readingOutput.ts'
 import { buildReadingUserMessage, READING_OUTPUT_SCHEMA, READING_SYSTEM_PROMPT } from './readingPrompt.ts'
-import type { ReadingInput, ReadingOutput, TextProvider } from './types.ts'
+import type { GenerateOptions, ReadingInput, ReadingOutput, TextProvider } from './types.ts'
 
 /** 기본 모델. 3~4문장 생성은 Haiku로 충분하고 가장 싸다. `TEXT_MODEL` 변수로 바꿀 수 있다. */
 export const DEFAULT_TEXT_MODEL = 'claude-haiku-5-5'
@@ -15,7 +15,7 @@ export function isTextModel(value: unknown): value is string {
 const REQUEST_TIMEOUT_MS = 12_000
 const MAX_RETRIES = 1
 /**
- * 재시도·대기(retry-after)까지 합친 전체 상한. SDK 는 서버가 준 retry-after 를 그대로 기다리므로,
+ * 재시도·대기(retry-after)까지 합친 전체 상한(체인이 신호를 주지 않을 때의 기본값). SDK 는 서버가 준 retry-after 를 그대로 기다리므로,
  * 이 신호가 없으면 클라이언트가 포기한 뒤에도 Worker 가 두 번째 호출을 보내 비용을 쓸 수 있다.
  */
 const TOTAL_TIMEOUT_MS = 25_000
@@ -58,19 +58,7 @@ export function parseReadingMessage(message: Anthropic.Message): ReadingOutput {
     .filter((block): block is Anthropic.TextBlock => block.type === 'text')
     .map((block) => block.text)
     .join('')
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(text)
-  } catch {
-    throw new Error('response is not JSON')
-  }
-  if (typeof parsed !== 'object' || parsed === null) throw new Error('response is not an object')
-  const { reading, caption } = parsed as { reading?: unknown; caption?: unknown }
-  const cleanReading = typeof reading === 'string' ? reading.replace(/\s+/g, ' ').trim() : ''
-  const cleanCaption = typeof caption === 'string' ? caption.replace(/\s+/g, ' ').trim() : ''
-  if (cleanReading.length < READING_MIN_CHARS || cleanReading.length > READING_MAX_CHARS) throw new Error(`reading length ${cleanReading.length}`)
-  if (cleanCaption.length < CAPTION_MIN_CHARS || cleanCaption.length > CAPTION_MAX_CHARS) throw new Error(`caption length ${cleanCaption.length}`)
-  return { reading: cleanReading, caption: cleanCaption }
+  return parseReadingJson(text)
 }
 
 /**
@@ -85,19 +73,19 @@ export function createClaudeTextProvider(options: ClaudeTextProviderOptions): Te
       new Anthropic({ apiKey: options.apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: MAX_RETRIES }).messages.create(params, requestOptions))
   return {
     name: 'claude',
-    supportsReading: true,
-    async generateReading(input: ReadingInput): Promise<ReadingOutput> {
-      const signal = AbortSignal.timeout(TOTAL_TIMEOUT_MS)
+    async generateReading(input: ReadingInput, options?: GenerateOptions): Promise<ReadingOutput> {
+      // 체인이 남은 시간 예산을 신호로 주면 그걸 쓰고, 없으면 자체 상한을 건다.
+      const signal = options?.signal ?? AbortSignal.timeout(TOTAL_TIMEOUT_MS)
       let message: Anthropic.Message
       try {
         message = await createMessage(buildReadingParams(input, model), { signal })
       } catch (cause) {
-        // SDK 는 중단을 APIUserAbortError 로만 알리므로, 전체 상한에 걸린 경우임을 로그에서 알 수 있게 바꿔 던진다.
-        if (signal.aborted) throw new Error(`total timeout ${TOTAL_TIMEOUT_MS}ms exceeded (retries included)`, { cause })
+        // SDK 는 중단을 APIUserAbortError 로만 알리므로, 시간 예산에 걸린 경우임을 로그에서 알 수 있게 바꿔 던진다.
+        if (signal.aborted) throw new Error('time budget exceeded (retries included)', { cause })
         throw cause
       }
       // 비용 추적용 토큰 수만 남긴다(사용자 데이터 없음). 운영에서는 observability 가 꺼져 있어 어디에도 저장되지 않는다.
-      console.info(`[reading] ${message.model} in=${message.usage.input_tokens} out=${message.usage.output_tokens} stop=${message.stop_reason ?? 'none'}`)
+      console.info(`[reading] claude ${message.model} in=${message.usage.input_tokens} out=${message.usage.output_tokens} stop=${message.stop_reason ?? 'none'}`)
       return parseReadingMessage(message)
     },
   }
