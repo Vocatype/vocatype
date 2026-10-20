@@ -94,9 +94,10 @@ AI는 어댑터(`worker/ai/`) 뒤에 있고, 기본값은 이미지를 만들지
 1. `wrangler.jsonc`의 `vars.AI_PROVIDER`를 `"workers-ai"`로 바꿔 커밋·푸시한다. (`ai` 바인딩과 속도 제한은 이미 들어 있다.)
    대시보드의 변수 화면에서 바꾸면 안 된다. `wrangler deploy`가 다음 푸시 때 설정 파일 값으로 덮어써 조용히 `mock`으로 돌아간다.
 2. 푸시하면 Cloudflare가 빌드·배포한다. 배포 후 `https://<worker>/api/config`가 `{"provider":"workers-ai","features":{"portrait":true}}`를 돌려주면 켜진 것이다.
-3. 같은 요청을 두 번 보내 같은 이미지가 나오는지 확인한다(`seed` 결정성). Flux 1 schnell은 `seed` 입력을 거부해 Leonardo Lucid Origin으로 바꿨다. 503이 계속 나오면 Worker 로그(`npx wrangler tail --name <worker>`)에서 `[portrait] provider failed:` 줄을 확인한다. 무료 플랜은 Workers AI 일일 할당량(10,000 neurons)이 있어 소진되면 `4006` 오류로 503이 나며, 이때 결과 화면은 자리표시 초상으로 진행한다.
+3. 같은 요청을 두 번 보내 같은 얼굴이 나오는지 확인한다(`seed` 결정성). Flux 1 schnell은 `seed` 입력을 거부해 Leonardo Lucid Origin으로 바꿨다. **해시·바이트 비교로는 판정할 수 없다.** 같은 씨앗이라도 응답 바이트는 매번 조금 다르므로(GPU 비결정성), 두 응답의 `image`를 파일로 풀어 눈으로 보거나 픽셀 차이를 잰다. 2026-10-20 실측에서 같은 씨앗 2회는 같은 얼굴·구도에 채널 평균 차이 3/255, 다른 씨앗은 다른 얼굴에 33/255였다(`branches/015-docs-portrait-seed-check/02-implementation.md`). 503이 계속 나오면 Worker 로그(`npx wrangler tail --name <worker>`)에서 `[portrait] provider failed:` 줄을 확인한다. 무료 플랜은 Workers AI 일일 할당량(10,000 neurons)이 있어 소진되면 `4006` 오류로 503이 나며, 이때 결과 화면은 자리표시 초상으로 진행한다. 초상 1장이 약 1,400~1,500뉴런이라 확인 호출도 할당량을 쓴다.
    ```bash
-   curl -s -X POST https://<worker>/api/portrait -H 'content-type: application/json' -d '{"typeCode":"WFQV","seed":123}' | shasum
+   curl -s -X POST https://<worker>/api/portrait -H 'content-type: application/json' -d '{"typeCode":"WFQV","seed":123}' -o portrait-1.json
+   node -e "const r=require('./portrait-1.json');require('fs').writeFileSync('portrait-1.jpg',Buffer.from(r.image.split(',')[1],'base64'))"
    ```
 4. 로컬에서 실제 모델을 호출해 보려면 `npx wrangler login` 뒤 프로젝트 루트에 `.dev.vars` 파일을 만들어 `AI_PROVIDER=workers-ai` 한 줄을 넣고 `npm run dev`를 실행한다(`.dev.vars`는 커밋되지 않는다). Workers AI 바인딩은 로컬에서도 Cloudflare 계정을 통해 원격으로 호출되며 과금될 수 있다.
 
@@ -163,6 +164,7 @@ workers-ai (무료 Workers AI 텍스트 모델) ──실패──▶ claude (�
 
 - 분석 축의 범위(`src/features/analysis/axes.ts`의 `AXIS_RANGES`)는 합성 신호로만 검증한 초기값이다. 실제 화자 10명 이상의 녹음으로 축 분포를 보고 범위를 보정해야 16개 타입이 고르게 나온다. 자세한 내용은 `branches/004-feature-analysis/02-implementation.md`의 "알려진 한계와 보정".
 - 온도 축의 밝기 지표(스펙트럼 기울기)는 음높이와 함께 커지는 경향이 남아 있다. 보정 때 음높이 정규화 지표로 바꾸는 방안을 검토한다.
+- 초상의 `seed` 결정성은 "같은 얼굴·구도"까지다. 같은 씨앗이라도 응답 바이트는 매번 조금 달라(GPU 비결정성) 해시로 같은지 판정할 수 없다(015 실측). 흐름상 한 녹음에 초상을 한 번만 만들므로 사용자에게 보이는 차이는 없다.
 - iOS Safari는 `download` 속성을 새 탭으로 열 수 있다. 공유 시트("공유" 버튼)를 쓰면 사진 앱에 바로 저장할 수 있다.
 - 목소리 리딩은 생성 시점 언어로 한 번만 만들어진다. 결과 화면에서 언어를 바꾸면 리딩 카드가 사라지고 카탈로그 설명만 보인다. 다시 녹음·생성하면 바뀐 언어로 만들어진다.
 - 결과는 재미로 보는 해석이며 성격·건강 등 어떤 진단도 아니다.
