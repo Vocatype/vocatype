@@ -1,7 +1,8 @@
 import type { AiProvider, PortraitInput, PortraitOutput } from './types.ts'
 
 /**
- * 초상 생성 모델. Leonardo Lucid Origin은 실사 지향이고 `seed`를 받아 같은 씨앗이면 같은 얼굴이 나온다.
+ * 초상 생성 모델. Leonardo Lucid Origin은 실사 지향이고 `seed`를 받아 같은 씨앗이면 같은 얼굴·구도가 나온다.
+ * 응답 바이트는 매번 조금 달라(GPU 비결정성) 해시로는 비교할 수 없다 — 015 실측.
  * (Flux 1 schnell은 `seed` 입력을 거부한다: "Additional properties '/seed' not allowed" — 007에서 확인.)
  */
 export const PORTRAIT_MODEL = '@cf/leonardo/lucid-origin'
