@@ -76,8 +76,10 @@ export default {
         })
         const response: PortraitResponse = { image: output.image, provider: provider.name }
         return json(response)
-      } catch {
-        // 제공자 오류의 세부 내용은 노출하지 않는다. 클라이언트는 자리표시 초상으로 진행한다.
+      } catch (cause) {
+        // 제공자 오류의 세부 내용은 응답에 노출하지 않는다(클라이언트는 자리표시 초상으로 진행).
+        // 운영 진단을 위해 오류 종류와 메시지만 로그에 남긴다. 사용자 데이터는 포함되지 않는다.
+        console.error('[portrait] provider failed:', cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause))
         return error('provider_failed', 503)
       }
     }
