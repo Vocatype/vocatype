@@ -6,6 +6,8 @@ type FakeEnv = Env & { PORTRAIT_LIMITER?: FakeLimiter; READING_LIMITER?: FakeLim
 
 const mockEnv = { AI_PROVIDER: 'mock', TEXT_PROVIDER: 'mock' } as unknown as FakeEnv
 const claudeEnv = { AI_PROVIDER: 'mock', TEXT_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'sk-ant-test-key' } as unknown as FakeEnv
+/** 운영 리딩 체인 순서. 생성 타입(wrangler.jsonc → worker-configuration.d.ts)에 묶어, 설정을 바꾸고 타입을 다시 만들면 여기서 타입 검사가 실패한다. */
+const PRODUCTION_TEXT_PROVIDER = 'claude,workers-ai' satisfies Env['TEXT_PROVIDER']
 
 const axes = { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 }
 const readingBody = JSON.stringify({ typeCode: 'WFQV', axes, locale: 'ko' })
@@ -239,7 +241,7 @@ describe('POST /api/reading', () => {
     // 키 오류(401)는 SDK 가 재시도하지 않는 빠른 실패라 남은 예산으로 workers-ai 가 시도된다.
     const fetchMock = vi.fn(async () => Response.json({ type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }, { status: 401 }))
     vi.stubGlobal('fetch', fetchMock)
-    const env = { AI_PROVIDER: 'mock', TEXT_PROVIDER: 'claude,workers-ai', AI: ai, ANTHROPIC_API_KEY: 'sk-ant-test-key' } as unknown as FakeEnv
+    const env = { AI_PROVIDER: 'mock', TEXT_PROVIDER: PRODUCTION_TEXT_PROVIDER, AI: ai, ANTHROPIC_API_KEY: 'sk-ant-test-key' } as unknown as FakeEnv
     expect(await (await call('/api/config', undefined, env)).json()).toEqual({ provider: 'mock', textProviders: ['claude', 'workers-ai'], features: { portrait: false, reading: true } })
     const response = await call('/api/reading', { method: 'POST', body: readingBody }, env)
     expect(response.status).toBe(200)
@@ -254,7 +256,7 @@ describe('POST /api/reading', () => {
     const run = vi.fn()
     const ai = { run } as unknown as Ai
     vi.stubGlobal('fetch', vi.fn(async () => Response.json(anthropicMessage('따뜻한 숨결이 문장을 데우고, 멈추는 자리마다 여운이 남아요. 빠르게 달리다가도 한 번씩 숨을 고르는 리듬이 있어요.', '이야기 한가운데로 끌어들이는 목소리'))))
-    const env = { AI_PROVIDER: 'mock', TEXT_PROVIDER: 'claude,workers-ai', AI: ai, ANTHROPIC_API_KEY: 'sk-ant-test-key' } as unknown as FakeEnv
+    const env = { AI_PROVIDER: 'mock', TEXT_PROVIDER: PRODUCTION_TEXT_PROVIDER, AI: ai, ANTHROPIC_API_KEY: 'sk-ant-test-key' } as unknown as FakeEnv
     const response = await call('/api/reading', { method: 'POST', body: readingBody }, env)
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
