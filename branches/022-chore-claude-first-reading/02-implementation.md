@@ -68,4 +68,19 @@
 
 ## 배포 후 확인
 
-(배포는 사용자 확인 뒤. 결과는 이 절에 기록한다.)
+사용자 확인 뒤 2026-10-20 15:0x KST에 배포했다.
+
+- 푸시: 배포 직전 `git fetch` 결과 `origin/main`이 이미 병합 커밋 `5299003`(022 포함)을 가리키고 있어 이 작업에서 따로 푸시할 커밋은 없었다.
+- 배포: main 체크아웃(`5299003`, 깨끗함)에서 `npm run deploy`(= `npm run build && wrangler deploy`), 종료 코드 0. 출력의 바인딩 표에 `env.TEXT_PROVIDER ("claude,workers-ai")`, `env.AI_PROVIDER ("workers-ai")`. Current Version ID `43807d50-d216-4887-ab95-135dbc6b527a`.
+
+배포 주소 `https://vocatype.hs827.workers.dev`에서 15:03 KST에 확인:
+
+| 호출 | 결과 |
+| --- | --- |
+| `GET /api/config` | `{"provider":"workers-ai","textProviders":["claude","workers-ai"],"features":{"portrait":true,"reading":true}}` — **claude가 앞** (배포 직전에는 `["workers-ai","claude"]`) |
+| `GET /api/health` | 200 |
+| `POST /api/reading` ko `WFQV`(warmth 0.78 · density 0.86 · pace 0.71 · variation 0.64 · pitch 0.31 · brightness 0.42) | 200, 2.8초, **`provider: "claude"`**. 리딩 4문장 187자, 캡션 25자("듣는 이를 이야기 한가운데로 끌어당기는 목소리") |
+
+- 출력 규칙 점검: 4문장 모두 해요체, "당신" 없음, 숫자·축 이름·타입 코드 인용 없음, 성별·나이가 실린 표현 없음, 캡션은 ko 28자 한도 안. 설계에서 "표본이 작다"고 한 Claude 한국어 품질의 세 번째 표본이다.
+- 비용: 이 확인으로 Claude 1회(약 $0.0002)를 썼다. 초상은 호출하지 않았다.
+- `wrangler tail`은 열지 않았다(응답의 `provider`로 충분했고 observability는 꺼져 있다).
