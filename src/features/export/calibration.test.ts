@@ -91,9 +91,18 @@ describe('buildCalibrationExport 스키마', () => {
     expect(record.axisRanges).toEqual(AXIS_RANGES)
   })
 
+  it('axisRanges는 전역 상수의 복사본이라 레코드를 바꿔도 축 계산에 영향이 없다', () => {
+    const record = buildCalibrationExport(profile, capture, 'en')
+    expect(record.axisRanges).not.toBe(AXIS_RANGES)
+    expect(record.axisRanges.pace).not.toBe(AXIS_RANGES.pace)
+    ;(record.axisRanges as unknown as { pitch: number[] }).pitch[0] = 1
+    expect(AXIS_RANGES.pitch[0]).toBe(85)
+  })
+
   it('features는 VoiceFeatures에서 envelope만 뺀 전체에 envelopeLength를 더한 것이다', () => {
     const record = buildCalibrationExport(profile, capture, 'en')
-    // VoiceFeatures에 필드가 늘면 여기서 실패한다. 그때 schemaVersion을 올리고 이 목록을 갱신한다.
+    // VoiceFeatures에 필드가 늘면 buildCalibrationExport가 먼저 컴파일에 실패하고(허용 목록), 여기서도 실패한다.
+    // 이 목록을 갱신하기 전에 새 필드가 음성·시계열이 아닌지 확인하고 schemaVersion을 올린다.
     expect(Object.keys(record.features).sort()).toEqual(
       [
         'durationSec',
@@ -150,9 +159,27 @@ describe('음성·개인정보 부재', () => {
     const record = buildCalibrationExport(profile, capture, 'en')
     const keys = allKeys(record)
     expect(keys).not.toContain('features.envelope')
-    const forbidden = new Set(['envelope', 'blob', 'audio', 'samples', 'pcm', 'recording', 'mimeType', 'previewUrl'])
+    const forbidden = new Set([
+      'envelope',
+      'blob',
+      'audio',
+      'samples',
+      'pcm',
+      'recording',
+      'mimeType',
+      'previewUrl',
+      'frames',
+      'waveform',
+      'spectrum',
+      'buffer',
+      'signal',
+      'url',
+    ])
     for (const path of keys) expect(forbidden.has(path.split('.').at(-1) ?? ''), path).toBe(false)
     expect(allKeys(record).some((path) => path.startsWith('features.envelope.'))).toBe(false)
+    // 긴 배열(시계열)이 어떤 키로도 들어가지 않는다. 축 범위의 [low, high] 쌍만 배열이다.
+    const arrays = JSON.stringify(record).match(/\[[^\]]*\]/g) ?? []
+    for (const array of arrays) expect(JSON.parse(array).length, array).toBeLessThanOrEqual(2)
   })
 
   it('시각·사용자 에이전트·IP·기기 같은 식별 정보 키가 없다', () => {

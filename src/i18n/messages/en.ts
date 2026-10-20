@@ -95,4 +95,5 @@ export const en = {
   'result.calibration.note': 'Saves only the analysis numbers (raw features, six axes, type) as a JSON file on this device. No audio, and nothing is sent to a server.',
   'result.calibration.export': 'Download JSON',
   'result.calibration.saved': 'Saved: {filename}',
+  'result.calibration.failed': 'Could not save the JSON. Please try again.',
 } satisfies Record<MessageKey, string>

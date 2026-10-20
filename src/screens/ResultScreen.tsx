@@ -35,8 +35,8 @@ export function ResultScreen({ capture, profile, portrait, reading, calibration 
   const [saveState, setSaveState] = useState<SaveState>('idle')
   // 공유 시트 지원 여부는 마운트 시점에 한 번만 판단하면 된다.
   const [shareAvailable] = useState(() => canShareFiles())
-  // 보정용 JSON을 내려받은 파일 이름. 상태 문구에 보여 준다.
-  const [calibrationSavedAs, setCalibrationSavedAs] = useState<string | null>(null)
+  // 보정용 JSON 내보내기 상태. 내려받은 파일 이름을 상태 문구에 보여 주고, 실패하면 다시 시도하라고 알린다.
+  const [calibrationState, setCalibrationState] = useState<{ savedAs: string } | 'failed' | null>(null)
 
   const view = useMemo(() => (profile ? presentResult(profile, capture, locale) : null), [profile, capture, locale])
   // 리딩은 생성 시점 언어로 한 번만 만든다. 언어를 바꾸면 다른 언어의 글을 섞어 보이지 않고 카탈로그 설명으로 돌아간다.
@@ -129,11 +129,17 @@ export function ResultScreen({ capture, profile, portrait, reading, calibration 
 
   // 보정용 내보내기: 음성 없이 분석 수치만 JSON으로. 버튼을 눌렀을 때만, 기기 안에서만(downloadBlob) 저장한다.
   const exportCalibration = () => {
-    const record = buildCalibrationExport(profile, capture, locale)
-    const name = calibrationFilename(record)
-    downloadBlob(calibrationBlob(record), name)
-    setCalibrationSavedAs(name)
+    try {
+      const record = buildCalibrationExport(profile, capture, locale)
+      const name = calibrationFilename(record)
+      downloadBlob(calibrationBlob(record), name)
+      setCalibrationState({ savedAs: name })
+    } catch {
+      setCalibrationState('failed')
+    }
   }
+  const calibrationMessage =
+    calibrationState === 'failed' ? t('result.calibration.failed') : calibrationState ? t('result.calibration.saved', { filename: calibrationState.savedAs }) : ''
 
   const saveMessage =
     saveState === 'working'
@@ -312,8 +318,8 @@ export function ResultScreen({ capture, profile, portrait, reading, calibration 
               {t('result.calibration.export')}
             </Button>
           </div>
-          <p className="save-status" role="status">
-            {calibrationSavedAs ? t('result.calibration.saved', { filename: calibrationSavedAs }) : ''}
+          <p className={['save-status', calibrationState === 'failed' ? 'is-error' : ''].filter(Boolean).join(' ')} role="status">
+            {calibrationMessage}
           </p>
         </section>
       ) : null}

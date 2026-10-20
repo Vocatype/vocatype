@@ -93,6 +93,7 @@ export const ko = {
   'result.calibration.note': '음성 없이 분석 수치(원시 특징·여섯 축·타입)만 JSON 파일로 이 기기에 저장해요. 서버로 보내지 않아요.',
   'result.calibration.export': 'JSON 내려받기',
   'result.calibration.saved': '저장했어요: {filename}',
+  'result.calibration.failed': 'JSON을 저장하지 못했어요. 다시 시도해 주세요.',
 } as const
 
 export type MessageKey = keyof typeof ko

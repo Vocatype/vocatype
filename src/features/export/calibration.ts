@@ -71,7 +71,28 @@ export function normalizedTilt(features: Pick<VoiceFeatures, 'tiltMedian' | 'f0M
  * fallbackLocale은 캡처가 없을 때(정상 흐름에서는 생기지 않는다)만 쓰는 화면 언어다.
  */
 export function buildCalibrationExport(profile: VoiceProfile, capture: CalibrationCapture | null, fallbackLocale: Locale): CalibrationExport {
-  const { envelope, ...features } = profile.features
+  const f = profile.features
+  // 특징은 허용 목록으로 하나씩 옮긴다(구조 분해 금지). VoiceFeatures에 필드가 늘면 CalibrationFeatures 타입이 그 필드를 요구해
+  // 컴파일이 실패하므로, 새 필드가 음성·시계열이 아닌지 확인하고 schemaVersion을 올린 뒤 여기와 테스트 목록에 더하거나 타입에서 제외해야 한다.
+  const features: CalibrationFeatures = {
+    durationSec: f.durationSec,
+    sampleRate: f.sampleRate,
+    frameCount: f.frameCount,
+    energeticFrameCount: f.energeticFrameCount,
+    voicedFrameCount: f.voicedFrameCount,
+    speechRatio: f.speechRatio,
+    f0Median: f.f0Median,
+    f0Variation: f.f0Variation,
+    f0Low: f.f0Low,
+    f0High: f.f0High,
+    rmsMean: f.rmsMean,
+    rmsVariation: f.rmsVariation,
+    zcrMean: f.zcrMean,
+    tiltMedian: f.tiltMedian,
+    syllableRate: f.syllableRate,
+    pauseCount: f.pauseCount,
+    envelopeLength: f.envelope.length,
+  }
   const { warmth, density, pace, variation, pitch, brightness } = profile.axes
   return {
     schema: CALIBRATION_SCHEMA,
@@ -79,14 +100,15 @@ export function buildCalibrationExport(profile: VoiceProfile, capture: Calibrati
     analysisVersion: ANALYSIS_VERSION,
     locale: capture?.script.locale ?? fallbackLocale,
     scriptId: capture?.script.id ?? null,
-    durationMs: capture?.recording.durationMs ?? Math.round(profile.features.durationSec * 1000),
+    durationMs: capture?.recording.durationMs ?? Math.round(f.durationSec * 1000),
     quality: profile.quality,
     typeCode: profile.typeCode,
     seed: profile.seed,
     axes: { warmth, density, pace, variation, pitch, brightness },
-    features: { ...features, envelopeLength: envelope.length },
-    derived: { tiltNormalized: normalizedTilt(profile.features) },
-    axisRanges: AXIS_RANGES,
+    features,
+    derived: { tiltNormalized: normalizedTilt(f) },
+    // 전역 상수를 그대로 참조하지 않고 복사해, 레코드를 받은 쪽이 바꿔도 축 계산에 영향이 없게 한다.
+    axisRanges: structuredClone(AXIS_RANGES),
   }
 }
 
