@@ -244,10 +244,12 @@ describe('축 막대', () => {
     const labels = calls.filter((c) => /^[WFQV] \S/.test(c.text) && c.text.includes('…'))
     expect(labels).toHaveLength(4)
     const barWidth = (CARD_WIDTH - 144 - 24 * 3) / 4
-    for (const call of labels) {
-      expect(call.text.endsWith('…')).toBe(true)
-      // 퍼센트 자리(최대 '100%' 폭)와 간격 12를 남겨야 한다
-      expect(call.width).toBeLessThanOrEqual(barWidth - measure('100%') - 12)
+    for (const axis of view.axes) {
+      const call = labels.find((c) => c.text.startsWith(`${axis.letter} `))
+      expect(call, axis.letter).toBeTruthy()
+      expect(call!.text.endsWith('…')).toBe(true)
+      // 그 축의 퍼센트 자리와 간격 12를 남겨야 한다 (부동소수점 여유 0.01)
+      expect(call!.width).toBeLessThanOrEqual(barWidth - measure(`${axis.percent}%`) - 12 + 0.01)
     }
   })
 
