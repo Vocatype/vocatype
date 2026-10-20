@@ -138,7 +138,7 @@ claude (키가 있을 때만) ──실패──▶ workers-ai (무료 Workers A
    ```
 2. `wrangler.jsonc`의 `vars.TEXT_PROVIDER`를 `"claude,workers-ai"`(Claude 우선, 현재 값) 또는 `"workers-ai,claude"`(무료 우선)로 바꿔 커밋·푸시한다.
 3. 배포 후 `https://<worker>/api/config`가 고른 순서대로 `"textProviders":["claude","workers-ai"]`(Claude 우선) 또는 `["workers-ai","claude"]`(무료 우선)를 돌려주면 체인에 들어간 것이다. 어느 제공자가 답하는지는 `/api/reading` 응답의 `provider`로 본다. 503은 체인 밖의 예외일 때만 나오며, 그때는 Worker 로그(`npx wrangler tail --name <worker>`)의 `[reading]` 줄을 본다.
-4. 로컬에서 체인을 돌려 보려면 프로젝트 루트의 `.dev.vars`(커밋되지 않음)에 두 줄을 넣고 `npm run dev`를 실행한다. Workers AI 바인딩은 로컬에서도 Cloudflare 계정(`npx wrangler login`)을 통해 원격 호출되며 무료 할당량을 쓴다. 아래처럼 `claude,workers-ai`로 두면 로컬 호출도 리딩마다 Anthropic 과금(1회 약 $0.0002)이 생긴다. 과금 없이 보려면 `TEXT_PROVIDER=workers-ai`로 둔다.
+4. 로컬에서 체인을 돌려 보려면 프로젝트 루트의 `.dev.vars`(커밋되지 않음)에 두 줄을 넣고 `npm run dev`를 실행한다. Workers AI 바인딩은 로컬에서도 Cloudflare 계정(`npx wrangler login`)을 통해 원격 호출되며 무료 할당량을 쓴다. 아래처럼 `claude,workers-ai`로 두면 로컬 호출도 리딩마다 Anthropic 과금(1회 약 $0.0002)이 생긴다. Anthropic 과금 없이 보려면 `TEXT_PROVIDER=workers-ai`로 둔다.
    ```
    TEXT_PROVIDER=claude,workers-ai
    ANTHROPIC_API_KEY=sk-ant-…
