@@ -74,7 +74,7 @@ export function createClaudeTextProvider(options: ClaudeTextProviderOptions): Te
   return {
     name: 'claude',
     async generateReading(input: ReadingInput, options?: GenerateOptions): Promise<ReadingOutput> {
-      // 체인이 남은 시간 예산을 신호로 주면 그걸 쓰고, 없으면 체인 예산 전체를 자체 상한으로 건다.
+      // 체인이 배분한 시간을 신호로 주면 그걸 쓰고, 없으면 체인 예산 전체를 자체 상한으로 건다.
       // SDK 는 서버가 준 retry-after 를 그대로 기다리므로, 신호가 없으면 클라이언트가 포기한 뒤에도 두 번째 호출이 나가 비용을 쓸 수 있다.
       const signal = options?.signal ?? AbortSignal.timeout(READING_CHAIN_BUDGET_MS)
       let message: Anthropic.Message
