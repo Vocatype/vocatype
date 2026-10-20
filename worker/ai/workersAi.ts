@@ -1,3 +1,4 @@
+import { PORTRAIT_SERVER_TIMEOUT_MS } from '../../shared/api.ts'
 import type { AiProvider, PortraitInput, PortraitOutput } from './types.ts'
 
 /**
@@ -20,18 +21,25 @@ export function detectImageMime(base64: string): 'image/jpeg' | 'image/png' | 'i
 /**
  * Cloudflare Workers AI 제공자.
  * 결과는 base64 이미지이며 저장하지 않고 응답으로만 돌려준다.
+ * 호출은 `timeoutMs`(기본 PORTRAIT_SERVER_TIMEOUT_MS, shared/api.ts 의 초상 시간 규칙)에서 바인딩 옵션 신호로 끊는다.
+ * 바인딩은 이 신호를 추론 요청 fetch 에 그대로 건다(020 확인, workersAiText.ts 주석). 끊으면 TimeoutError 로 실패하고 라우트는 503 으로 답한다.
+ * 끊은 뒤 Cloudflare 쪽 추론이 멈추는지는 바인딩 밖의 일이다.
  */
-export function createWorkersAiProvider(ai: Ai): AiProvider {
+export function createWorkersAiProvider(ai: Ai, timeoutMs: number = PORTRAIT_SERVER_TIMEOUT_MS): AiProvider {
   return {
     name: 'workers-ai',
     supportsPortrait: true,
     async generatePortrait(input: PortraitInput): Promise<PortraitOutput> {
-      const result = await ai.run(PORTRAIT_MODEL, {
-        prompt: input.prompt,
-        seed: input.seed,
-        width: PORTRAIT_SIZE,
-        height: PORTRAIT_SIZE,
-      })
+      const result = await ai.run(
+        PORTRAIT_MODEL,
+        {
+          prompt: input.prompt,
+          seed: input.seed,
+          width: PORTRAIT_SIZE,
+          height: PORTRAIT_SIZE,
+        },
+        { signal: AbortSignal.timeout(timeoutMs) },
+      )
       if (!result.image) return { image: null }
       const mime = detectImageMime(result.image)
       if (!mime) return { image: null }
