@@ -60,7 +60,7 @@ export const ko = {
   'result.lead': '『{title}』 낭독 · {duration}',
   'result.readOf': '『{title}』 낭독',
   'result.lowSignal': '목소리가 거의 잡히지 않아 기본값으로 채웠어요. 조용한 곳에서 다시 녹음하면 더 정확해져요.',
-  'result.portraitPending': 'AI 초상은 준비 중이에요. 지금은 당신의 컬러와 사운드 시그니처로 그렸어요.',
+  'result.portraitPending': '이번에는 AI 초상을 만들지 못해 컬러와 사운드 시그니처로 그렸어요.',
   'result.portraitAlt': '{name} 타입의 초상',
   'result.typeCode': '타입 코드',
   'result.axesLabel': '목소리 축',

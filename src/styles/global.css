@@ -649,6 +649,43 @@ p {
   min-height: 1.5em;
 }
 
+/* 생성 대기 음파: 장식용(aria-hidden). 막대마다 최대 높이(--h)와 순번(--i)을 받아 엇갈려 오르내린다. */
+.voice-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 72px;
+}
+
+.voice-loader__bar {
+  width: 6px;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--brand-a), var(--brand-b));
+  transform: scaleY(var(--h));
+  animation: voice-loader-wave 1.1s ease-in-out infinite;
+  /* 음수 지연으로 처음부터 막대마다 다른 위치에서 시작한다. */
+  animation-delay: calc(var(--i) * -0.09s);
+}
+
+@keyframes voice-loader-wave {
+  0%,
+  100% {
+    transform: scaleY(calc(var(--h) * 0.3));
+  }
+  50% {
+    transform: scaleY(var(--h));
+  }
+}
+
+/* 움직임 줄이기: 전역 규칙(지속 시간 0.01ms)만으로는 무한 반복이 프레임마다 튈 수 있어, 멈춘 파형으로 둔다. */
+@media (prefers-reduced-motion: reduce) {
+  .voice-loader__bar {
+    animation: none;
+  }
+}
+
 .generating__error {
   color: light-dark(#b3261e, #ffb4ab);
   max-width: 420px;

@@ -62,7 +62,7 @@ export const en = {
   'result.lead': 'Reading of “{title}” · {duration}',
   'result.readOf': 'Reading of “{title}”',
   'result.lowSignal': 'We could barely hear a voice, so defaults were used. Recording again somewhere quiet will be more accurate.',
-  'result.portraitPending': 'The AI portrait is coming soon. For now it is drawn from your colors and sound signature.',
+  'result.portraitPending': "We couldn't make the AI portrait this time, so it's drawn from your colors and sound signature.",
   'result.portraitAlt': 'Portrait for the {name} type',
   'result.typeCode': 'Type code',
   'result.axesLabel': 'Voice axes',

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FlowStep } from '../app/flow'
 import { Button } from '../components/Button'
 import { Screen } from '../components/Screen'
+import { VoiceLoader } from '../components/VoiceLoader'
 import { runGeneration, type GenerationResult, type WaitingStage } from '../features/ai/generate'
 import type { AnalysisStage } from '../features/analysis/analyze'
 import type { Capture } from '../features/recorder/types'
@@ -109,6 +110,7 @@ export function GeneratingScreen({ capture, onNavigate, onGenerated }: Props) {
         </>
       ) : (
         <>
+          <VoiceLoader />
           <div
             className={['generating__meter', indeterminate ? 'is-indeterminate' : ''].filter(Boolean).join(' ')}
             role="progressbar"
