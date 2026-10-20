@@ -3,12 +3,13 @@ import type { TypeCode } from './typeCode.ts'
 /** 클라이언트와 Worker가 함께 쓰는 API 계약. 개인정보가 담길 수 있는 필드는 없다. */
 
 export type AiProviderName = 'mock' | 'workers-ai'
-/** 텍스트(목소리 리딩) 제공자. 이미지 제공자와 별도로 켜진다. */
-export type TextProviderName = 'mock' | 'claude'
+/** 텍스트(목소리 리딩) 제공자. 이미지 제공자와 별도로 켜지며, 폴백 체인(workers-ai → claude → mock)으로 쓰인다. */
+export type TextProviderName = 'mock' | 'workers-ai' | 'claude'
 
 export interface ApiConfigResponse {
   provider: AiProviderName
-  textProvider: TextProviderName
+  /** 리딩 폴백 체인에 든 제공자(순서대로). 비어 있으면 리딩 기능이 꺼진 것이다. mock 은 포함하지 않는다. */
+  textProviders: TextProviderName[]
   features: {
     /** true면 클라이언트가 /api/portrait 를 호출한다. */
     portrait: boolean
@@ -64,6 +65,7 @@ export interface ReadingResponse {
   reading: string
   /** 공유용 한 줄. */
   caption: string
+  /** 실제로 답한 제공자. 체인이 모두 실패하면 'mock'이며, 클라이언트는 이때 리딩이 없는 것으로 본다. */
   provider: TextProviderName
 }
 

@@ -20,7 +20,7 @@ const READING_TIMEOUT_MS = 30000
 
 let configPromise: Promise<ApiConfigResponse> | null = null
 
-const OFFLINE_CONFIG: ApiConfigResponse = { provider: 'mock', textProvider: 'mock', features: { portrait: false, reading: false } }
+const OFFLINE_CONFIG: ApiConfigResponse = { provider: 'mock', textProviders: [], features: { portrait: false, reading: false } }
 
 /** 서버가 만든 목소리 리딩. locale 은 생성 시점의 화면 언어다. */
 export interface VoiceReading {
@@ -90,6 +90,7 @@ export function toReadingAxes(axes: Record<ReadingAxisKey, number>): ReadingAxes
 /**
  * 목소리 리딩 요청. 타입 코드, 반올림한 여섯 축, 언어만 보낸다(음성은 절대 보내지 않는다).
  * 실패·타임아웃·이상한 응답이면 null을 돌려주고 호출자는 카탈로그의 고정 설명으로 진행한다.
+ * 서버 체인이 모두 실패해 모의 고정 문구가 온 경우(provider 'mock')도 리딩이 없는 것으로 본다.
  */
 export async function requestReading(request: ReadingRequest, signal?: AbortSignal): Promise<VoiceReading | null> {
   try {
@@ -99,6 +100,7 @@ export async function requestReading(request: ReadingRequest, signal?: AbortSign
       READING_TIMEOUT_MS,
       signal,
     )
+    if (response.provider === 'mock') return null
     const reading = typeof response.reading === 'string' ? response.reading.replace(/\s+/g, ' ').trim() : ''
     const caption = typeof response.caption === 'string' ? response.caption.replace(/\s+/g, ' ').trim() : ''
     if (!reading || reading.length > READING_MAX_CHARS || !caption || caption.length > CAPTION_MAX_CHARS) return null

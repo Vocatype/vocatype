@@ -10,12 +10,14 @@
     "run_worker_first": ["/api/*"]
   },
   // AI 제공자 선택. "mock"이면 초상을 만들지 않고, "workers-ai"면 아래 AI 바인딩으로 초상을 만든다.
-  // TEXT_PROVIDER 는 목소리 리딩(텍스트) 제공자. "claude"로 바꾸고 `wrangler secret put ANTHROPIC_API_KEY`로 키를 넣어야 켜진다.
-  // 키는 이 파일과 저장소에 절대 넣지 않는다. 모델을 바꾸려면 "TEXT_MODEL": "claude-…" 변수를 추가한다(기본 claude-haiku-5-5).
+  // TEXT_PROVIDER 는 목소리 리딩(텍스트) 폴백 체인. 콤마 목록을 순서대로 시도하고 모두 실패하면 고정 문구(mock)로 끝난다.
+  //   "workers-ai"        무료 Workers AI 텍스트 모델만 (기본, 키 없이 동작)
+  //   "workers-ai,claude" 무료 모델 → 실패(할당량 소진 등) 시 Claude. `wrangler secret put ANTHROPIC_API_KEY`가 있어야 claude가 체인에 들어간다.
+  // 키는 이 파일과 저장소에 절대 넣지 않는다. Claude 모델을 바꾸려면 "TEXT_MODEL": "claude-…" 변수를 추가한다(기본 claude-haiku-5-5).
   // 설정 파일에서만 바꾼다(대시보드 변경은 다음 배포에 덮어써진다). README의 "AI 제공자" 절 참고.
   "vars": {
     "AI_PROVIDER": "workers-ai",
-    "TEXT_PROVIDER": "mock"
+    "TEXT_PROVIDER": "workers-ai"
   },
   // Workers AI 바인딩. mock 상태에서는 쓰지 않지만, 변수만 바꾸면 바로 켤 수 있도록 미리 둔다.
   // remote: true — Workers AI는 로컬 개발에서도 항상 원격 자원이므로 명시해 경고를 없앤다.

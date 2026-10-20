@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { CAPTION_MAX_CHARS, CAPTION_MIN_CHARS, READING_MAX_CHARS, READING_MIN_CHARS } from '../../shared/api.ts'
+import { parseReadingJson } from './readingOutput.ts'
 import { buildReadingUserMessage, READING_OUTPUT_SCHEMA, READING_SYSTEM_PROMPT } from './readingPrompt.ts'
 import type { ReadingInput, ReadingOutput, TextProvider } from './types.ts'
 
@@ -58,19 +58,7 @@ export function parseReadingMessage(message: Anthropic.Message): ReadingOutput {
     .filter((block): block is Anthropic.TextBlock => block.type === 'text')
     .map((block) => block.text)
     .join('')
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(text)
-  } catch {
-    throw new Error('response is not JSON')
-  }
-  if (typeof parsed !== 'object' || parsed === null) throw new Error('response is not an object')
-  const { reading, caption } = parsed as { reading?: unknown; caption?: unknown }
-  const cleanReading = typeof reading === 'string' ? reading.replace(/\s+/g, ' ').trim() : ''
-  const cleanCaption = typeof caption === 'string' ? caption.replace(/\s+/g, ' ').trim() : ''
-  if (cleanReading.length < READING_MIN_CHARS || cleanReading.length > READING_MAX_CHARS) throw new Error(`reading length ${cleanReading.length}`)
-  if (cleanCaption.length < CAPTION_MIN_CHARS || cleanCaption.length > CAPTION_MAX_CHARS) throw new Error(`caption length ${cleanCaption.length}`)
-  return { reading: cleanReading, caption: cleanCaption }
+  return parseReadingJson(text)
 }
 
 /**
@@ -97,7 +85,7 @@ export function createClaudeTextProvider(options: ClaudeTextProviderOptions): Te
         throw cause
       }
       // 비용 추적용 토큰 수만 남긴다(사용자 데이터 없음). 운영에서는 observability 가 꺼져 있어 어디에도 저장되지 않는다.
-      console.info(`[reading] ${message.model} in=${message.usage.input_tokens} out=${message.usage.output_tokens} stop=${message.stop_reason ?? 'none'}`)
+      console.info(`[reading] claude ${message.model} in=${message.usage.input_tokens} out=${message.usage.output_tokens} stop=${message.stop_reason ?? 'none'}`)
       return parseReadingMessage(message)
     },
   }
