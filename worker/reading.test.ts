@@ -19,7 +19,7 @@ describe('validateReadingBody', () => {
 
   it('잘못된 코드·로케일·축을 거부한다', () => {
     expect(validateReadingBody({ typeCode: 'XXXX', axes, locale: 'ko' }).ok).toBe(false)
-    expect(validateReadingBody({ typeCode: 'WFQV', axes, locale: 'ja' }).ok).toBe(false)
+    expect(validateReadingBody({ typeCode: 'WFQV', axes, locale: 'xx' }).ok).toBe(false)
     expect(validateReadingBody({ typeCode: 'WFQV', axes, locale: 'KO' }).ok).toBe(false)
     expect(validateReadingBody({ typeCode: 'WFQV', axes, locale: 1 }).ok).toBe(false)
     expect(validateReadingBody({ typeCode: 'WFQV', axes }).ok).toBe(false)

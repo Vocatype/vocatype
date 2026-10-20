@@ -7,7 +7,7 @@ describe('isLocale', () => {
   })
 
   it('지원하지 않는 언어, 대소문자가 다른 값, 문자열이 아닌 값은 거부한다', () => {
-    expect(isLocale('ja')).toBe(false)
+    expect(isLocale('xx')).toBe(false)
     expect(isLocale('KO')).toBe(false)
     expect(isLocale('ko-KR')).toBe(false)
     expect(isLocale('')).toBe(false)

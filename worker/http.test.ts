@@ -19,6 +19,11 @@ describe('readBodyLimited', () => {
     expect(await readBodyLimited(request, 1024)).toBe('{"a":"가나다"}')
   })
 
+  it('정확히 최대 바이트까지는 받고 1바이트라도 넘으면 null', async () => {
+    expect(await readBodyLimited(new Request('http://x/api', { method: 'POST', body: 'x'.repeat(1024) }), 1024)).toBe('x'.repeat(1024))
+    expect(await readBodyLimited(new Request('http://x/api', { method: 'POST', body: 'x'.repeat(1025) }), 1024)).toBeNull()
+  })
+
   it('글자 수가 아니라 바이트로 센다(한글은 글자당 3바이트)', async () => {
     expect(await readBodyLimited(new Request('http://x/api', { method: 'POST', body: '가'.repeat(341) }), 1024)).toBe('가'.repeat(341)) // 1023바이트
     expect(await readBodyLimited(new Request('http://x/api', { method: 'POST', body: '가'.repeat(342) }), 1024)).toBeNull() // 1026바이트, 342 코드 유닛
