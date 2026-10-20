@@ -88,7 +88,7 @@ export function GeneratingScreen({ capture, onNavigate, onGenerated }: Props) {
         : Promise.resolve(null)
       // 초상이 먼저 끝났는데 리딩을 아직 기다리면 단계 문구를 리딩으로 바꾼다(요청은 둘 다 null 로 끝나므로 reject 하지 않는다).
       void portraitPromise.then(() => {
-        if (plan.wantReading && !readingSettled && !signal.aborted) setProgress({ stage: 'reading', value: 0.9 })
+        if (plan.wantPortrait && plan.wantReading && !readingSettled && !signal.aborted) setProgress({ stage: 'reading', value: 0.9 })
       })
       const [portrait, reading] = await Promise.all([portraitPromise, readingPromise])
       if (signal.aborted) return

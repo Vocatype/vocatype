@@ -87,7 +87,15 @@ export function createClaudeTextProvider(options: ClaudeTextProviderOptions): Te
     name: 'claude',
     supportsReading: true,
     async generateReading(input: ReadingInput): Promise<ReadingOutput> {
-      const message = await createMessage(buildReadingParams(input, model), { signal: AbortSignal.timeout(TOTAL_TIMEOUT_MS) })
+      const signal = AbortSignal.timeout(TOTAL_TIMEOUT_MS)
+      let message: Anthropic.Message
+      try {
+        message = await createMessage(buildReadingParams(input, model), { signal })
+      } catch (cause) {
+        // SDK 는 중단을 APIUserAbortError 로만 알리므로, 전체 상한에 걸린 경우임을 로그에서 알 수 있게 바꿔 던진다.
+        if (signal.aborted) throw new Error(`total timeout ${TOTAL_TIMEOUT_MS}ms exceeded (retries included)`, { cause })
+        throw cause
+      }
       return parseReadingMessage(message)
     },
   }
