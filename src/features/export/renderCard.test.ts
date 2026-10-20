@@ -67,7 +67,7 @@ function fakeContext() {
 }
 
 const labelsKo: CardLabels = {
-  serviceName: 'VoicePortrait',
+  serviceName: 'Vocatype',
   tagline: '목소리로 그리는 나의 초상',
   color: '퍼스널 컬러',
   scent: '시그니처 향',
