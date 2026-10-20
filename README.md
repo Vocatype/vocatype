@@ -1,7 +1,7 @@
 # Vocatype
 
 목소리를 녹음하면 브라우저 안에서 분석해 보이스 타입, 퍼스널 컬러, 시그니처 향, 사운드 시그니처, 궁합 타입을 만들고, 모든 요소를 1080×1920 이미지 한 장으로 저장할 수 있는 웹 서비스.
-AI 초상(실사)은 Cloudflare Workers AI 어댑터로, 사람마다 다른 "목소리 리딩" 문단과 공유용 캡션은 무료 Workers AI 텍스트 모델 → Claude API 순서의 폴백 체인으로 생성하며 각각 설정 하나로 켠다. 로그인, 쿠키, 저장소를 전혀 쓰지 않는다.
+AI 초상(실사)은 Cloudflare Workers AI 어댑터로, 사람마다 다른 "목소리 리딩" 문단과 공유용 캡션은 Claude API → 무료 Workers AI 텍스트 모델 순서의 폴백 체인으로 생성하며 각각 설정 하나로 켠다. 로그인, 쿠키, 저장소를 전혀 쓰지 않는다.
 
 서비스 이름은 [`shared/config.ts`](shared/config.ts)의 `SERVICE_NAME` 상수 한 곳에서만 바꾼다.
 
@@ -18,7 +18,7 @@ AI 초상(실사)은 Cloudflare Workers AI 어댑터로, 사람마다 다른 "�
 | 프론트엔드 | React 19, TypeScript, Vite 8 |
 | 서버 | Cloudflare Workers + Static Assets (`worker/index.ts`, `/api/*`) |
 | 분석 | 브라우저 Web Audio (YIN 피치, 에너지, 조음 속도, 스펙트럼 기울기) → 4축 16타입 |
-| AI | 어댑터(`worker/ai/`). 초상: mock 또는 Workers AI(Leonardo Lucid Origin). 리딩 텍스트: 폴백 체인 — Workers AI(Llama 4 Scout, 무료 할당량) → Claude(`@anthropic-ai/sdk`, 기본 `claude-haiku-5-5`, 키가 있을 때) → 고정 문구 |
+| AI | 어댑터(`worker/ai/`). 초상: mock 또는 Workers AI(Leonardo Lucid Origin). 리딩 텍스트: 폴백 체인 — Claude(`@anthropic-ai/sdk`, 기본 `claude-haiku-5-5`, 키가 있을 때) → Workers AI(Llama 4 Scout, 무료 할당량) → 고정 문구 |
 | 빌드/배포 | `@cloudflare/vite-plugin`, Wrangler. Cloudflare Workers Builds가 Git 푸시마다 빌드·배포 (별도 CI 없음) |
 | 린트/테스트 | oxlint, Vitest |
 | 언어 | 한국어 / 영어 (브라우저 언어 자동 감지, 화면에서 전환) |
@@ -55,7 +55,7 @@ src/             React 앱
   theme/         테마 해석, Provider
   styles/        디자인 토큰과 전역 스타일
 worker/          Cloudflare Worker (API)
-  ai/            AI 제공자 어댑터 (초상: mock, workers-ai · 리딩 체인: workers-ai, claude, mock)
+  ai/            AI 제공자 어댑터 (초상: mock, workers-ai · 리딩 체인: claude, workers-ai, mock)
 wrangler.jsonc   Workers 설정
 ```
 
@@ -109,21 +109,22 @@ AI는 어댑터(`worker/ai/`) 뒤에 있고, 기본값은 이미지를 만들지
 
 ### 텍스트 제공자 (목소리 리딩)
 
-결과 화면의 "목소리 리딩"(3~4문장)과 공유용 캡션 한 줄은 초상과 별도의 **텍스트 제공자 폴백 체인**이 만든다. 원칙은 "최대한 무료를 쓰되, 안 되면 Anthropic API 키를 쓴다"이다.
+결과 화면의 "목소리 리딩"(3~4문장)과 공유용 캡션 한 줄은 초상과 별도의 **텍스트 제공자 폴백 체인**이 만든다. 지금 운영 순서는 `claude,workers-ai`다. 모든 사용자가 같은 모델(Claude)의 문장을 받게 하고, Claude가 실패하면 무료 Workers AI 모델이 받친다(022에서 010의 "무료 우선" 순서를 바꿨다. 근거는 `branches/022-chore-claude-first-reading/01-design.md`).
 
 ```
-workers-ai (무료 Workers AI 텍스트 모델) ──실패──▶ claude (키가 있을 때만) ──실패──▶ mock 고정 문구 (화면에는 안 보임)
+claude (키가 있을 때만) ──실패──▶ workers-ai (무료 Workers AI 텍스트 모델) ──실패──▶ mock 고정 문구 (화면에는 안 보임)
 ```
 
 - 체인은 `TEXT_PROVIDER` 콤마 목록을 **순서대로** 시도한다. 실패로 보는 것: Workers AI 무료 할당량 소진(`4006`), 429, 타임아웃, 모델의 생성 거부, 출력이 JSON 계약(리딩 20~600자·캡션 2~100자)에 맞지 않는 경우 전부.
 - 모두 실패하면 응답은 200이지만 `provider: "mock"`이고, 클라이언트는 이를 "리딩 없음"으로 보고 카탈로그의 타입 설명을 보여 준다. 사용자에게 모의 문구는 보이지 않는다.
-- `/api/reading` 응답의 `provider`에 실제로 답한 제공자가 들어가고, Worker 로그에 폴백 이유가 `[reading] workers-ai failed, falling back: AiError: 4006 …`처럼 오류 이름·메시지만 남는다.
+- `/api/reading` 응답의 `provider`에 실제로 답한 제공자가 들어가고, Worker 로그에 폴백 이유가 `[reading] claude failed, falling back: …`처럼 오류 이름·메시지만 남는다.
 - 두 모델 모두 같은 프롬프트(`worker/ai/readingPrompt.ts`)와 같은 출력 스키마를 쓴다.
 
 | `TEXT_PROVIDER` | 필요한 것 | 체인 | `/api/config` |
 | --- | --- | --- | --- |
-| `workers-ai` (기본) | `ai` 바인딩(이미 있음) | workers-ai → mock | `textProviders: ["workers-ai"]`, `reading: true` |
-| `workers-ai,claude` | + 비밀 `ANTHROPIC_API_KEY` | workers-ai → claude → mock | `["workers-ai","claude"]` |
+| `claude,workers-ai` (현재) | 비밀 `ANTHROPIC_API_KEY` + `ai` 바인딩(이미 있음) | claude → workers-ai → mock | `["claude","workers-ai"]` |
+| `workers-ai,claude` | 비밀 `ANTHROPIC_API_KEY` + `ai` 바인딩 | workers-ai → claude → mock (무료 우선, 011부터 022 전까지) | `["workers-ai","claude"]` |
+| `workers-ai` | `ai` 바인딩 | workers-ai → mock | `textProviders: ["workers-ai"]`, `reading: true` |
 | `claude` | 비밀 `ANTHROPIC_API_KEY` | claude → mock | `["claude"]` |
 | 없음 / `mock` / 모르는 값 | — | mock만 | `[]`, `reading: false` (클라이언트가 호출하지 않음) |
 
@@ -135,11 +136,11 @@ workers-ai (무료 Workers AI 텍스트 모델) ──실패──▶ claude (�
    ```bash
    npx wrangler secret put ANTHROPIC_API_KEY
    ```
-2. `wrangler.jsonc`의 `vars.TEXT_PROVIDER`를 `"workers-ai,claude"`로 바꿔 커밋·푸시한다.
-3. 배포 후 `https://<worker>/api/config`가 `"textProviders":["workers-ai","claude"]`를 돌려주면 체인에 들어간 것이다. 어느 제공자가 답하는지는 `/api/reading` 응답의 `provider`로 본다. 503은 체인 밖의 예외일 때만 나오며, 그때는 Worker 로그(`npx wrangler tail --name <worker>`)의 `[reading]` 줄을 본다.
-4. 로컬에서 체인을 돌려 보려면 프로젝트 루트의 `.dev.vars`(커밋되지 않음)에 두 줄을 넣고 `npm run dev`를 실행한다. Workers AI 바인딩은 로컬에서도 Cloudflare 계정(`npx wrangler login`)을 통해 원격 호출되며 무료 할당량을 쓴다.
+2. `wrangler.jsonc`의 `vars.TEXT_PROVIDER`를 `"claude,workers-ai"`(Claude 우선, 현재 값) 또는 `"workers-ai,claude"`(무료 우선)로 바꿔 커밋·푸시한다.
+3. 배포 후 `https://<worker>/api/config`가 고른 순서대로 `"textProviders":["claude","workers-ai"]`(Claude 우선) 또는 `["workers-ai","claude"]`(무료 우선)를 돌려주면 체인에 들어간 것이다. 어느 제공자가 답하는지는 `/api/reading` 응답의 `provider`로 본다. 503은 체인 밖의 예외일 때만 나오며, 그때는 Worker 로그(`npx wrangler tail --name <worker>`)의 `[reading]` 줄을 본다.
+4. 로컬에서 체인을 돌려 보려면 프로젝트 루트의 `.dev.vars`(커밋되지 않음)에 두 줄을 넣고 `npm run dev`를 실행한다. Workers AI 바인딩은 로컬에서도 Cloudflare 계정(`npx wrangler login`)을 통해 원격 호출되며 무료 할당량을 쓴다. 아래처럼 `claude,workers-ai`로 두면 로컬 호출도 리딩마다 Anthropic 과금(1회 약 $0.0002)이 생긴다. Anthropic 과금 없이 보려면 `TEXT_PROVIDER=workers-ai`로 둔다.
    ```
-   TEXT_PROVIDER=workers-ai,claude
+   TEXT_PROVIDER=claude,workers-ai
    ANTHROPIC_API_KEY=sk-ant-…
    ```
    ```bash
@@ -148,11 +149,11 @@ workers-ai (무료 Workers AI 텍스트 모델) ──실패──▶ claude (�
 
 #### 보내는 데이터와 비용
 
-- 리딩 요청에는 **타입 코드(4글자), 여섯 축 수치(0..1, 소수 둘째 자리), 언어(ko/en)** 만 들어간다. 음성, 녹음 길이, 씨앗, IP, 브라우저 정보는 보내지 않는다. 제공자(Workers AI 또는 Anthropic)에 가는 것도 이 값들을 서버가 프롬프트(영어 지시문 + 요청 언어의 타입 이름·설명)에 적은 것뿐이며, 요청은 Worker가 보내므로 사용자 IP는 제공자에 가지 않는다. Anthropic에 간 프롬프트와 응답은 [Anthropic API 약관과 데이터 보존 정책](https://www.anthropic.com/legal/commercial-terms)에 따라 처리된다(음성·IP·개인 식별 정보는 포함되지 않는다).
+- 리딩 요청에는 **타입 코드(4글자), 여섯 축 수치(0..1, 소수 둘째 자리), 언어(ko/en)** 만 들어간다. 음성, 녹음 길이, 씨앗, IP, 브라우저 정보는 보내지 않는다. 제공자(Workers AI 또는 Anthropic)에 가는 것도 이 값들을 서버가 프롬프트(영어 지시문 + 요청 언어의 타입 이름·설명)에 적은 것뿐이며, 요청은 Worker가 보내므로 사용자 IP는 제공자에 가지 않는다. 지금 순서(`claude,workers-ai`)에서는 리딩 요청마다 Anthropic으로 간다. Anthropic에 간 프롬프트와 응답은 [Anthropic API 약관과 데이터 보존 정책](https://www.anthropic.com/legal/commercial-terms)에 따라 처리된다(음성·IP·개인 식별 정보는 포함되지 않는다).
 - 프롬프트는 서버가 만든다(`worker/ai/readingPrompt.ts`). 성별·나이·인종·국적·억양·외모·신체·건강·감정 상태를 추정하거나 언급하지 말라는 지침, 성별·나이가 실린 단어 금지, 진단·조언 금지, 수치·축 이름·타입 코드 인용 금지가 들어 있다. 클라이언트는 임의 문장을 생성시킬 수 없다.
 - 응답은 JSON 스키마(구조화 출력 / JSON 모드)로 받고 길이(리딩 20~600자, 캡션 2~100자)를 벗어나면 그 제공자의 실패로 보고 다음으로 넘어간다. 생성된 글은 응답으로만 돌아가고 서버에 저장되지 않는다.
-- **Workers AI 무료 할당량(하루 10,000뉴런)은 초상(이미지)과 리딩(텍스트)이 함께 쓴다.** 가격표 기준 초상 1장(Lucid Origin 768×768)이 약 1,400~1,500뉴런(512×512 타일당 636뉴런 + 스텝당 12뉴런)이라 **하루 6~7장이면 소진**되고, 리딩 1회(Llama 4 Scout, 입력 약 650 + 출력 약 100토큰)는 약 25뉴런이다(011 실측). 소진은 사실상 초상이 일으키고, 그 뒤 리딩은 `4006`으로 Claude(체인에 있을 때)로 넘어간다. 이미지와 텍스트 모두 자리표시·카탈로그 설명으로 폴백하므로 할당량이 바닥나도 흐름은 끊기지 않는다. 가격은 [Workers AI 가격표](https://developers.cloudflare.com/workers-ai/platform/pricing/)를 확인한다.
-- Claude(Haiku 5.5) 비용: 입력 $0.10 / 출력 $0.50 (100만 토큰당). 실제 호출에서 리딩 한 번은 입력 약 1,200토큰, 출력(내부 사고 포함) 약 160~200토큰이었다(`[reading] claude … in=… out=…` 로그로 확인). **1회 $0.0002 안팎**, 1만 회에 $2 정도다. 정확한 값은 [Anthropic 가격표](https://www.anthropic.com/pricing)를 확인한다.
+- **Workers AI 무료 할당량(하루 10,000뉴런)은 초상(이미지)과 리딩(텍스트)이 함께 쓴다.** 가격표 기준 초상 1장(Lucid Origin 768×768)이 약 1,400~1,500뉴런(512×512 타일당 636뉴런 + 스텝당 12뉴런)이라 **하루 6~7장이면 소진**되고, 리딩 1회(Llama 4 Scout, 입력 약 650 + 출력 약 100토큰)는 약 25뉴런이다(011 실측). 지금 순서(`claude,workers-ai`)에서는 리딩이 Claude가 실패할 때만 Workers AI를 쓰므로 할당량은 사실상 초상이 쓴다. 리딩을 Workers AI에서 빼도 리딩 1회가 초상 1장의 약 1/60이라 하루 초상 장수는 거의 늘지 않는다. 순서를 `workers-ai,claude`로 두면 할당량이 소진된 뒤 리딩이 `4006`으로 Claude로 넘어간다. 이미지와 텍스트 모두 자리표시·카탈로그 설명으로 폴백하므로 할당량이 바닥나도 흐름은 끊기지 않는다. 가격은 [Workers AI 가격표](https://developers.cloudflare.com/workers-ai/platform/pricing/)를 확인한다.
+- Claude(Haiku 5.5) 비용: 입력 $0.10 / 출력 $0.50 (100만 토큰당). 실제 호출에서 리딩 한 번은 입력 약 1,200토큰, 출력(내부 사고 포함) 약 160~264토큰이었다(009·010 실측, `[reading] claude … in=… out=…` 로그로 확인). **1회 $0.0002 안팎**, 1만 회에 $2 정도다. 지금 순서에서는 모든 리딩이 Claude로 나가므로, IP 하나가 속도 제한(1분 5회, 콜로별)을 쉬지 않고 채우면 하루 7,200회 ≈ $1.44~1.8이다. 제한 키가 접속 IP라 IP가 여럿이면(IPv6 주소를 바꿔 가며 보내는 경우 포함) 전체 비용에는 코드상 상한이 없고, **전체 상한은 Anthropic 콘솔의 지출 한도뿐**이다. 이 키에 지출 한도를 두는 것을 권한다. 정확한 값은 [Anthropic 가격표](https://www.anthropic.com/pricing)를 확인한다.
 - 엔드포인트는 인증이 없으므로 속도 제한(`READING_LIMITER`, 접속 IP당 1분 5회, 초상 제한과 별개)과 교차 사이트 403을 반드시 유지한다.
 - 리딩은 생성 시점의 화면 언어로 한 번만 만든다. 결과 화면에서 언어를 바꾸면 다른 언어의 리딩을 섞어 보이지 않고 카탈로그 설명으로 돌아간다(다시 생성하지 않는다).
 
