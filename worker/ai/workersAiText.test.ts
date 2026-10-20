@@ -60,6 +60,23 @@ describe('createWorkersAiTextProvider', () => {
     expect((calls[0] as [string, { response_format: { type: string } }])[1].response_format.type).toBe('json_schema')
   })
 
+  it('체인이 넘긴 시간 예산 신호를 바인딩 옵션으로 넘기고, 신호가 없으면 넘기지 않는다', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const seen: (AiOptions | undefined)[] = []
+    const ai = {
+      run: async (_model: string, _built: unknown, options?: AiOptions) => {
+        seen.push(options)
+        return { response: JSON.stringify(GOOD) }
+      },
+    } as unknown as Ai
+    const provider = createWorkersAiTextProvider(ai)
+    const signal = AbortSignal.timeout(10_000)
+    await provider.generateReading(input, { signal })
+    expect(seen[0]?.signal).toBe(signal)
+    await provider.generateReading(input)
+    expect(seen[1]?.signal).toBeUndefined()
+  })
+
   it('할당량 소진 등 바인딩 오류는 그대로 전파된다', async () => {
     const quota = Object.assign(new Error('4006: you have used up your daily free allocation of 10,000 neurons'), { name: 'AiError' })
     const provider = createWorkersAiTextProvider({ run: async () => { throw quota } } as unknown as Ai)

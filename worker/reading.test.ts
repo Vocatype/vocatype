@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { LOCALES } from '../shared/locale.ts'
 import { parseReadingRequest, validateReadingBody } from './reading.ts'
 
 const axes = { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 }
@@ -12,9 +13,15 @@ describe('validateReadingBody', () => {
     expect(validateReadingBody({ typeCode: 'WFQV', axes: { ...axes, warmth: 0, pitch: 1 }, locale: 'en' }).ok).toBe(true)
   })
 
+  it('지원 언어(shared/locale.ts)는 모두 받는다', () => {
+    for (const locale of LOCALES) expect(validateReadingBody({ typeCode: 'WFQV', axes, locale })).toEqual({ ok: true, value: { typeCode: 'WFQV', axes, locale } })
+  })
+
   it('잘못된 코드·로케일·축을 거부한다', () => {
     expect(validateReadingBody({ typeCode: 'XXXX', axes, locale: 'ko' }).ok).toBe(false)
-    expect(validateReadingBody({ typeCode: 'WFQV', axes, locale: 'ja' }).ok).toBe(false)
+    expect(validateReadingBody({ typeCode: 'WFQV', axes, locale: 'xx' }).ok).toBe(false)
+    expect(validateReadingBody({ typeCode: 'WFQV', axes, locale: 'KO' }).ok).toBe(false)
+    expect(validateReadingBody({ typeCode: 'WFQV', axes, locale: 1 }).ok).toBe(false)
     expect(validateReadingBody({ typeCode: 'WFQV', axes }).ok).toBe(false)
     expect(validateReadingBody({ typeCode: 'WFQV', locale: 'ko' }).ok).toBe(false)
     expect(validateReadingBody({ typeCode: 'WFQV', axes: { ...axes, warmth: 1.01 }, locale: 'ko' }).ok).toBe(false)

@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { READING_CHAIN_BUDGET_MS } from '../../shared/api.ts'
 import { parseReadingJson } from './readingOutput.ts'
 import { buildReadingUserMessage, READING_OUTPUT_SCHEMA, READING_SYSTEM_PROMPT } from './readingPrompt.ts'
 import type { GenerateOptions, ReadingInput, ReadingOutput, TextProvider } from './types.ts'
@@ -11,14 +12,12 @@ export function isTextModel(value: unknown): value is string {
   return typeof value === 'string' && /^claude-[a-z0-9][a-z0-9.-]{0,63}$/.test(value)
 }
 
-/** SDK 타임아웃은 밀리초(요청 1회 기준). 재시도 1회를 더해도 클라이언트 타임아웃(30초) 안에 끝나도록 둔다. */
+/**
+ * SDK 타임아웃은 밀리초(요청 1회 기준). 두 번(12초 × (1 + 재시도 1) = 24초)이 체인 예산(25초)을 넘지 않게 둔다.
+ * 재시도·대기(retry-after)까지 합친 실제 상한은 SDK 설정이 아니라 중단 신호(체인의 남은 예산, 없으면 체인 예산 전체)가 건다.
+ */
 const REQUEST_TIMEOUT_MS = 12_000
 const MAX_RETRIES = 1
-/**
- * 재시도·대기(retry-after)까지 합친 전체 상한(체인이 신호를 주지 않을 때의 기본값). SDK 는 서버가 준 retry-after 를 그대로 기다리므로,
- * 이 신호가 없으면 클라이언트가 포기한 뒤에도 Worker 가 두 번째 호출을 보내 비용을 쓸 수 있다.
- */
-const TOTAL_TIMEOUT_MS = 25_000
 /**
  * 적응형 사고가 켜져 있어 사고 토큰이 max_tokens 에 포함된다. 실제 출력은 200토큰 안팎이지만
  * 사고가 길어져 잘리면(503 → 폴백) 사용자에게 리딩이 조용히 사라지므로 넉넉히 둔다. 쓴 토큰만 과금된다.
@@ -74,8 +73,9 @@ export function createClaudeTextProvider(options: ClaudeTextProviderOptions): Te
   return {
     name: 'claude',
     async generateReading(input: ReadingInput, options?: GenerateOptions): Promise<ReadingOutput> {
-      // 체인이 남은 시간 예산을 신호로 주면 그걸 쓰고, 없으면 자체 상한을 건다.
-      const signal = options?.signal ?? AbortSignal.timeout(TOTAL_TIMEOUT_MS)
+      // 체인이 남은 시간 예산을 신호로 주면 그걸 쓰고, 없으면 체인 예산 전체를 자체 상한으로 건다.
+      // SDK 는 서버가 준 retry-after 를 그대로 기다리므로, 신호가 없으면 클라이언트가 포기한 뒤에도 두 번째 호출이 나가 비용을 쓸 수 있다.
+      const signal = options?.signal ?? AbortSignal.timeout(READING_CHAIN_BUDGET_MS)
       let message: Anthropic.Message
       try {
         message = await createMessage(buildReadingParams(input, model), { signal })

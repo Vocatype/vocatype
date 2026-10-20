@@ -1,11 +1,11 @@
-import type { TextProviderName } from '../../shared/api.ts'
+import { READING_CHAIN_BUDGET_MS, type TextProviderName } from '../../shared/api.ts'
 import { createClaudeTextProvider, DEFAULT_TEXT_MODEL, isTextModel } from './claude.ts'
 import { mockTextProvider } from './textMock.ts'
 import type { ReadingInput, ReadingOutput, TextProvider } from './types.ts'
 import { createWorkersAiTextProvider } from './workersAiText.ts'
 
 export interface TextProviderEnv {
-  /** 콤마 목록. 예: "workers-ai,claude". 순서대로 시도한다. */
+  /** 콤마로 나눈 제공자 이름(CHAIN_NAMES). 적힌 순서대로 시도한다. 운영 값은 wrangler.jsonc 의 vars. */
   TEXT_PROVIDER?: string
   /** 선택. Claude 모델. 없으면 DEFAULT_TEXT_MODEL. */
   TEXT_MODEL?: string
@@ -70,14 +70,13 @@ export interface ChainLogger {
   error(message: string): void
 }
 
-/** 체인 전체의 시간 예산. 클라이언트 타임아웃(30초)보다 짧아야 클라이언트가 포기한 뒤 유료 호출이 나가지 않는다. */
-export const CHAIN_TIME_BUDGET_MS = 25_000
 /** 이보다 적게 남으면 다음 제공자를 시도하지 않는다(제대로 답할 시간이 없다). */
 const MIN_REMAINING_MS = 3_000
 
 export interface TextChainOptions {
   fallback?: TextProvider
   logger?: ChainLogger
+  /** 기본은 READING_CHAIN_BUDGET_MS(클라이언트 대기 시간보다 짧다. shared/api.ts의 리딩 시간 규칙). */
   timeBudgetMs?: number
   /** 테스트용 시계. */
   now?: () => number
@@ -95,7 +94,7 @@ function describe(cause: unknown): string {
 export function createTextChain(providers: readonly TextProvider[], options: TextChainOptions = {}): TextChain {
   const fallback = options.fallback ?? mockTextProvider
   const logger = options.logger ?? console
-  const timeBudgetMs = options.timeBudgetMs ?? CHAIN_TIME_BUDGET_MS
+  const timeBudgetMs = options.timeBudgetMs ?? READING_CHAIN_BUDGET_MS
   const now = options.now ?? Date.now
   return {
     names: providers.map((provider) => provider.name),

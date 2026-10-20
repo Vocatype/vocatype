@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { formatDuration, levelFromSamples, mapRecorderError, pickMimeType } from './recorderSupport'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { formatDuration, isRecordingSupported, levelFromSamples, mapRecorderError, pickMimeType } from './recorderSupport'
 
 describe('pickMimeType', () => {
   it('지원하는 첫 후보를 고른다', () => {
@@ -35,6 +35,33 @@ describe('mapRecorderError', () => {
     expect(mapRecorderError(named('WeirdError'))).toBe('unknown')
     expect(mapRecorderError('string')).toBe('unknown')
     expect(mapRecorderError(undefined)).toBe('unknown')
+  })
+})
+
+describe('isRecordingSupported', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const withGetUserMedia = { mediaDevices: { getUserMedia: () => Promise.resolve() } }
+
+  it('getUserMedia 함수와 MediaRecorder 가 모두 있어야 true', () => {
+    vi.stubGlobal('navigator', withGetUserMedia)
+    vi.stubGlobal('MediaRecorder', class {})
+    expect(isRecordingSupported()).toBe(true)
+  })
+
+  it('하나라도 없으면 false', () => {
+    vi.stubGlobal('MediaRecorder', class {})
+    vi.stubGlobal('navigator', { mediaDevices: undefined })
+    expect(isRecordingSupported()).toBe(false)
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: 'not a function' } })
+    expect(isRecordingSupported()).toBe(false)
+    vi.stubGlobal('navigator', undefined)
+    expect(isRecordingSupported()).toBe(false)
+    vi.stubGlobal('navigator', withGetUserMedia)
+    vi.stubGlobal('MediaRecorder', undefined)
+    expect(isRecordingSupported()).toBe(false)
   })
 })
 

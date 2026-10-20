@@ -1,6 +1,7 @@
 import { READING_AXIS_KEYS, READING_REQUEST_MAX_BYTES, type ReadingAxes, type ReadingRequest } from '../shared/api.ts'
+import { isLocale } from '../shared/locale.ts'
 import { isTypeCode } from '../shared/typeCode.ts'
-import { readBodyLimited } from './portrait.ts'
+import { readBodyLimited } from './http.ts'
 
 export type ReadingValidationResult = { ok: true; value: ReadingRequest } | { ok: false; error: 'invalid_request' | 'too_large' }
 
@@ -16,7 +17,7 @@ export function validateReadingBody(body: unknown): ReadingValidationResult {
   if (typeof body !== 'object' || body === null) return INVALID
   const { typeCode, axes, locale } = body as { typeCode?: unknown; axes?: unknown; locale?: unknown }
   if (!isTypeCode(typeCode)) return INVALID
-  if (locale !== 'ko' && locale !== 'en') return INVALID
+  if (!isLocale(locale)) return INVALID
   if (typeof axes !== 'object' || axes === null) return INVALID
   const cleaned = {} as ReadingAxes
   for (const key of READING_AXIS_KEYS) {

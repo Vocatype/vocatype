@@ -1,4 +1,5 @@
-import type { ApiConfigResponse, ReadingLocale } from '../../../shared/api'
+import type { ApiConfigResponse } from '../../../shared/api'
+import type { Locale } from '../../i18n/locales'
 import type { VoiceReading } from './client'
 
 export interface GenerationPlan {
@@ -22,6 +23,6 @@ export function planGeneration(features: ApiConfigResponse['features'], quality:
  * 결과 화면에 보여 줄 리딩. 생성 시점 언어와 지금 화면 언어가 같을 때만 보여 주고,
  * 다르면 null(카탈로그 설명으로 폴백). 다른 언어의 글을 섞어 보이지 않기 위한 규칙이다.
  */
-export function visibleReading(reading: VoiceReading | null, locale: ReadingLocale): VoiceReading | null {
+export function visibleReading(reading: VoiceReading | null, locale: Locale): VoiceReading | null {
   return reading && reading.locale === locale ? reading : null
 }

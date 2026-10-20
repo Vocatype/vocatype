@@ -1,5 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { READING_CHAIN_BUDGET_MS } from '../../shared/api.ts'
 import { buildReadingParams, createClaudeTextProvider, DEFAULT_TEXT_MODEL, isTextModel, parseReadingMessage } from './claude.ts'
 import { READING_SYSTEM_PROMPT } from './readingPrompt.ts'
 
@@ -66,6 +67,10 @@ describe('parseReadingMessage', () => {
 })
 
 describe('createClaudeTextProvider', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('주입한 createMessage 로 호출하고(전체 상한 신호 포함) 결과를 파싱한다', async () => {
     const calls: { params: Anthropic.MessageCreateParamsNonStreaming; signal: AbortSignal | undefined }[] = []
     const provider = createClaudeTextProvider({
@@ -82,6 +87,26 @@ describe('createClaudeTextProvider', () => {
     // 재시도·retry-after 대기까지 합친 전체 상한. 클라이언트가 포기한 뒤 Worker 가 두 번째 호출을 보내지 않게 한다.
     expect(calls[0]?.signal).toBeInstanceOf(AbortSignal)
     expect(calls[0]?.signal?.aborted).toBe(false)
+  })
+
+  it('체인이 신호를 주지 않으면 체인 예산 전체를 자체 상한으로 걸고, 주면 그 신호를 그대로 쓴다', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout')
+    const seen: (AbortSignal | undefined)[] = []
+    const provider = createClaudeTextProvider({
+      apiKey: 'sk-ant-test',
+      createMessage: async (_params, options) => {
+        seen.push(options?.signal)
+        return message([text(JSON.stringify(GOOD))])
+      },
+    })
+    await provider.generateReading(input)
+    expect(timeout).toHaveBeenCalledExactlyOnceWith(READING_CHAIN_BUDGET_MS)
+    expect(seen[0]).toBe(timeout.mock.results[0]?.value)
+    timeout.mockClear()
+    const chainSignal = new AbortController().signal
+    await provider.generateReading(input, { signal: chainSignal })
+    expect(timeout).not.toHaveBeenCalled()
+    expect(seen[1]).toBe(chainSignal)
   })
 
   it('제공자 오류는 그대로 전파된다(라우트가 503으로 바꾼다)', async () => {

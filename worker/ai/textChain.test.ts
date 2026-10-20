@@ -1,11 +1,17 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { READING_CHAIN_BUDGET_MS } from '../../shared/api.ts'
 import { DEFAULT_TEXT_MODEL } from './claude.ts'
-import { buildTextChain, CHAIN_TIME_BUDGET_MS, createTextChain, parseTextProviderChain, resolveTextModel, selectTextChain } from './textChain.ts'
+import { buildTextChain, createTextChain, parseTextProviderChain, resolveTextModel, selectTextChain } from './textChain.ts'
 import type { TextProvider } from './types.ts'
+import { createWorkersAiTextProvider } from './workersAiText.ts'
 
 const axes = { warmth: 0.8, density: 0.25, pace: 0.5, variation: 0.1, pitch: 0.4, brightness: 0.9 }
 const input = { typeCode: 'WFQV', axes, locale: 'ko' } as const
 const fakeAi = { run: async () => ({ response: '{}' }) } as unknown as Ai
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('parseTextProviderChain', () => {
   it('콤마 목록을 순서대로 읽고 공백·중복·모르는 값·mock 을 뺀다', () => {
@@ -123,13 +129,37 @@ describe('createTextChain', () => {
     expect(seen[0]?.aborted).toBe(false)
   })
 
+  it('뒤에 시도되는 Workers AI 도 남은 예산만큼의 신호를 바인딩에 넘겨, 순서와 상관없이 서버 합계가 예산을 넘지 않는다', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const timeout = vi.spyOn(AbortSignal, 'timeout')
+    let clock = 0
+    const slowFirst: TextProvider = {
+      name: 'claude',
+      generateReading: vi.fn(async () => {
+        clock += 20_000
+        throw Object.assign(new Error('529 overloaded'), { name: 'InternalServerError' })
+      }),
+    }
+    const runOptions: (AiOptions | undefined)[] = []
+    const ai = {
+      run: async (_model: string, _inputs: unknown, options?: AiOptions) => {
+        runOptions.push(options)
+        return { response: JSON.stringify({ reading: '맑고 가벼운 소리가 또박또박 이어져요. 서두르지 않는데도 지루할 틈이 없어요.', caption: '기대게 되는 목소리' }) }
+      },
+    } as unknown as Ai
+    const chain = createTextChain([slowFirst, createWorkersAiTextProvider(ai)], { logger: logger(), now: () => clock })
+    await expect(chain.generateReading(input)).resolves.toMatchObject({ provider: 'workers-ai' })
+    expect(timeout).toHaveBeenLastCalledWith(READING_CHAIN_BUDGET_MS - 20_000)
+    expect(runOptions[0]?.signal).toBe(timeout.mock.results.at(-1)?.value)
+  })
+
   it('앞 제공자가 시간 예산을 다 쓰면 남은 제공자는 건너뛰고 mock 으로 끝난다', async () => {
     const log = logger()
     let clock = 0
     const slow: TextProvider = {
       name: 'workers-ai',
       generateReading: vi.fn(async () => {
-        clock += CHAIN_TIME_BUDGET_MS - 1000
+        clock += READING_CHAIN_BUDGET_MS - 1000
         throw quota
       }),
     }

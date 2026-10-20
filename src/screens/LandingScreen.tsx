@@ -2,6 +2,7 @@ import { SERVICE_NAME } from '../../shared/config'
 import { Button } from '../components/Button'
 import { Logo } from '../components/Logo'
 import { Screen } from '../components/Screen'
+import { isRecordingSupported } from '../features/recorder/recorderSupport'
 import { useI18n } from '../i18n/useI18n'
 
 interface Props {
@@ -10,17 +11,14 @@ interface Props {
 
 type Availability = 'ok' | 'insecure' | 'unsupported'
 
-/** 녹음 가능 여부를 미리 확인한다. 권한 요청은 녹음 화면에서 한다. */
+/**
+ * 녹음 가능 여부를 미리 확인한다. 권한 요청은 녹음 화면에서 한다.
+ * 보안 컨텍스트가 아니면 브라우저가 mediaDevices 자체를 숨기므로, 미지원보다 먼저 HTTPS 안내를 고른다.
+ * 녹음 API 판정은 녹음 훅(useRecorder)과 같은 isRecordingSupported 를 쓴다.
+ */
 function checkAvailability(): Availability {
   if (typeof window !== 'undefined' && !window.isSecureContext) return 'insecure'
-  if (
-    typeof navigator === 'undefined' ||
-    typeof navigator.mediaDevices?.getUserMedia !== 'function' ||
-    typeof MediaRecorder === 'undefined'
-  ) {
-    return 'unsupported'
-  }
-  return 'ok'
+  return isRecordingSupported() ? 'ok' : 'unsupported'
 }
 
 export function LandingScreen({ onStart }: Props) {

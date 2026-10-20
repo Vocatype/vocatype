@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { READING_CHAIN_BUDGET_MS, READING_CLIENT_TIMEOUT_MS } from '../../../shared/api'
 import { fetchAiConfig, requestPortrait, requestReading, resetAiConfigCache, toReadingAxes } from './client'
 
 function mockFetch(handler: (input: string, init?: RequestInit) => Response | Promise<Response>) {
@@ -71,8 +72,25 @@ describe('requestReading', () => {
     vi.useFakeTimers()
     mockFetch((_input, init) => new Promise((_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })))))
     const pending = requestReading({ typeCode: 'WFQV', axes, locale: 'ko' })
-    await vi.advanceTimersByTimeAsync(30_001)
+    await vi.advanceTimersByTimeAsync(READING_CLIENT_TIMEOUT_MS + 1)
     expect(await pending).toBeNull()
+  })
+
+  it('Worker 체인 예산이 다 지나도 아직 기다린다(체인이 예산 끝에 보낸 답을 받는다)', async () => {
+    vi.useFakeTimers()
+    let respond: (response: Response) => void = () => undefined
+    let signal: AbortSignal | undefined
+    mockFetch((_input, init) => {
+      signal = init?.signal ?? undefined
+      return new Promise((resolve) => {
+        respond = resolve
+      })
+    })
+    const pending = requestReading({ typeCode: 'WFQV', axes, locale: 'ko' })
+    await vi.advanceTimersByTimeAsync(READING_CHAIN_BUDGET_MS + 1)
+    expect(signal?.aborted).toBe(false)
+    respond(Response.json({ reading: '맑고 가벼운 소리가 또박또박 이어져요. 서두르지 않는데도 지루할 틈이 없어요.', caption: '기대게 되는 목소리', provider: 'claude' }))
+    expect(await pending).toMatchObject({ locale: 'ko', caption: '기대게 되는 목소리' })
   })
 })
 

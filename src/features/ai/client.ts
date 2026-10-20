@@ -2,21 +2,20 @@ import {
   CAPTION_MAX_CHARS,
   PORTRAIT_IMAGE_MAX_CHARS,
   READING_AXIS_KEYS,
+  READING_CLIENT_TIMEOUT_MS,
   READING_MAX_CHARS,
   type ApiConfigResponse,
   type PortraitRequest,
   type PortraitResponse,
   type ReadingAxes,
   type ReadingAxisKey,
-  type ReadingLocale,
   type ReadingRequest,
   type ReadingResponse,
 } from '../../../shared/api'
+import type { Locale } from '../../i18n/locales'
 
 const CONFIG_TIMEOUT_MS = 5000
 const PORTRAIT_TIMEOUT_MS = 60000
-/** Worker 쪽 SDK 타임아웃 12초 × (1 + 재시도 1)과 대기 시간을 덮는다. 초상과 병렬이라 전체 대기는 늘지 않는다. */
-const READING_TIMEOUT_MS = 30000
 
 let configPromise: Promise<ApiConfigResponse> | null = null
 
@@ -24,7 +23,7 @@ const OFFLINE_CONFIG: ApiConfigResponse = { provider: 'mock', textProviders: [],
 
 /** 서버가 만든 목소리 리딩. locale 은 생성 시점의 화면 언어다. */
 export interface VoiceReading {
-  locale: ReadingLocale
+  locale: Locale
   reading: string
   caption: string
 }
@@ -97,7 +96,8 @@ export async function requestReading(request: ReadingRequest, signal?: AbortSign
     const response = await fetchJson<ReadingResponse>(
       '/api/reading',
       { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(request) },
-      READING_TIMEOUT_MS,
+      // Worker 체인 예산보다 길다(shared/api.ts의 리딩 시간 규칙). 체인이 늦어도 예산 안에 mock 으로 답하므로 그 답을 받고 끝난다.
+      READING_CLIENT_TIMEOUT_MS,
       signal,
     )
     if (response.provider === 'mock') return null

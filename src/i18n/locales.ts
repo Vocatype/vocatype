@@ -1,11 +1,9 @@
-export const LOCALES = ['ko', 'en'] as const
-export type Locale = (typeof LOCALES)[number]
+import { isLocale, type Locale } from '../../shared/locale'
+
+/** 지원 언어 목록은 shared/locale.ts 한 곳에서 정한다. 앱 코드는 이 모듈에서 가져온다. */
+export { LOCALES, type Locale } from '../../shared/locale'
 
 export const DEFAULT_LOCALE: Locale = 'en'
-
-function isLocale(value: string): value is Locale {
-  return (LOCALES as readonly string[]).includes(value)
-}
 
 /**
  * 브라우저 언어 목록(navigator.languages)에서 지원하는 첫 로케일을 고른다.
