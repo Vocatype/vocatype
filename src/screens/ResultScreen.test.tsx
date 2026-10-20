@@ -116,6 +116,8 @@ describe('ResultScreen 축 막대', () => {
     expect(view.axes.map((axis) => axis.percent)).toEqual([80, 52, 80, 55])
 
     const html = render()
+    // 정상 결과에는 신호 부족 안내가 없어야 한다(아래 low-signal 테스트의 반대 경우).
+    expect(html).not.toContain(escape(messages.ko['result.lowSignal']))
     const found = meters(html)
     expect(found).toHaveLength(4)
     view.axes.forEach((axis, i) => {
@@ -220,9 +222,10 @@ describe('ResultScreen 리딩·초상·머리글·버튼', () => {
     expect(render()).not.toContain('screen__lead')
   })
 
-  it('저장·다시 녹음·처음으로 버튼과 저장 상태 영역이 있다', () => {
+  it('저장·다시 하기·처음으로 버튼과 저장 상태 영역이 있다', () => {
     const html = render()
-    for (const key of ['result.save', 'common.retry', 'common.home'] as const) expect(html, key).toContain(escape(messages.ko[key]))
+    const buttons = [...html.matchAll(/<button[^>]*>(.*?)<\/button>/gs)].map((match) => match[1]!)
+    for (const key of ['result.save', 'common.retry', 'common.home'] as const) expect(buttons, key).toContain(escape(messages.ko[key]))
     expect(openingTags(html, /<p[^>]*\brole="status"[^>]*>/g)).toHaveLength(1)
   })
 
