@@ -177,9 +177,16 @@ describe('음성·개인정보 부재', () => {
     ])
     for (const path of keys) expect(forbidden.has(path.split('.').at(-1) ?? ''), path).toBe(false)
     expect(allKeys(record).some((path) => path.startsWith('features.envelope.'))).toBe(false)
-    // 긴 배열(시계열)이 어떤 키로도 들어가지 않는다. 축 범위의 [low, high] 쌍만 배열이다.
-    const arrays = JSON.stringify(record).match(/\[[^\]]*\]/g) ?? []
-    for (const array of arrays) expect(JSON.parse(array).length, array).toBeLessThanOrEqual(2)
+    // 긴 배열(시계열)이 어떤 키로도 들어가지 않는다. 축 범위의 [low, high] 쌍만 배열이다. 중첩 배열 안도 본다.
+    const walk = (value: unknown, path: string) => {
+      if (Array.isArray(value)) {
+        expect(value.length, path).toBeLessThanOrEqual(2)
+        value.forEach((child, i) => walk(child, `${path}[${i}]`))
+      } else if (value && typeof value === 'object') {
+        for (const [key, child] of Object.entries(value)) walk(child, `${path}.${key}`)
+      }
+    }
+    walk(JSON.parse(serializeCalibration(record)), 'record')
   })
 
   it('시각·사용자 에이전트·IP·기기 같은 식별 정보 키가 없다', () => {
