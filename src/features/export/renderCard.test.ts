@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ALL_TYPE_CODES } from '../../../shared/typeCode'
 import { presentResult } from '../profile/present'
 import type { VoiceProfile } from '../profile/types'
-import { CARD_HEIGHT, CARD_WIDTH, clampLines, drawCard, type CardLabels } from './renderCard'
+import { BUDGET_RESERVE, CARD_HEIGHT, CARD_WIDTH, FOOTER_TOP, clampLines, drawCard, type CardLabels } from './renderCard'
 import { wrapText } from './wrapText'
 
 interface TextCall {
@@ -149,7 +149,7 @@ describe('drawCard', () => {
       const body = calls.filter((c) => c.y <= CARD_HEIGHT - 100)
       expect(footer.length, `${code} ${locale} footer`).toBe(2)
       for (const call of body) {
-        expect(call.y, `${code} ${locale} "${call.text}" y`).toBeLessThanOrEqual(CARD_HEIGHT - 120)
+        expect(call.y, `${code} ${locale} "${call.text}" y`).toBeLessThanOrEqual(FOOTER_TOP)
         const left = call.align === 'left' ? call.x : call.align === 'center' ? call.x - call.width / 2 : call.x - call.width
         const right = left + call.width
         expect(left, `${code} ${locale} "${call.text}" left`).toBeGreaterThanOrEqual(margin - 1)
@@ -208,7 +208,7 @@ describe('drawCard', () => {
 })
 
 describe('drawCard 예산', () => {
-  it('모든 줄 수 제한이 꽉 찬 최악 조합도 하단 문구 위에서 끝난다', () => {
+  it('모든 줄 수 제한이 꽉 찬 최악 조합도 하단 문구 위에서, 다음 요소를 위한 예산 60을 남기고 끝난다', () => {
     const base = presentResult(profileFor('WFQV'), null, 'en')
     const long = (n: number) => Array.from({ length: n }, (_, i) => `Word${i}`).join(' ')
     const view = {
@@ -223,13 +223,16 @@ describe('drawCard 예산', () => {
     expect(() => drawCard(ctx, view, null, { ...labelsEn, stats: [long(6), long(6)], caption: long(40) })).not.toThrow()
     const body = calls.filter((c) => c.y <= CARD_HEIGHT - 100)
     for (const call of body) {
-      expect(call.y, `"${call.text}"`).toBeLessThanOrEqual(CARD_HEIGHT - 120)
+      expect(call.y, `"${call.text}"`).toBeLessThanOrEqual(FOOTER_TOP)
       const left = call.align === 'left' ? call.x : call.align === 'center' ? call.x - call.width / 2 : call.x - call.width
       expect(left).toBeGreaterThanOrEqual(71)
       expect(left + call.width).toBeLessThanOrEqual(CARD_WIDTH - 71)
     }
     // 이름 2줄, 설명 3줄, 캡션 1줄, 궁합 2행이 실제로 쓰였는지
     expect(calls.filter((c) => c.text.startsWith('Word') && c.align === 'center').length).toBeGreaterThanOrEqual(6)
+    // 다음 요소를 넣을 예산: 최악 조합의 마지막 줄(궁합 코드)이 FOOTER_TOP에서 BUDGET_RESERVE만큼은 위에 있어야 한다.
+    const maxY = Math.max(...body.map((c) => c.y))
+    expect(maxY, '최악 조합 최대 y').toBeLessThanOrEqual(FOOTER_TOP - BUDGET_RESERVE)
   })
 })
 
