@@ -21,7 +21,7 @@ describe('buildWorkersAiTextInput', () => {
     expect(built.messages[1]?.content).toContain('- warmth: 0.80')
     expect(built.messages[1]?.content).toContain('Output language: Korean')
     expect(built.response_format).toEqual({ type: 'json_schema', json_schema: READING_OUTPUT_SCHEMA })
-    expect(built.max_tokens).toBe(1024)
+    expect(built.max_tokens).toBe(512)
   })
 })
 

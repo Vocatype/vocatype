@@ -18,7 +18,7 @@ AI 초상(실사)은 Cloudflare Workers AI 어댑터로, 사람마다 다른 "�
 | 프론트엔드 | React 19, TypeScript, Vite 8 |
 | 서버 | Cloudflare Workers + Static Assets (`worker/index.ts`, `/api/*`) |
 | 분석 | 브라우저 Web Audio (YIN 피치, 에너지, 조음 속도, 스펙트럼 기울기) → 4축 16타입 |
-| AI | 어댑터(`worker/ai/`). 초상: mock 또는 Workers AI(Leonardo Lucid Origin). 리딩 텍스트: 폴백 체인 — Workers AI(Llama 3.3 70B, 무료 할당량) → Claude(`@anthropic-ai/sdk`, 기본 `claude-haiku-5-5`, 키가 있을 때) → 고정 문구 |
+| AI | 어댑터(`worker/ai/`). 초상: mock 또는 Workers AI(Leonardo Lucid Origin). 리딩 텍스트: 폴백 체인 — Workers AI(Llama 4 Scout, 무료 할당량) → Claude(`@anthropic-ai/sdk`, 기본 `claude-haiku-5-5`, 키가 있을 때) → 고정 문구 |
 | 빌드/배포 | `@cloudflare/vite-plugin`, Wrangler. Cloudflare Workers Builds가 Git 푸시마다 빌드·배포 (별도 CI 없음) |
 | 린트/테스트 | oxlint, Vitest |
 | 언어 | 한국어 / 영어 (브라우저 언어 자동 감지, 화면에서 전환) |
@@ -126,7 +126,7 @@ workers-ai (무료 Workers AI 텍스트 모델) ──실패──▶ claude (�
 | `claude` | 비밀 `ANTHROPIC_API_KEY` | claude → mock | `["claude"]` |
 | 없음 / `mock` / 모르는 값 | — | mock만 | `[]`, `reading: false` (클라이언트가 호출하지 않음) |
 
-키가 없으면 `claude`는 체인에서 조용히 빠진다(오류 없이 `workers-ai`만 남는다). 모델: Workers AI는 `@cf/meta/llama-3.3-70b-instruct-fp8-fast`(`worker/ai/workersAiText.ts`의 상수로 교체), Claude는 `claude-haiku-5-5`(`vars.TEXT_MODEL`로 변경, effort를 지원하는 Claude 4.6 이상·5.x만).
+키가 없으면 `claude`는 체인에서 조용히 빠진다(오류 없이 `workers-ai`만 남는다). 모델: Workers AI는 `@cf/meta/llama-4-scout-17b-16e-instruct`(`worker/ai/workersAiText.ts`의 상수로 교체. 011에서 Llama 3.3 70B가 영어 출력을 끝내지 못해 바꿨다), Claude는 `claude-haiku-5-5`(`vars.TEXT_MODEL`로 변경, effort를 지원하는 Claude 4.6 이상·5.x만).
 
 #### 체인에 Claude 추가하기
 
@@ -150,7 +150,7 @@ workers-ai (무료 Workers AI 텍스트 모델) ──실패──▶ claude (�
 - 리딩 요청에는 **타입 코드(4글자), 여섯 축 수치(0..1, 소수 둘째 자리), 언어(ko/en)** 만 들어간다. 음성, 녹음 길이, 씨앗, IP, 브라우저 정보는 보내지 않는다. 제공자(Workers AI 또는 Anthropic)에 가는 것도 이 값들을 서버가 프롬프트(영어 지시문 + 요청 언어의 타입 이름·설명)에 적은 것뿐이며, 요청은 Worker가 보내므로 사용자 IP는 제공자에 가지 않는다. Anthropic에 간 프롬프트와 응답은 [Anthropic API 약관과 데이터 보존 정책](https://www.anthropic.com/legal/commercial-terms)에 따라 처리된다(음성·IP·개인 식별 정보는 포함되지 않는다).
 - 프롬프트는 서버가 만든다(`worker/ai/readingPrompt.ts`). 성별·나이·인종·국적·억양·외모·신체·건강·감정 상태를 추정하거나 언급하지 말라는 지침, 성별·나이가 실린 단어 금지, 진단·조언 금지, 수치·축 이름·타입 코드 인용 금지가 들어 있다. 클라이언트는 임의 문장을 생성시킬 수 없다.
 - 응답은 JSON 스키마(구조화 출력 / JSON 모드)로 받고 길이(리딩 20~600자, 캡션 2~100자)를 벗어나면 그 제공자의 실패로 보고 다음으로 넘어간다. 생성된 글은 응답으로만 돌아가고 서버에 저장되지 않는다.
-- **Workers AI 무료 할당량(하루 10,000뉴런)은 초상(이미지)과 리딩(텍스트)이 함께 쓴다.** 가격표 기준 초상 1장(Lucid Origin 768×768)이 약 1,400~1,500뉴런(512×512 타일당 636뉴런 + 스텝당 12뉴런)이라 **하루 6~7장이면 소진**되고, 리딩 1회(Llama 3.3 70B, 입력 약 1,200 + 출력 약 200토큰)는 약 70뉴런이다. 소진은 사실상 초상이 일으키고, 그 뒤 리딩은 `4006`으로 Claude(체인에 있을 때)로 넘어간다. 이미지와 텍스트 모두 자리표시·카탈로그 설명으로 폴백하므로 할당량이 바닥나도 흐름은 끊기지 않는다. 가격은 [Workers AI 가격표](https://developers.cloudflare.com/workers-ai/platform/pricing/)를 확인한다.
+- **Workers AI 무료 할당량(하루 10,000뉴런)은 초상(이미지)과 리딩(텍스트)이 함께 쓴다.** 가격표 기준 초상 1장(Lucid Origin 768×768)이 약 1,400~1,500뉴런(512×512 타일당 636뉴런 + 스텝당 12뉴런)이라 **하루 6~7장이면 소진**되고, 리딩 1회(Llama 4 Scout, 입력 약 650 + 출력 약 100토큰)는 약 25뉴런이다(011 실측). 소진은 사실상 초상이 일으키고, 그 뒤 리딩은 `4006`으로 Claude(체인에 있을 때)로 넘어간다. 이미지와 텍스트 모두 자리표시·카탈로그 설명으로 폴백하므로 할당량이 바닥나도 흐름은 끊기지 않는다. 가격은 [Workers AI 가격표](https://developers.cloudflare.com/workers-ai/platform/pricing/)를 확인한다.
 - Claude(Haiku 5.5) 비용: 입력 $0.10 / 출력 $0.50 (100만 토큰당). 실제 호출에서 리딩 한 번은 입력 약 1,200토큰, 출력(내부 사고 포함) 약 160~200토큰이었다(`[reading] claude … in=… out=…` 로그로 확인). **1회 $0.0002 안팎**, 1만 회에 $2 정도다. 정확한 값은 [Anthropic 가격표](https://www.anthropic.com/pricing)를 확인한다.
 - 엔드포인트는 인증이 없으므로 속도 제한(`READING_LIMITER`, 접속 IP당 1분 5회, 초상 제한과 별개)과 교차 사이트 403을 반드시 유지한다.
 - 리딩은 생성 시점의 화면 언어로 한 번만 만든다. 결과 화면에서 언어를 바꾸면 다른 언어의 리딩을 섞어 보이지 않고 카탈로그 설명으로 돌아간다(다시 생성하지 않는다).
