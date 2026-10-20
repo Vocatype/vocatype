@@ -208,7 +208,7 @@ describe('POST /api/reading', () => {
     expect(await response.json()).toEqual({ reading: '맑고 가벼운 소리가 또박또박 이어져요. 서두르지 않는데도 지루할 틈이 없어요. 듣는 사람이 편하게 기대게 되는 결이에요.', caption: '편하게 기대게 되는 목소리', provider: 'workers-ai' })
     expect(fetchMock).not.toHaveBeenCalled()
     const [model, built] = runs[0] as [string, { messages: { role: string }[]; response_format: { type: string } }]
-    expect(model).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast')
+    expect(model).toBe('@cf/meta/llama-4-scout-17b-16e-instruct')
     expect(built.messages.map((m) => m.role)).toEqual(['system', 'user'])
     expect(built.response_format.type).toBe('json_schema')
   })

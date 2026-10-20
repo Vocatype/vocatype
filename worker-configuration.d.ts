@@ -5,9 +5,8 @@ interface __BaseEnv_Env {
 	PORTRAIT_LIMITER: RateLimit;
 	READING_LIMITER: RateLimit;
 	AI: Ai;
-	AI_PROVIDER: string;
-	TEXT_PROVIDER: string;
-	ANTHROPIC_API_KEY: string;
+	AI_PROVIDER: "workers-ai";
+	TEXT_PROVIDER: "workers-ai,claude";
 }
 declare namespace Cloudflare {
 	interface GlobalProps {
@@ -20,7 +19,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "AI_PROVIDER" | "TEXT_PROVIDER" | "ANTHROPIC_API_KEY">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "AI_PROVIDER" | "TEXT_PROVIDER">> {}
 }
 declare module "*.txt" {
 	const value: string;
