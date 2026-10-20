@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchAiConfig, requestPortrait, resetAiConfigCache } from './client'
+import { fetchAiConfig, requestPortrait, requestReading, resetAiConfigCache, toReadingAxes } from './client'
 
 function mockFetch(handler: (input: string, init?: RequestInit) => Response | Promise<Response>) {
   vi.stubGlobal('fetch', vi.fn(handler))
@@ -20,9 +20,52 @@ describe('fetchAiConfig', () => {
     expect(handler).toHaveBeenCalledTimes(1)
   })
 
-  it('실패하면 초상 기능이 꺼진 설정으로 본다', async () => {
+  it('실패하면 초상·리딩 기능이 꺼진 설정으로 본다', async () => {
     mockFetch(() => new Response('nope', { status: 500 }))
-    expect(await fetchAiConfig()).toEqual({ provider: 'mock', features: { portrait: false } })
+    expect(await fetchAiConfig()).toEqual({ provider: 'mock', textProvider: 'mock', features: { portrait: false, reading: false } })
+  })
+})
+
+const axes = { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 }
+
+describe('toReadingAxes', () => {
+  it('0..1로 자르고 소수 둘째 자리로 반올림하며, NaN 은 0.5', () => {
+    expect(toReadingAxes({ ...axes, warmth: 0.123456, pitch: 1.2, brightness: -0.3, pace: Number.NaN })).toEqual({ warmth: 0.12, density: 0.2, pace: 0.5, variation: 0.4, pitch: 1, brightness: 0 })
+  })
+})
+
+describe('requestReading', () => {
+  it('타입 코드·축·언어만 보내고 리딩과 캡션을 돌려준다', async () => {
+    let sentBody = ''
+    mockFetch((_input, init) => {
+      sentBody = String(init?.body)
+      return Response.json({ reading: '  따뜻한 목소리예요.\n한 번 더.  ', caption: ' 한 줄  캡션 ', provider: 'claude' })
+    })
+    expect(await requestReading({ typeCode: 'WFQV', axes, locale: 'ko' })).toEqual({ locale: 'ko', reading: '따뜻한 목소리예요. 한 번 더.', caption: '한 줄 캡션' })
+    expect(JSON.parse(sentBody)).toEqual({ typeCode: 'WFQV', axes, locale: 'ko' })
+  })
+
+  it('실패하거나 응답이 이상하면 null (결과 화면은 카탈로그 설명으로 폴백)', async () => {
+    mockFetch(() => new Response('', { status: 503 }))
+    expect(await requestReading({ typeCode: 'WFQV', axes, locale: 'en' })).toBeNull()
+    mockFetch(() => Response.json({ reading: '', caption: 'x', provider: 'claude' }))
+    expect(await requestReading({ typeCode: 'WFQV', axes, locale: 'en' })).toBeNull()
+    mockFetch(() => Response.json({ reading: 'fine', caption: '', provider: 'claude' }))
+    expect(await requestReading({ typeCode: 'WFQV', axes, locale: 'en' })).toBeNull()
+    mockFetch(() => Response.json({ reading: 'x'.repeat(601), caption: 'ok', provider: 'claude' }))
+    expect(await requestReading({ typeCode: 'WFQV', axes, locale: 'en' })).toBeNull()
+    mockFetch(() => Response.json({ reading: 'fine', caption: 'c'.repeat(101), provider: 'claude' }))
+    expect(await requestReading({ typeCode: 'WFQV', axes, locale: 'en' })).toBeNull()
+    mockFetch(() => Response.json({ reading: 42, caption: ['x'], provider: 'claude' }))
+    expect(await requestReading({ typeCode: 'WFQV', axes, locale: 'en' })).toBeNull()
+  })
+
+  it('타임아웃이 지나면 요청을 끊고 null', async () => {
+    vi.useFakeTimers()
+    mockFetch((_input, init) => new Promise((_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })))))
+    const pending = requestReading({ typeCode: 'WFQV', axes, locale: 'ko' })
+    await vi.advanceTimersByTimeAsync(30_001)
+    expect(await pending).toBeNull()
   })
 })
 

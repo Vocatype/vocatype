@@ -1,7 +1,7 @@
 # VoicePortrait (ai-voice-image-generator)
 
 목소리를 녹음하면 브라우저 안에서 분석해 보이스 타입, 퍼스널 컬러, 시그니처 향, 사운드 시그니처, 궁합 타입을 만들고, 모든 요소를 1080×1920 이미지 한 장으로 저장할 수 있는 웹 서비스.
-AI 초상(실사)은 Cloudflare Workers AI 어댑터로 생성하며 설정 하나로 켠다. 로그인, 쿠키, 저장소를 전혀 쓰지 않는다.
+AI 초상(실사)은 Cloudflare Workers AI 어댑터로, 사람마다 다른 "목소리 리딩" 문단과 공유용 캡션은 Claude API 어댑터로 생성하며 각각 설정 하나로 켠다. 로그인, 쿠키, 저장소를 전혀 쓰지 않는다.
 
 서비스 이름은 [`shared/config.ts`](shared/config.ts)의 `SERVICE_NAME` 상수 한 곳에서만 바꾼다.
 
@@ -18,7 +18,7 @@ AI 초상(실사)은 Cloudflare Workers AI 어댑터로 생성하며 설정 하�
 | 프론트엔드 | React 19, TypeScript, Vite 8 |
 | 서버 | Cloudflare Workers + Static Assets (`worker/index.ts`, `/api/*`) |
 | 분석 | 브라우저 Web Audio (YIN 피치, 에너지, 조음 속도, 스펙트럼 기울기) → 4축 16타입 |
-| AI | 어댑터(`worker/ai/`). 기본 mock, Workers AI(Flux 1 schnell)로 전환 가능 |
+| AI | 어댑터(`worker/ai/`). 초상: 기본 mock, Workers AI(Leonardo Lucid Origin). 리딩 텍스트: 기본 mock, Claude(`@anthropic-ai/sdk`, 기본 `claude-haiku-5-5`) |
 | 빌드/배포 | `@cloudflare/vite-plugin`, Wrangler. Cloudflare Workers Builds가 Git 푸시마다 빌드·배포 (별도 CI 없음) |
 | 린트/테스트 | oxlint, Vitest |
 | 언어 | 한국어 / 영어 (브라우저 언어 자동 감지, 화면에서 전환) |
@@ -55,7 +55,7 @@ src/             React 앱
   theme/         테마 해석, Provider
   styles/        디자인 토큰과 전역 스타일
 worker/          Cloudflare Worker (API)
-  ai/            AI 제공자 어댑터 (mock, workers-ai)
+  ai/            AI 제공자 어댑터 (초상: mock, workers-ai · 리딩: mock, claude)
 wrangler.jsonc   Workers 설정
 ```
 
@@ -75,10 +75,10 @@ wrangler.jsonc   Workers 설정
 
 - 로그인, 회원가입, 쿠키, localStorage, sessionStorage를 쓰지 않는다.
 - 언어와 테마는 방문할 때마다 브라우저 설정으로만 정하고, 전환 값은 페이지를 닫으면 사라진다.
-- 녹음은 브라우저 안에서 분석한다. AI 초상 생성 요청에는 타입 코드와 씨앗만 들어가며 음성은 어떤 경우에도 서버로 가지 않는다.
-- 외부 폰트, 분석 스크립트, 광고 등 제3자 요청을 넣지 않는다.
+- 녹음은 브라우저 안에서 분석한다. AI 초상 생성 요청에는 타입 코드와 씨앗만, 목소리 리딩 요청에는 타입 코드·여섯 축 수치(0..1, 소수 둘째 자리)·언어만 들어가며 음성은 어떤 경우에도 서버로 가지 않는다.
+- 외부 폰트, 분석 스크립트, 광고 등 제3자 요청을 넣지 않는다. 브라우저는 자기 Worker하고만 통신하고, AI 제공자 호출은 Worker가 대신 한다(사용자 IP는 제공자에 가지 않는다).
 - Workers 요청 로그(`observability`)는 기본 비활성화한다.
-- 초상 생성 속도 제한에 접속 IP를 쓰지만 Workers Rate Limiting 바인딩 안에서 최대 60초 동안 카운터 키로만 유지되고 영구 저장·로그는 없다.
+- 초상·리딩 생성 속도 제한에 접속 IP를 쓰지만 Workers Rate Limiting 바인딩 안에서 최대 60초 동안 카운터 키로만 유지되고 영구 저장·로그는 없다.
 
 ## AI 제공자
 
@@ -106,15 +106,51 @@ AI는 어댑터(`worker/ai/`) 뒤에 있고, 기본값은 이미지를 만들지
 - 프롬프트는 서버가 타입 코드로만 만든다. 성별·나이·인종은 지정하지 않으며, 생성된 이미지는 응답으로만 돌아가고 서버에 저장되지 않는다.
 - 비용은 Cloudflare Workers AI 가격표를 확인한다. 초상 엔드포인트는 인증이 없으므로 **속도 제한을 반드시 유지한다**: `wrangler.jsonc`의 `ratelimits`가 접속 IP당 1분에 5회로 막고(초과 시 429), 다른 사이트에서 온 요청(`Sec-Fetch-Site`)은 403으로 거절한다. IP는 Rate Limiting 바인딩 안에서 최대 60초 동안 카운터 키로만 유지되고 영구 저장·로그는 없다. 제한은 Cloudflare 콜로(지역 데이터센터)별로 적용되므로 전 세계 합산 한도는 5회보다 클 수 있다.
 
+### 텍스트 제공자 (목소리 리딩)
+
+결과 화면의 "목소리 리딩"(3~4문장)과 공유용 캡션 한 줄은 초상과 별도의 **텍스트 제공자**가 만든다. 기본은 모의 제공자라 결과 화면에 리딩 카드가 나오지 않고 카탈로그의 고정 설명만 보인다.
+
+| 제공자 | 설정 | 하는 일 |
+| --- | --- | --- |
+| `mock` (기본) | `TEXT_PROVIDER` 없음 또는 `mock` | 리딩 생성 안 함 (`/api/config` → `features.reading: false`). `POST /api/reading`은 고정 문구를 돌려준다(로컬·테스트용) |
+| `claude` | `TEXT_PROVIDER = "claude"` + 비밀 `ANTHROPIC_API_KEY` | Claude API로 리딩·캡션 생성. 모델은 `TEXT_MODEL` 변수(없으면 `claude-haiku-5-5`) |
+
+#### Claude 켜기
+
+1. API 키를 **비밀**로 넣는다. 저장소, `wrangler.jsonc`, 대시보드 변수 화면에는 넣지 않는다.
+   ```bash
+   npx wrangler secret put ANTHROPIC_API_KEY
+   ```
+2. `wrangler.jsonc`의 `vars.TEXT_PROVIDER`를 `"claude"`로 바꿔 커밋·푸시한다. 다른 모델을 쓰려면 `vars`에 `"TEXT_MODEL": "claude-…"`를 추가한다(`claude-`로 시작하지 않는 값은 무시하고 기본 모델을 쓴다). 요청이 `output_config.effort`를 쓰므로 **effort를 지원하는 모델(Claude 4.6 이상, 5.x)** 이어야 한다. Haiku 4.5 같은 이전 세대를 넣으면 모든 호출이 400 → 503으로 끝나 리딩이 조용히 사라진다.
+3. 배포 후 `https://<worker>/api/config`가 `"textProvider":"claude"`, `"features":{…,"reading":true}`를 돌려주면 켜진 것이다. 키가 없으면 `claude`로 설정해도 조용히 `mock`으로 동작한다.
+4. 503이 나오면 Worker 로그(`npx wrangler tail --name <worker>`)의 `[reading] provider failed:` 줄을 본다. `refusal: …`은 모델이 생성을 거부한 경우로, 클라이언트는 카탈로그 설명으로 진행한다.
+5. 로컬에서 실제 호출을 해 보려면 프로젝트 루트의 `.dev.vars`(커밋되지 않음)에 두 줄을 넣고 `npm run dev`를 실행한다. 결과 화면 초상 카드 아래에 리딩 카드가 나오면 된다.
+   ```
+   TEXT_PROVIDER=claude
+   ANTHROPIC_API_KEY=sk-ant-…
+   ```
+   ```bash
+   curl -s -X POST http://localhost:5173/api/reading -H 'content-type: application/json' -d '{"typeCode":"WFQV","axes":{"warmth":0.8,"density":0.3,"pace":0.7,"variation":0.6,"pitch":0.4,"brightness":0.5},"locale":"ko"}'
+   ```
+
+#### 보내는 데이터와 비용
+
+- 리딩 요청에는 **타입 코드(4글자), 여섯 축 수치(0..1, 소수 둘째 자리), 언어(ko/en)** 만 들어간다. 음성, 녹음 길이, 씨앗, IP, 브라우저 정보는 보내지 않는다. Anthropic에 가는 것도 이 값들을 서버가 프롬프트(영어 지시문 + 요청 언어의 타입 이름·설명)에 적은 것뿐이며, 요청은 Worker가 보내므로 사용자 IP는 Anthropic에 가지 않는다. 이 프롬프트와 응답은 [Anthropic API 약관과 데이터 보존 정책](https://www.anthropic.com/legal/commercial-terms)에 따라 처리된다(음성·IP·개인 식별 정보는 포함되지 않는다).
+- 프롬프트는 서버가 만든다(`worker/ai/readingPrompt.ts`). 성별·나이·인종·국적·억양·외모·신체·건강·감정 상태를 추정하거나 언급하지 말라는 지침, 성별·나이가 실린 단어 금지, 진단·조언 금지, 수치·축 이름·타입 코드 인용 금지가 들어 있다. 클라이언트는 임의 문장을 생성시킬 수 없다.
+- 응답은 JSON 스키마(구조화 출력)로 받고 길이(리딩 20~600자, 캡션 2~100자)를 벗어나면 실패로 본다. 생성된 글은 응답으로만 돌아가고 서버에 저장되지 않는다.
+- 비용: Haiku 5.5 기준 입력 $0.10 / 출력 $0.50 (100만 토큰당). 실제 호출에서 리딩 한 번은 입력 약 1,200토큰, 출력(내부 사고 포함) 약 160~200토큰이었다(`[reading] … in=… out=…` 로그로 확인). **1회 $0.0002 안팎**, 1만 회에 $2 정도다. 정확한 값은 [Anthropic 가격표](https://www.anthropic.com/pricing)를 확인한다. 엔드포인트는 인증이 없으므로 속도 제한(`READING_LIMITER`, 접속 IP당 1분 5회, 초상 제한과 별개)과 교차 사이트 403을 반드시 유지한다.
+- 리딩은 생성 시점의 화면 언어로 한 번만 만든다. 결과 화면에서 언어를 바꾸면 다른 언어의 리딩을 섞어 보이지 않고 카탈로그 설명으로 돌아간다(다시 생성하지 않는다).
+
 ### 다른 제공자 붙이기
 
-`worker/ai/types.ts`의 `AiProvider`를 구현하고 `worker/ai/select.ts`에서 고르게 하면 된다. 클라이언트는 `/api/config`와 `/api/portrait` 계약(`shared/api.ts`)만 안다.
+초상은 `worker/ai/types.ts`의 `AiProvider`를 구현하고 `worker/ai/select.ts`에서, 리딩은 `TextProvider`를 구현하고 `worker/ai/textSelect.ts`에서 고르게 하면 된다. 클라이언트는 `/api/config`, `/api/portrait`, `/api/reading` 계약(`shared/api.ts`)만 안다.
 
 ## 알려진 한계
 
 - 분석 축의 범위(`src/features/analysis/axes.ts`의 `AXIS_RANGES`)는 합성 신호로만 검증한 초기값이다. 실제 화자 10명 이상의 녹음으로 축 분포를 보고 범위를 보정해야 16개 타입이 고르게 나온다. 자세한 내용은 `branches/004-feature-analysis/02-implementation.md`의 "알려진 한계와 보정".
 - 온도 축의 밝기 지표(스펙트럼 기울기)는 음높이와 함께 커지는 경향이 남아 있다. 보정 때 음높이 정규화 지표로 바꾸는 방안을 검토한다.
 - iOS Safari는 `download` 속성을 새 탭으로 열 수 있다. 공유 시트("공유" 버튼)를 쓰면 사진 앱에 바로 저장할 수 있다.
+- 목소리 리딩은 생성 시점 언어로 한 번만 만들어진다. 결과 화면에서 언어를 바꾸면 리딩 카드가 사라지고 카탈로그 설명만 보인다. 다시 녹음·생성하면 바뀐 언어로 만들어진다.
 - 결과는 재미로 보는 해석이며 성격·건강 등 어떤 진단도 아니다.
 
 ## 작업 흐름

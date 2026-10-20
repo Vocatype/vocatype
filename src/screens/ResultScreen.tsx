@@ -5,6 +5,8 @@ import { Button } from '../components/Button'
 import { PortraitFrame } from '../components/PortraitFrame'
 import { Screen } from '../components/Screen'
 import { SoundSignature } from '../components/SoundSignature'
+import type { VoiceReading } from '../features/ai/client'
+import { visibleReading } from '../features/ai/reading'
 import { loadImage, renderCard } from '../features/export/renderCard'
 import { canShareFiles, downloadBlob, shareBlob } from '../features/export/save'
 import { presentResult, type ResultView } from '../features/profile/present'
@@ -18,22 +20,27 @@ interface Props {
   profile: VoiceProfile | null
   /** 생성된 초상(data URL). 006 전까지는 null. */
   portrait: string | null
+  /** 목소리 리딩. 없거나 생성 시점 언어와 지금 언어가 다르면 카탈로그 설명만 보인다. */
+  reading: VoiceReading | null
   onNavigate: (to: FlowStep) => void
 }
 
 type SaveState = 'idle' | 'working' | 'saved' | 'shared' | 'failed' | 'share-blocked'
 
-export function ResultScreen({ capture, profile, portrait, onNavigate }: Props) {
+export function ResultScreen({ capture, profile, portrait, reading, onNavigate }: Props) {
   const { locale, t } = useI18n()
   const [saveState, setSaveState] = useState<SaveState>('idle')
   // 공유 시트 지원 여부는 마운트 시점에 한 번만 판단하면 된다.
   const [shareAvailable] = useState(() => canShareFiles())
 
   const view = useMemo(() => (profile ? presentResult(profile, capture, locale) : null), [profile, capture, locale])
+  // 리딩은 생성 시점 언어로 한 번만 만든다. 언어를 바꾸면 다른 언어의 글을 섞어 보이지 않고 카탈로그 설명으로 돌아간다.
+  const shownReading = visibleReading(reading, locale)
+  const caption = shownReading?.caption ?? ''
 
   const statLines = view ? [t('result.stat.pitch', { hz: view.stats.pitchHz }), t('result.stat.pace', { count: view.stats.syllablesPerMinute })] : []
   const filename = view ? `${SERVICE_NAME.toLowerCase()}-${view.code}.png` : ''
-  const cacheKey = view ? `${locale}|${view.code}|${portrait ? portrait.length : 0}` : ''
+  const cacheKey = view ? `${locale}|${view.code}|${portrait ? portrait.length : 0}|${caption}` : ''
 
   // 저장 이미지는 한 번 만들면 재사용한다. 공유 시트는 사용자 제스처 직후에 열려야 하므로,
   // 마운트 뒤 여유 시간에 미리 만들어 두면 "공유"를 눌렀을 때 바로 열 수 있다.
@@ -69,6 +76,7 @@ export function ResultScreen({ capture, profile, portrait, onNavigate }: Props) 
       readOf: current.scriptTitle ? t('result.readOf', { title: current.scriptTitle }) : '',
       date: new Date().toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-US'),
       stats: statLines,
+      caption,
     })
   }
 
@@ -101,7 +109,8 @@ export function ResultScreen({ capture, profile, portrait, onNavigate }: Props) 
     try {
       const blob = await buildBlob(view)
       if (mode === 'share') {
-        const outcome = await shareBlob(blob, filename, `${SERVICE_NAME} · ${view.name}`)
+        // 공유 시트의 본문에는 캡션 한 줄을 넣는다(없으면 생략).
+        const outcome = await shareBlob(blob, filename, `${SERVICE_NAME} · ${view.name}`, caption || undefined)
         setSaveState(outcome === 'shared' ? 'shared' : 'idle')
       } else {
         downloadBlob(blob, filename)
@@ -152,6 +161,17 @@ export function ResultScreen({ capture, profile, portrait, onNavigate }: Props) 
           ))}
         </ul>
       </section>
+
+      {shownReading ? (
+        <section className="card card--reading" aria-labelledby="result-reading">
+          <h2 id="result-reading" className="card__title">
+            {t('result.section.reading')}
+          </h2>
+          <p className="reading__text">{shownReading.reading}</p>
+          <p className="reading__caption">{shownReading.caption}</p>
+          <p className="card__note">{t('result.readingNote')}</p>
+        </section>
+      ) : null}
 
       <section className="card" aria-labelledby="result-color">
         <h2 id="result-color" className="card__title">

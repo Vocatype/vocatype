@@ -87,4 +87,7 @@ export const en = {
   'result.shareBlocked': 'The share sheet could not open. Please tap once more.',
   'result.disclaimer': 'Just for fun. Your recording was never stored.',
   'generating.stage.portrait': 'Painting your portrait (this takes a moment)',
+  'generating.stage.reading': 'Reading your voice',
+  'result.section.reading': 'Voice reading',
+  'result.readingNote': 'Written by AI from your type and six axis values only. It never heard the recording.',
 } satisfies Record<MessageKey, string>

@@ -23,11 +23,11 @@ export function downloadBlob(blob: Blob, filename: string): SaveOutcome {
   return 'downloaded'
 }
 
-/** OS 공유 시트로 보낸다. 사용자가 닫으면 'cancelled'. */
-export async function shareBlob(blob: Blob, filename: string, title: string): Promise<SaveOutcome> {
+/** OS 공유 시트로 보낸다. text 는 공유 본문(캡션 한 줄). 사용자가 닫으면 'cancelled'. */
+export async function shareBlob(blob: Blob, filename: string, title: string, text?: string): Promise<SaveOutcome> {
   const file = new File([blob], filename, { type: 'image/png' })
   try {
-    await navigator.share({ files: [file], title })
+    await navigator.share(text ? { files: [file], title, text } : { files: [file], title })
     return 'shared'
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') return 'cancelled'

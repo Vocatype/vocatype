@@ -24,6 +24,8 @@ export interface CardLabels {
   date: string
   /** 통계 두 줄. 예: ['평균 음높이 142Hz', '분당 250음절'] */
   stats: readonly string[]
+  /** 목소리 리딩의 공유용 캡션. 한 줄만 그리고, 빈 문자열이면 그리지 않는다. */
+  caption: string
 }
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
@@ -96,7 +98,7 @@ function drawPortraitPlaceholder(ctx: CanvasRenderingContext2D, view: ResultView
 
 /**
  * 결과 카드를 1080×1920 PNG로 그린다. 외부 리소스를 쓰지 않아 캔버스가 오염되지 않는다.
- * 세로 배치는 커서(y)로 누적하며, 이름 2줄·설명 3줄·향 이름 2줄로 줄 수를 제한해 하단 문구 영역(FOOTER_TOP) 위에서 끝나도록 설계했다.
+ * 세로 배치는 커서(y)로 누적하며, 이름 2줄·설명 3줄·캡션 1줄·향 이름 2줄로 줄 수를 제한해 하단 문구 영역(FOOTER_TOP) 위에서 끝나도록 설계했다.
  * 그래도 넘치면 예외를 던진다(테스트가 모든 타입·언어로 검사한다).
  */
 export async function renderCard(view: ResultView, portrait: HTMLImageElement | null, labels: CardLabels): Promise<Blob> {
@@ -135,8 +137,8 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   ctx.textAlign = 'right'
   ctx.fillText(labels.date, CARD_WIDTH - MARGIN, 104)
 
-  // 초상
-  const portraitSize = 400
+  // 초상. 009에서 캡션 한 줄(44px)을 넣으며 400 → 380으로 줄여 세로 예산을 회수했다.
+  const portraitSize = 380
   const portraitX = (CARD_WIDTH - portraitSize) / 2
   const portraitY = 150
   ctx.save()
@@ -176,6 +178,17 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   for (const line of clampLines(wrapText(view.description, CONTENT_WIDTH - 60, measure), 3, CONTENT_WIDTH - 60, measure)) {
     ctx.fillText(line, CARD_WIDTH / 2, y)
     y += 36
+  }
+
+  // 리딩 캡션. 한 줄만(한글 약 33자·영문 약 60자), 넘치면 말줄임. 없으면 공간도 쓰지 않는다.
+  // 한글 글꼴에는 이탤릭이 없어 합성 기울임이 되므로 굵기로만 구분한다.
+  if (labels.caption) {
+    y += 8
+    ctx.font = font(600, 26)
+    for (const line of clampLines(wrapText(labels.caption, CONTENT_WIDTH - 60, measure), 1, CONTENT_WIDTH - 60, measure)) {
+      ctx.fillText(line, CARD_WIDTH / 2, y)
+      y += 36
+    }
   }
 
   // 축 칩
@@ -259,7 +272,8 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
     }
   }
 
-  const sigR = 110
+  // 서명 반지름 110 → 100, 아래 여백 48 → 40: 캡션 한 줄 예산 회수(009).
+  const sigR = 100
   const sigCx = CARD_WIDTH - MARGIN - 150
   const sigCy = y + 56 + sigR
   drawSignature(ctx, view.signature, sigCx, sigCy, sigR * 0.45, sigR, primary)
@@ -274,7 +288,7 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
     for (const line of clampLines(wrapText(stat, 300, measure), 1, 300, measure)) ctx.fillText(line, sigCx, statY)
   }
   ctx.textAlign = 'left'
-  y = Math.max(sy, statY) + 48
+  y = Math.max(sy, statY) + 40
 
   // 궁합
   section(labels.match, y)

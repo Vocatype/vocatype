@@ -81,6 +81,7 @@ const labelsKo: CardLabels = {
   readOf: '『별 헤는 밤』 낭독',
   date: '2026. 10. 19.',
   stats: ['평균 음높이 142Hz', '분당 250음절'],
+  caption: '이야기 한가운데로 끌어들이는 목소리',
 }
 
 const labelsEn: CardLabels = {
@@ -98,6 +99,7 @@ const labelsEn: CardLabels = {
   readOf: 'Reading of “I Wandered Lonely as a Cloud”',
   date: '10/19/2026',
   stats: ['Average pitch 142 Hz', '250 syllables per minute'],
+  caption: 'A voice that pulls you into the story',
 }
 
 function profileFor(code: string): VoiceProfile {
@@ -174,6 +176,34 @@ describe('drawCard', () => {
     expect(matchTitle!.y).toBeLessThan(readOf!.y - 150)
     expect(stat!.y).toBeLessThan(matchTitle!.y)
   })
+
+  it('캡션은 설명 아래·칩 위에 한 줄로 그리고, 비어 있으면 그리지 않는다', () => {
+    const view = presentResult(profileFor('WFQV'), null, 'en')
+    const { ctx, calls } = fakeContext()
+    drawCard(ctx, view, null, labelsEn)
+    const caption = calls.find((c) => c.text === labelsEn.caption)
+    const description = calls.filter((c) => view.description.includes(c.text) && c.text.length > 10)
+    const chip = calls.find((c) => c.text === view.axisLabels[0])
+    expect(caption && chip && description.length > 0).toBeTruthy()
+    expect(caption!.y).toBeGreaterThan(Math.max(...description.map((c) => c.y)))
+    expect(caption!.y).toBeLessThan(chip!.y)
+    expect(caption!.align).toBe('center')
+
+    const { ctx: ctx2, calls: calls2 } = fakeContext()
+    drawCard(ctx2, view, null, { ...labelsEn, caption: '' })
+    expect(calls2.some((c) => c.text === labelsEn.caption)).toBe(false)
+    // 캡션이 없으면 그 자리를 비워 칩이 위로 올라온다.
+    const chip2 = calls2.find((c) => c.text === view.axisLabels[0])
+    expect(chip2!.y).toBeLessThan(chip!.y)
+
+    // 긴 캡션은 한 줄로 말줄임한다.
+    const long = Array.from({ length: 40 }, (_, i) => `Caption${i}`).join(' ')
+    const { ctx: ctx3, calls: calls3 } = fakeContext()
+    drawCard(ctx3, view, null, { ...labelsEn, caption: long })
+    const drawnCaption = calls3.filter((c) => c.text.startsWith('Caption0'))
+    expect(drawnCaption).toHaveLength(1)
+    expect(drawnCaption[0]!.text.endsWith('…')).toBe(true)
+  })
 })
 
 describe('drawCard 예산', () => {
@@ -188,7 +218,8 @@ describe('drawCard 예산', () => {
       match: { ...base.match, best: { ...base.match.best, name: long(12) }, opposite: { ...base.match.opposite, name: long(12) } },
     }
     const { ctx, calls } = fakeContext()
-    expect(() => drawCard(ctx, view, null, { ...labelsEn, stats: [long(6), long(6)] })).not.toThrow()
+    // 캡션도 가장 긴 경우(한 줄 꽉 참 + 말줄임)로 넣는다.
+    expect(() => drawCard(ctx, view, null, { ...labelsEn, stats: [long(6), long(6)], caption: long(40) })).not.toThrow()
     const body = calls.filter((c) => c.y <= CARD_HEIGHT - 100)
     for (const call of body) {
       expect(call.y, `"${call.text}"`).toBeLessThanOrEqual(CARD_HEIGHT - 120)
@@ -196,8 +227,8 @@ describe('drawCard 예산', () => {
       expect(left).toBeGreaterThanOrEqual(71)
       expect(left + call.width).toBeLessThanOrEqual(CARD_WIDTH - 71)
     }
-    // 이름 2줄, 설명 3줄, 궁합 2행이 실제로 쓰였는지
-    expect(calls.filter((c) => c.text.startsWith('Word') && c.align === 'center').length).toBeGreaterThanOrEqual(5)
+    // 이름 2줄, 설명 3줄, 캡션 1줄, 궁합 2행이 실제로 쓰였는지
+    expect(calls.filter((c) => c.text.startsWith('Word') && c.align === 'center').length).toBeGreaterThanOrEqual(6)
   })
 })
 

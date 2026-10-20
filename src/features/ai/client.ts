@@ -1,11 +1,33 @@
-import { PORTRAIT_IMAGE_MAX_CHARS, type ApiConfigResponse, type PortraitRequest, type PortraitResponse } from '../../../shared/api'
+import {
+  CAPTION_MAX_CHARS,
+  PORTRAIT_IMAGE_MAX_CHARS,
+  READING_AXIS_KEYS,
+  READING_MAX_CHARS,
+  type ApiConfigResponse,
+  type PortraitRequest,
+  type PortraitResponse,
+  type ReadingAxes,
+  type ReadingAxisKey,
+  type ReadingLocale,
+  type ReadingRequest,
+  type ReadingResponse,
+} from '../../../shared/api'
 
 const CONFIG_TIMEOUT_MS = 5000
 const PORTRAIT_TIMEOUT_MS = 60000
+/** Worker 쪽 SDK 타임아웃 12초 × (1 + 재시도 1)과 대기 시간을 덮는다. 초상과 병렬이라 전체 대기는 늘지 않는다. */
+const READING_TIMEOUT_MS = 30000
 
 let configPromise: Promise<ApiConfigResponse> | null = null
 
-const OFFLINE_CONFIG: ApiConfigResponse = { provider: 'mock', features: { portrait: false } }
+const OFFLINE_CONFIG: ApiConfigResponse = { provider: 'mock', textProvider: 'mock', features: { portrait: false, reading: false } }
+
+/** 서버가 만든 목소리 리딩. locale 은 생성 시점의 화면 언어다. */
+export interface VoiceReading {
+  locale: ReadingLocale
+  reading: string
+  caption: string
+}
 
 async function fetchJson<T>(input: string, init: RequestInit, timeoutMs: number, outer?: AbortSignal): Promise<T> {
   const controller = new AbortController()
@@ -50,6 +72,37 @@ export async function requestPortrait(request: PortraitRequest, signal?: AbortSi
     // 서버 계약은 JPEG/PNG/WebP data URL뿐이다. 그 밖의 형식(SVG 등)과 비정상적으로 큰 응답은 버린다.
     if (typeof image !== 'string' || image.length > PORTRAIT_IMAGE_MAX_CHARS) return null
     return /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(image) ? image : null
+  } catch {
+    return null
+  }
+}
+
+/** 분석 축을 요청 형식으로 바꾼다. 0..1로 자르고 소수 둘째 자리로 반올림해 필요 이상의 정밀도를 보내지 않는다. */
+export function toReadingAxes(axes: Record<ReadingAxisKey, number>): ReadingAxes {
+  const out = {} as ReadingAxes
+  for (const key of READING_AXIS_KEYS) {
+    const value = Number.isFinite(axes[key]) ? axes[key] : 0.5
+    out[key] = Math.round(Math.min(1, Math.max(0, value)) * 100) / 100
+  }
+  return out
+}
+
+/**
+ * 목소리 리딩 요청. 타입 코드, 반올림한 여섯 축, 언어만 보낸다(음성은 절대 보내지 않는다).
+ * 실패·타임아웃·이상한 응답이면 null을 돌려주고 호출자는 카탈로그의 고정 설명으로 진행한다.
+ */
+export async function requestReading(request: ReadingRequest, signal?: AbortSignal): Promise<VoiceReading | null> {
+  try {
+    const response = await fetchJson<ReadingResponse>(
+      '/api/reading',
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(request) },
+      READING_TIMEOUT_MS,
+      signal,
+    )
+    const reading = typeof response.reading === 'string' ? response.reading.replace(/\s+/g, ' ').trim() : ''
+    const caption = typeof response.caption === 'string' ? response.caption.replace(/\s+/g, ' ').trim() : ''
+    if (!reading || reading.length > READING_MAX_CHARS || !caption || caption.length > CAPTION_MAX_CHARS) return null
+    return { locale: request.locale, reading, caption }
   } catch {
     return null
   }
