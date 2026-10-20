@@ -116,6 +116,7 @@ workers-ai (무료 Workers AI 텍스트 모델) ──실패──▶ claude (�
 ```
 
 - 체인은 `TEXT_PROVIDER` 콤마 목록을 **순서대로** 시도한다. 실패로 보는 것: Workers AI 무료 할당량 소진(`4006`), 429, 타임아웃, 모델의 생성 거부, 출력이 JSON 계약(리딩 20~600자·캡션 2~100자)에 맞지 않는 경우 전부.
+- 체인 전체에 25초 시간 예산이 있고(`shared/api.ts`의 `READING_CHAIN_BUDGET_MS`), 시도하는 제공자(Workers AI·Claude 모두)에는 남은 예산이 중단 신호로 간다. 3초 미만이 남으면 다음 제공자는 건너뛴다. 클라이언트는 그보다 긴 30초(`READING_CLIENT_TIMEOUT_MS`)를 기다려, 클라이언트가 포기한 뒤 유료 호출이 새로 나가지 않는다.
 - 모두 실패하면 응답은 200이지만 `provider: "mock"`이고, 클라이언트는 이를 "리딩 없음"으로 보고 카탈로그의 타입 설명을 보여 준다. 사용자에게 모의 문구는 보이지 않는다.
 - `/api/reading` 응답의 `provider`에 실제로 답한 제공자가 들어가고, Worker 로그에 폴백 이유가 `[reading] workers-ai failed, falling back: AiError: 4006 …`처럼 오류 이름·메시지만 남는다.
 - 두 모델 모두 같은 프롬프트(`worker/ai/readingPrompt.ts`)와 같은 출력 스키마를 쓴다.
