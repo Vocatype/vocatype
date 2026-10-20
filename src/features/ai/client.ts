@@ -1,5 +1,6 @@
 import {
   CAPTION_MAX_CHARS,
+  PORTRAIT_CLIENT_TIMEOUT_MS,
   PORTRAIT_IMAGE_MAX_CHARS,
   READING_AXIS_KEYS,
   READING_CLIENT_TIMEOUT_MS,
@@ -15,7 +16,6 @@ import {
 import type { Locale } from '../../i18n/locales'
 
 const CONFIG_TIMEOUT_MS = 5000
-const PORTRAIT_TIMEOUT_MS = 60000
 
 let configPromise: Promise<ApiConfigResponse> | null = null
 
@@ -64,7 +64,7 @@ export async function requestPortrait(request: PortraitRequest, signal?: AbortSi
     const response = await fetchJson<PortraitResponse>(
       '/api/portrait',
       { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(request) },
-      PORTRAIT_TIMEOUT_MS,
+      PORTRAIT_CLIENT_TIMEOUT_MS,
       signal,
     )
     const image = response.image

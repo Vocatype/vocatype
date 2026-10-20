@@ -82,6 +82,16 @@ export const READING_CHAIN_BUDGET_MS = 25_000
 /** 클라이언트가 /api/reading 응답을 기다리는 시간. 초상 요청과 병렬이라 전체 대기는 늘지 않는다. */
 export const READING_CLIENT_TIMEOUT_MS = 30_000
 
+/*
+ * 초상 시간 규칙: Worker 초상 호출 상한 < 클라이언트 대기 시간 (shared/api.test.ts 가 검사한다).
+ * Worker 는 상한에서 바인딩 호출을 끊고 503 provider_failed 로 답한다. 클라이언트는 그보다 오래 기다려 그 응답을 받고 자리표시 초상으로 간다.
+ * 차이(15초)는 큰 data URL 전송과 Worker 처리 여유로 잡은 값이다.
+ */
+/** Worker 가 Workers AI 초상 호출을 기다리는 최대 시간. 넘으면 신호로 끊는다. */
+export const PORTRAIT_SERVER_TIMEOUT_MS = 45_000
+/** 클라이언트가 /api/portrait 응답을 기다리는 시간. 리딩 요청과 병렬이다. */
+export const PORTRAIT_CLIENT_TIMEOUT_MS = 60_000
+
 /** 서버와 클라이언트가 함께 지키는 길이 범위. 벗어나면 제공자 실패로 본다. */
 export const READING_MIN_CHARS = 20
 export const READING_MAX_CHARS = 600
