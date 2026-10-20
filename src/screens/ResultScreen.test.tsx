@@ -194,7 +194,7 @@ describe('ResultScreen 리딩·초상·머리글·버튼', () => {
     expect(other).toContain(escape(presentResult(makeProfile(), null, 'en').description))
   })
 
-  it('초상이 없으면 자리표시 초상과 준비 중 안내, 있으면 이미지가 보인다', () => {
+  it('초상이 없으면 자리표시 초상과 초상 실패 안내, 있으면 이미지가 보인다', () => {
     const alt = escape(formatMessage(messages.ko['result.portraitAlt'], { name: presentResult(makeProfile(), null, 'ko').name }))
 
     const without = render()

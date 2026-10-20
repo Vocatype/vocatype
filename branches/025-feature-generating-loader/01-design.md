@@ -19,7 +19,7 @@
 - `src/screens/GeneratingScreen.tsx`: 진행 중 상태에서 진행 막대 위에 `VoiceLoader`. 실패 화면에는 넣지 않는다
 - `src/styles/global.css`: 음파 스타일과 `@keyframes`. 움직임 줄이기 설정에서는 `animation: none`으로 멈춘 파형
 - `src/i18n/messages/ko.ts`, `en.ts`: `result.portraitPending` 문구를 실제 상황에 맞게
-  - ko: "이번에는 AI 초상을 만들지 못해 컬러와 사운드 시그니처로 그렸어요."
+  - ko: "이번에는 AI 초상을 만들지 못해 목소리의 컬러와 사운드 시그니처로 그렸어요."(1차 리뷰 #3 반영)
   - en: "We couldn't make the AI portrait this time, so it's drawn from your colors and sound signature."
 - `src/screens/GeneratingScreen.test.tsx`(새 파일): 정적 렌더로 음파가 진행 중 화면에 있고 스크린 리더에서 숨겨지는지, 진행 막대·단계 문구는 그대로인지
 
