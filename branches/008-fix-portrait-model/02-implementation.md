@@ -16,4 +16,4 @@
 | typecheck / lint / test(122) / build | 통과 |
 | 로컬 재현 (Flux + seed) | `AiError 5006: Additional or unevaluated properties '/seed'` — 원인 확정 |
 | 로컬 실호출 (Lucid Origin) | `AiError 4006: daily free allocation of 10,000 neurons` — 계정 무료 할당량 소진으로 생성 자체가 막혀 결정성 검증 불가. 할당량 초기화 후 또는 Workers Paid 전환 후 재확인 필요 |
-| 배포 사이트 전체 흐름 | 아래 리뷰 문서의 구현자 확인 참조 |
+| 배포 사이트 전체 흐름 (`https://ai-voice-analyser.hs827.workers.dev`, 007 배포본) | 메인 → 녹음(합성 스트림) → 생성: `/api/config` 200(`workers-ai`, `portrait: true`) → "초상을 그리는 중" 단계 → `/api/portrait` 503 → 결과 화면에 자리표시 초상으로 정상 도달. `localStorage`·쿠키 없음, 언어 자동 감지(ko). 실패가 흐름을 막지 않음 |

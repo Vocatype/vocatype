@@ -15,6 +15,11 @@
 
 **병합 가능.** 배포 후 확인(`/api/config`, 실사 초상, seed 결정성)은 사용자가 주소를 알려주면 수행해 아래에 기록한다.
 
+### 배포 후 확인 (구현자)
+
+- `GET /api/config` → `{"provider":"workers-ai","features":{"portrait":true}}`, `/api/health` 정상, SPA 폴백 200
+- `POST /api/portrait` → 503. 로컬 재현 결과 Flux 1 schnell이 `seed`를 거부(`AiError 5006`). 008에서 모델 교체
+
 ## 최종
 
 - 병합: `git merge --no-ff chore/007-enable-workers-ai` → main
