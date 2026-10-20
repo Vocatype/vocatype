@@ -21,6 +21,7 @@ function message(content: Anthropic.ContentBlock[], overrides: Partial<Anthropic
     stop_reason: 'end_turn',
     stop_sequence: null,
     stop_details: null,
+    usage: { input_tokens: 1200, output_tokens: 180 },
     ...overrides,
   } as unknown as Anthropic.Message
 }

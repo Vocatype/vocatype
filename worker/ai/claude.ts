@@ -96,6 +96,8 @@ export function createClaudeTextProvider(options: ClaudeTextProviderOptions): Te
         if (signal.aborted) throw new Error(`total timeout ${TOTAL_TIMEOUT_MS}ms exceeded (retries included)`, { cause })
         throw cause
       }
+      // 비용 추적용 토큰 수만 남긴다(사용자 데이터 없음). 운영에서는 observability 가 꺼져 있어 어디에도 저장되지 않는다.
+      console.info(`[reading] ${message.model} in=${message.usage.input_tokens} out=${message.usage.output_tokens} stop=${message.stop_reason ?? 'none'}`)
       return parseReadingMessage(message)
     },
   }
