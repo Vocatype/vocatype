@@ -4,6 +4,7 @@ import { FlowContext } from './app/FlowContext'
 import { StepIndicator } from './components/StepIndicator'
 import { TopBar } from './components/TopBar'
 import type { VoiceReading } from './features/ai/client'
+import { isCalibrationEnabled } from './features/export/calibration'
 import type { VoiceProfile } from './features/profile/types'
 import type { Capture } from './features/recorder/types'
 import { useI18n } from './i18n/useI18n'
@@ -22,6 +23,8 @@ export default function App() {
   const [profile, setProfile] = useState<VoiceProfile | null>(null)
   const [portrait, setPortrait] = useState<string | null>(null)
   const [reading, setReading] = useState<VoiceReading | null>(null)
+  // 보정용 내보내기(개발용)는 URL 쿼리 `?calibrate=1`로만 켠다. 첫 렌더에 한 번 읽고 어디에도 저장하지 않는다.
+  const [calibration] = useState(() => isCalibrationEnabled(window.location.search))
 
   /** 메인으로 돌아가는 전이가 허용될 때만 녹음과 결과를 메모리에서도 버린다. */
   const go = (to: FlowStep) => {
@@ -65,7 +68,7 @@ export default function App() {
           />
         )
       case 'result':
-        return <ResultScreen capture={capture} profile={profile} portrait={portrait} reading={reading} onNavigate={go} />
+        return <ResultScreen capture={capture} profile={profile} portrait={portrait} reading={reading} calibration={calibration} onNavigate={go} />
     }
   })()
 

@@ -7,6 +7,7 @@ import { Screen } from '../components/Screen'
 import { SoundSignature } from '../components/SoundSignature'
 import type { VoiceReading } from '../features/ai/client'
 import { visibleReading } from '../features/ai/reading'
+import { buildCalibrationExport, calibrationBlob, calibrationFilename } from '../features/export/calibration'
 import { loadImage, renderCard } from '../features/export/renderCard'
 import { canShareFiles, downloadBlob, shareBlob } from '../features/export/save'
 import { presentResult, type ResultView } from '../features/profile/present'
@@ -22,16 +23,20 @@ interface Props {
   portrait: string | null
   /** 목소리 리딩. 없거나 생성 시점 언어와 지금 언어가 다르면 카탈로그 설명만 보인다. */
   reading: VoiceReading | null
+  /** 보정용 내보내기(개발용) 카드를 보일지. App이 URL 쿼리 `?calibrate=1`로 정한다. 기본은 숨김. */
+  calibration?: boolean
   onNavigate: (to: FlowStep) => void
 }
 
 type SaveState = 'idle' | 'working' | 'saved' | 'shared' | 'failed' | 'share-blocked'
 
-export function ResultScreen({ capture, profile, portrait, reading, onNavigate }: Props) {
+export function ResultScreen({ capture, profile, portrait, reading, calibration = false, onNavigate }: Props) {
   const { locale, t } = useI18n()
   const [saveState, setSaveState] = useState<SaveState>('idle')
   // 공유 시트 지원 여부는 마운트 시점에 한 번만 판단하면 된다.
   const [shareAvailable] = useState(() => canShareFiles())
+  // 보정용 JSON을 내려받은 파일 이름. 상태 문구에 보여 준다.
+  const [calibrationSavedAs, setCalibrationSavedAs] = useState<string | null>(null)
 
   const view = useMemo(() => (profile ? presentResult(profile, capture, locale) : null), [profile, capture, locale])
   // 리딩은 생성 시점 언어로 한 번만 만든다. 언어를 바꾸면 다른 언어의 글을 섞어 보이지 않고 카탈로그 설명으로 돌아간다.
@@ -120,6 +125,14 @@ export function ResultScreen({ capture, profile, portrait, reading, onNavigate }
       // 공유 시트는 사용자 제스처 직후에만 열린다. 이미지를 막 만든 경우라면 다시 누르면 캐시로 바로 열린다.
       setSaveState(error instanceof Error && error.name === 'NotAllowedError' ? 'share-blocked' : 'failed')
     }
+  }
+
+  // 보정용 내보내기: 음성 없이 분석 수치만 JSON으로. 버튼을 눌렀을 때만, 기기 안에서만(downloadBlob) 저장한다.
+  const exportCalibration = () => {
+    const record = buildCalibrationExport(profile, capture, locale)
+    const name = calibrationFilename(record)
+    downloadBlob(calibrationBlob(record), name)
+    setCalibrationSavedAs(name)
   }
 
   const saveMessage =
@@ -287,6 +300,23 @@ export function ResultScreen({ capture, profile, portrait, reading, onNavigate }
         </Button>
       </div>
       <p className="disclaimer">{t('result.disclaimer')}</p>
+
+      {calibration ? (
+        <section className="card card--dev" aria-labelledby="result-calibration">
+          <h2 id="result-calibration" className="card__title">
+            {t('result.calibration.title')}
+          </h2>
+          <p className="card__text">{t('result.calibration.note')}</p>
+          <div className="actions">
+            <Button variant="secondary" onClick={exportCalibration}>
+              {t('result.calibration.export')}
+            </Button>
+          </div>
+          <p className="save-status" role="status">
+            {calibrationSavedAs ? t('result.calibration.saved', { filename: calibrationSavedAs }) : ''}
+          </p>
+        </section>
+      ) : null}
     </Screen>
   )
 }

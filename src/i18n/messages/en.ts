@@ -91,4 +91,8 @@ export const en = {
   'generating.stage.reading': 'Reading your voice',
   'result.section.reading': 'Voice reading',
   'result.readingNote': 'Written by AI from your type and six axis values only. It never heard the recording.',
+  'result.calibration.title': 'Calibration export (developer)',
+  'result.calibration.note': 'Saves only the analysis numbers (raw features, six axes, type) as a JSON file on this device. No audio, and nothing is sent to a server.',
+  'result.calibration.export': 'Download JSON',
+  'result.calibration.saved': 'Saved: {filename}',
 } satisfies Record<MessageKey, string>

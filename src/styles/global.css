@@ -899,6 +899,12 @@ p {
   text-align: center;
 }
 
+/* 개발용 카드(보정용 내보내기). 점선 테두리로 본문 카드와 구분한다. */
+.card--dev {
+  border-style: dashed;
+  box-shadow: none;
+}
+
 .signature {
   max-width: 100%;
   height: auto;
