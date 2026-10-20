@@ -34,7 +34,7 @@
 
 - 렌더: `renderToStaticMarkup(<I18nProvider initialLocale={locale}><ResultScreen … /></I18nProvider>)`. `I18nProvider`의 `useEffect`(document.lang)는 서버 렌더에서 실행되지 않고, `ResultScreen`의 `useState(() => canShareFiles())`는 Node에서 `navigator.share`가 없어 false, 선생성 `useEffect`도 실행되지 않는다. 따라서 캔버스·DOM 없이 렌더된다.
 - 헬퍼: `openingTags(html, /<div[^>]*role="meter"[^>]*>/g)` → 각 태그의 `name="value"` 속성을 객체로. `textOf(html, id)` → 그 id 요소의 안쪽 텍스트.
-- 픽스처: `VoiceProfile`(축 값은 경계·비경계가 섞이도록 warmth 0.8, density 0.52, pace 0.2, variation 0.45 → 타입 `WFME`, 퍼센트 80·52·80·55, 경계는 밀도 축만), `VoiceReading`(ko), `Capture`(제목 『서시』, 12,345ms → "0:12"). `renderCard.test.ts`의 픽스처와 축 값이 달라야 해서 이 파일 안에 둔다.
+- 픽스처: `VoiceProfile`(축 값은 경계·비경계가 섞이도록 warmth 0.8, density 0.52, pace 0.2, variation 0.45 → 타입 `WFME`, 퍼센트 80·52·80·55, 경계는 밀도 축만), `VoiceReading`(ko), `Capture`(제목 『서시』, 75,000ms → "1:15". 1차 리뷰 #2로 12,345ms에서 바꿈: 프로필 `durationSec: 12`와 표시값이 겹치지 않게). `renderCard.test.ts`의 픽스처와 축 값이 달라야 해서 이 파일 안에 둔다.
 
 ## 주요 결정과 근거
 
