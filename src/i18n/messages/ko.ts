@@ -64,6 +64,7 @@ export const ko = {
   'result.portraitAlt': '{name} 타입의 초상',
   'result.typeCode': '타입 코드',
   'result.axesLabel': '목소리 축',
+  'result.axisBoundary': '{other} 성향도 조금 있어요',
   'result.section.color': '퍼스널 컬러',
   'result.section.scent': '시그니처 향',
   'result.section.signature': '사운드 시그니처',

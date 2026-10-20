@@ -153,13 +153,37 @@ export function ResultScreen({ capture, profile, portrait, reading, onNavigate }
           {view.name}
         </h2>
         <p className="type__description">{view.description}</p>
-        <ul className="chips" aria-label={t('result.axesLabel')}>
-          {view.axisLabels.map((label) => (
-            <li key={label} className="chip">
-              {label}
-            </li>
-          ))}
-        </ul>
+        {view.quality === 'ok' ? (
+          <ul className="axes" role="list" aria-label={t('result.axesLabel')}>
+            {view.axes.map((axis) => (
+              <li key={axis.key} className="axis">
+                {/* 시각용 머리글. 보조기기에는 아래 meter의 이름·값으로 한 번만 읽힌다. */}
+                <div className="axis__head" aria-hidden="true">
+                  <span className="axis__letter">{axis.letter}</span>
+                  <span className="axis__label">{axis.label}</span>
+                  <span className="axis__percent">{axis.percent}%</span>
+                </div>
+                <div
+                  className="axis__bar"
+                  role="meter"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={axis.percent}
+                  aria-valuetext={`${axis.label} ${axis.percent}%`}
+                  aria-label={axis.title}
+                  aria-describedby={axis.boundary ? `axis-note-${axis.key}` : undefined}
+                >
+                  <div className="axis__fill" style={{ width: `${axis.percent}%` }} />
+                </div>
+                {axis.boundary ? (
+                  <p id={`axis-note-${axis.key}`} className="axis__note">
+                    {t('result.axisBoundary', { other: locale === 'en' ? axis.otherLabel.toLowerCase() : axis.otherLabel })}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       {shownReading ? (

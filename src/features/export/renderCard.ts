@@ -1,5 +1,5 @@
 import type { ResultView } from '../profile/present'
-import { hexToRgba, signatureInkFor } from '../signature/contrast'
+import { hexToRgba, luminance, signatureInkFor } from '../signature/contrast'
 import { signatureBars } from '../signature/signature'
 import { wrapText } from './wrapText'
 
@@ -191,24 +191,43 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
     }
   }
 
-  // 축 칩
-  y += 14
-  ctx.font = font(600, 24)
-  const chipPad = 20
-  const chipGap = 12
-  const chipWidths = view.axisLabels.map((label) => measure(label) + chipPad * 2)
-  const chipsWidth = chipWidths.reduce((sum, w) => sum + w, 0) + chipGap * (chipWidths.length - 1)
-  let chipX = (CARD_WIDTH - chipsWidth) / 2
-  for (let i = 0; i < view.axisLabels.length; i += 1) {
-    const w = chipWidths[i] ?? 0
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.12)'
-    roundedRect(ctx, chipX, y - 28, w, 42, 21)
-    ctx.fill()
-    ctx.fillStyle = FG
-    ctx.fillText(view.axisLabels[i] ?? '', chipX + w / 2, y + 1)
-    chipX += w + chipGap
+  // 축 강도: 한 줄에 네 개의 작은 막대 (글자 + 라벨, 퍼센트, 막대). 신호가 부족하면 기본값이라 그리지 않는다.
+  if (view.quality === 'ok') {
+    y += 10
+    const barGap = 24
+    const barWidth = (CONTENT_WIDTH - barGap * 3) / 4
+    // 어두운 대표색(겨울 쿨 등)은 어두운 바탕에서 보이지 않으므로 밝은 글자색으로 채운다.
+    const fill = luminance(primary) < 0.3 ? FG : primary
+    for (let i = 0; i < view.axes.length; i += 1) {
+      const axis = view.axes[i]
+      if (!axis) continue
+      const x = MARGIN + i * (barWidth + barGap)
+      const percentText = `${axis.percent}%`
+      ctx.font = font(600, 22)
+      const labelWidth = barWidth - measure(percentText) - 12
+      ctx.textAlign = 'left'
+      ctx.fillStyle = FG
+      ctx.font = font(700, 22)
+      // 글자(W/C 등)는 항상 남기고 라벨만 폭에 맞춰 말줄임한다.
+      const prefix = `${axis.letter} `
+      const textWidth = labelWidth - measure(prefix)
+      const [label] = clampLines(wrapText(axis.label, textWidth, measure), 1, textWidth, measure)
+      ctx.fillText(prefix + (label ?? ''), x, y)
+      ctx.textAlign = 'right'
+      ctx.fillStyle = MUTED
+      ctx.font = font(600, 22)
+      ctx.fillText(percentText, x + barWidth, y)
+      ctx.textAlign = 'left'
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.12)'
+      roundedRect(ctx, x, y + 12, barWidth, 10, 5)
+      ctx.fill()
+      ctx.fillStyle = fill
+      roundedRect(ctx, x, y + 12, barWidth * (axis.percent / 100), 10, 5)
+      ctx.fill()
+    }
+    ctx.textAlign = 'center'
+    y += 46
   }
-  y += 28
 
   const section = (title: string, top: number) => {
     ctx.textAlign = 'left'

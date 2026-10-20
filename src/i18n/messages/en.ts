@@ -66,6 +66,7 @@ export const en = {
   'result.portraitAlt': 'Portrait for the {name} type',
   'result.typeCode': 'Type code',
   'result.axesLabel': 'Voice axes',
+  'result.axisBoundary': 'A little {other}, too',
   'result.section.color': 'Personal color',
   'result.section.scent': 'Signature scent',
   'result.section.signature': 'Sound signature',

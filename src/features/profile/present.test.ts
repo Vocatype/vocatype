@@ -34,7 +34,7 @@ describe('presentResult', () => {
     const en = presentResult(profile, null, 'en')
     expect(ko.name).toBe('불꽃 이야기꾼')
     expect(en.name).toBe('The Fireside Storyteller')
-    expect(ko.axisLabels).toEqual(['따뜻한', '꽉 찬', '빠른', '생동하는'])
+    expect(ko.axes.map((axis) => axis.label)).toEqual(['따뜻한', '꽉 찬', '빠른', '생동하는'])
     expect(en.color.name).toBe('Autumn Warm')
     expect(ko.scent.base[0]).toBe('앰버')
   })
@@ -58,5 +58,18 @@ describe('presentResult', () => {
     )
     expect(view.scriptTitle).toBe('서시')
     expect(view.stats.durationMs).toBe(9000)
+  })
+  it('축 강도는 타입 코드 순서로 결정된 쪽과 퍼센트를 준다', () => {
+    const view = presentResult(profile, null, 'ko')
+    expect(view.axes.map((axis) => axis.letter).join('')).toBe(view.code)
+    expect(view.axes[0]).toMatchObject({ key: 'temperature', title: '온도', label: '따뜻한', otherLabel: '서늘한', percent: 80, boundary: false })
+    expect(view.axes.every((axis) => axis.percent >= 50 && axis.percent <= 100)).toBe(true)
+  })
+
+  it('경계 축과 영어 라벨, 신호 부족 품질을 그대로 전달한다', () => {
+    const boundary = presentResult({ ...profile, axes: { ...profile.axes, density: 0.52 } }, null, 'en')
+    expect(boundary.axes[1]).toMatchObject({ letter: 'F', label: 'Full', otherLabel: 'Light', percent: 52, boundary: true })
+    const low = presentResult({ ...profile, quality: 'low-signal' }, null, 'ko')
+    expect(low.quality).toBe('low-signal')
   })
 })
