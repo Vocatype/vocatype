@@ -68,7 +68,7 @@
 
 ## 배포 후 확인
 
-사용자 확인 뒤 2026-10-20 15:0x KST에 배포했다.
+사용자 확인 뒤 2026-10-20 15:03 KST(`wrangler deployments list` 기준 06:03:18Z)에 배포했다.
 
 - 푸시: 배포 직전 `git fetch` 결과 `origin/main`이 이미 병합 커밋 `5299003`(022 포함)을 가리키고 있어 이 작업에서 따로 푸시할 커밋은 없었다.
 - 배포: main 체크아웃(`5299003`, 깨끗함)에서 `npm run deploy`(= `npm run build && wrangler deploy`), 종료 코드 0. 출력의 바인딩 표에 `env.TEXT_PROVIDER ("claude,workers-ai")`, `env.AI_PROVIDER ("workers-ai")`. Current Version ID `43807d50-d216-4887-ab95-135dbc6b527a`.
