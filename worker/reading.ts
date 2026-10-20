@@ -1,7 +1,7 @@
 import { READING_AXIS_KEYS, READING_REQUEST_MAX_BYTES, type ReadingAxes, type ReadingRequest } from '../shared/api.ts'
 import { isLocale } from '../shared/locale.ts'
 import { isTypeCode } from '../shared/typeCode.ts'
-import { readBodyLimited } from './portrait.ts'
+import { readBodyLimited } from './http.ts'
 
 export type ReadingValidationResult = { ok: true; value: ReadingRequest } | { ok: false; error: 'invalid_request' | 'too_large' }
 
