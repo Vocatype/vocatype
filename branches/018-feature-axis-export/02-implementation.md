@@ -146,7 +146,9 @@ const byParticipant = new Map()
 for (const file of files) {
   const r = JSON.parse(readFileSync(file, 'utf8'))
   if (r.schema !== 'voice-axis-calibration' || r.quality !== 'ok' || String(r.analysisVersion) !== version) continue
-  const key = `${r.locale}/${basename(dirname(file))}`
+  const folder = basename(dirname(file))
+  if (!/^p\d+$/.test(folder)) console.warn(`경고: 참가자 폴더 이름이 p<번호>가 아니라 같은 폴더의 파일이 한 참가자로 합쳐진다 — ${file}`)
+  const key = `${r.locale}/${folder}`
   byParticipant.set(key, [...(byParticipant.get(key) ?? []), r])
 }
 const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length
