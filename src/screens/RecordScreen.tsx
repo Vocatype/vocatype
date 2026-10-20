@@ -38,15 +38,17 @@ export function RecordScreen({ onNavigate, onCaptured }: Props) {
   const recorder = useRecorder({ maxMs: RECORDING_MAX_SECONDS * 1000 })
   const { status, error, elapsedMs, level, recording, previewUrl } = recorder
 
+  // 녹음을 시작한 뒤(권한 요청 포함)부터 녹음이 끝난 뒤까지는 읽은 글과 결과가 어긋나지 않게 글을 고정한다.
+  // 녹음이 없는 idle(다시 녹음)·error가 되면 풀린다. 언어 전환과 '다른 글' 버튼이 같은 조건을 쓴다.
+  const scriptLocked = status !== 'idle' && status !== 'error'
+
   // UI 언어가 바뀌면 읽을 글도 그 언어로 바꾼다. 렌더 중 상태 조정 패턴(effect 없이 즉시 반영).
-  // 녹음 중이거나 녹음이 끝난 뒤에는 읽은 글과 결과가 어긋나지 않게 유지하고, 다시 녹음할 때 바꾼다.
-  if (script.locale !== locale && (status === 'idle' || status === 'error')) {
+  if (script.locale !== locale && !scriptLocked) {
     const next = pickScript(locale)
     setScript(next)
     setAnnouncement(t('record.newScript', { title: next.title }))
   }
 
-  const isBusy = status === 'recording' || status === 'requesting'
   const minMs = RECORDING_MIN_SECONDS * 1000
   const tooShort = recording !== null && recording.durationMs < minMs
   const canGenerate = recording !== null && !tooShort
@@ -104,7 +106,7 @@ export function RecordScreen({ onNavigate, onCaptured }: Props) {
         </div>
         <footer className="script__footer">
           <span className="script__note">{t('record.publicDomain')}</span>
-          <Button variant="ghost" onClick={shuffle} disabled={isBusy}>
+          <Button variant="ghost" onClick={shuffle} disabled={scriptLocked}>
             {t('record.another')}
           </Button>
         </footer>
