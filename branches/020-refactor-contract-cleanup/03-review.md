@@ -133,13 +133,26 @@
 | `npm run lint` | 종료 코드 0 |
 | `npm run build` | 종료 코드 0 |
 
-- 현재 main(`d129f35`, 019 병합 뒤)과 `git merge-tree`로 확인한 결과 충돌이 없다. 병합 트리에서 tsc 3종·oxlint·vitest가 통과했다(1차 반영 시점 기준 34 파일 231 테스트).
+- 당시 main(`d129f35`, 019 병합 뒤)과 `git merge-tree`로 확인한 결과 충돌이 없다. 병합 트리에서 tsc 3종·oxlint·vitest가 통과했다(1차 반영 시점 기준 34 파일 231 테스트).
+
+## 2차 뒤 추가 변경 (시작 세션 요청)
+
+022(운영 순서를 `claude,workers-ai`로)가 병합된다는 알림을 받고 두 가지를 바꿨다(커밋 `5aad97b`, 코드 동작 변경 없음).
+
+- 020이 넣은 주석을 체인 순서에 기대지 않게 고쳤다. 대상은 `shared/api.ts`의 시간 규칙, `textChain.ts`의 `TEXT_PROVIDER` 예시, `workersAiText.ts`, README의 시간 예산 줄이다.
+- `textChain.test.ts`에 테스트를 하나 더했다. 가짜 시계로 첫 제공자가 20초를 쓰고 실패하게 한 뒤, 뒤에 시도되는 실제 Workers AI 제공자가 남은 예산(5초) 신호를 `ai.run` 옵션으로 받는지 본다. 신호 전달을 빼면 이 테스트가 실패한다.
+
+자세한 내용은 구현 문서 3절 "022 순서 변경과의 관계"에 있다. 검증 4종은 33 파일 216 테스트, 종료 코드 0이다. 현재 main(`5299003`, 019·022 병합 뒤)과 합친 트리는 충돌이 없고 34 파일 235 테스트가 통과했다.
+
+## 3차 리뷰
+
+(아래에 기록)
 
 ## 최종
 
 main 체크아웃은 형제 세션이 함께 쓰므로, 병합은 이 작업을 시작한 세션이나 사용자가 한다(019와 같은 방식).
 
-병합 순서: `refactor/021-generation-orchestration`과 함께 병합할 때는 나중에 병합하는 쪽에서 `ReadingLocale`을 `Locale`로 바꾼다(구현 문서 "병합 순서 주의").
+병합 순서: 022는 이미 main에 있고 020과 충돌하지 않는다. `refactor/021-generation-orchestration`과는 나중에 병합하는 쪽에서 `ReadingLocale`을 `Locale`로 바꾼다(구현 문서 "병합 순서 주의").
 
 ```bash
 git -C /Users/hyunseop/Developer/Projects/ai-voice-image-generator merge --no-ff refactor/020-contract-cleanup

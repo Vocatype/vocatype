@@ -73,7 +73,10 @@
 - `textChain.test.ts`에 "뒤에 시도되는 Workers AI 도 남은 예산만큼의 신호를 바인딩에 넘긴다" 테스트를 추가했다. 가짜 시계로 첫 제공자(claude)가 20초를 쓰고 실패하게 한 뒤, 실제 `createWorkersAiTextProvider`가 `AbortSignal.timeout(READING_CHAIN_BUDGET_MS - 20_000)`으로 만든 그 신호를 `ai.run` 옵션으로 받는지 본다. `workersAiText.ts`에서 신호 전달을 빼면 이 테스트가 실패한다.
 - 020이 넣은 주석이 체인 순서에 기대지 않게 고쳤다. `shared/api.ts` 시간 규칙의 "다음 제공자(유료 Claude)"는 "다음 제공자를 새로 불러 할당량·비용을 쓰는 일"로 바꿨다. `textChain.ts`의 `TEXT_PROVIDER` 예시 값은 지우고 "적힌 순서대로"만 남겼다. `workersAiText.ts`는 "체인의 몇 번째에 있든"으로, README의 시간 예산 줄은 "Worker가 제공자를 새로 부르지 않는다(체인 순서와 상관없이)"로 고쳤다.
 
-`shared/api.ts:7`의 `TextProviderName` 주석(`workers-ai → claude → mock`)은 022가 같은 줄을 고치므로 손대지 않았다(겹치면 글자 충돌이 난다). README의 체인 그림·표도 022 범위라 그대로 두었다. 020과 022는 `git merge-tree` 기준 충돌이 없다.
+`shared/api.ts:7`의 `TextProviderName` 주석(`workers-ai → claude → mock`)은 022가 같은 줄을 고치므로 손대지 않았다(겹치면 글자 충돌이 난다). README의 체인 그림·표도 022 범위라 그대로 두었다.
+
+022는 main에 병합됐다(`5299003`). 022 설계 문서 "시간 예산과 폴백의 한계"의 둘째 한계(신호를 받지 않는 Workers AI가 둘째로 시작하면 서버 합계가 약 31초로 클라이언트 30초를 넘을 수 있다)는 이 브랜치로 해소된다. 첫째 한계(Claude가 느리게 실패하면 예산을 거의 다 써서 Workers AI 예비가 작동하지 않는다)는 체인이 제공자마다 몫을 나누는 별도 변경이 필요해 이 브랜치 범위 밖이다.
+020을 현재 main(019·022 병합 뒤)에 합친 트리는 `git merge-tree` 충돌이 없고, tsc 3종·oxlint·vitest(34 파일 235 테스트)가 통과했다.
 
 ### 4. `readBodyLimited` 이동
 
