@@ -2,20 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FlowStep } from '../app/flow'
 import { Button } from '../components/Button'
 import { Screen } from '../components/Screen'
-import { fetchAiConfig, requestPortrait, requestReading, toReadingAxes, type VoiceReading } from '../features/ai/client'
-import { planGeneration } from '../features/ai/reading'
-import { analyzeRecording, type AnalysisStage } from '../features/analysis/analyze'
-import type { VoiceProfile } from '../features/profile/types'
+import { runGeneration, type GenerationResult, type WaitingStage } from '../features/ai/generate'
+import type { AnalysisStage } from '../features/analysis/analyze'
 import type { Capture } from '../features/recorder/types'
 import { useI18n } from '../i18n/useI18n'
-
-export interface GenerationResult {
-  profile: VoiceProfile
-  /** 생성된 초상(data URL). 제공자가 없거나 실패하면 null. */
-  portrait: string | null
-  /** 목소리 리딩. 제공자가 없거나 실패하면 null(결과 화면은 카탈로그 설명으로 폴백). */
-  reading: VoiceReading | null
-}
 
 interface Props {
   capture: Capture | null
@@ -23,7 +13,7 @@ interface Props {
   onGenerated: (result: GenerationResult) => void
 }
 
-type Stage = AnalysisStage | 'portrait' | 'reading'
+type Stage = AnalysisStage | WaitingStage
 
 interface Progress {
   stage: Stage
@@ -54,50 +44,25 @@ export function GeneratingScreen({ capture, onNavigate, onGenerated }: Props) {
 
   useEffect(() => {
     if (!capture) return
-    // 취소·언마운트 시 abort → 분석 루프와 초상 요청이 멈추고, 뒤늦은 콜백도 막힌다.
+    // 취소·언마운트 시 abort → 분석 루프와 초상·리딩 요청이 멈추고, 뒤늦은 콜백도 막힌다(취소는 거부로 끝나 실패로 보이지 않는다).
     const controller = new AbortController()
     const { signal } = controller
     const startedAt = performance.now()
 
     const run = async () => {
-      // 설정 조회는 분석과 동시에 시작해 대기 시간을 겹친다(세션 안에서 한 번만 실제 요청).
-      const configPromise = fetchAiConfig()
-
-      // 1) 기기 안에서 분석
-      const profile = await analyzeRecording(capture.recording, {
-        locale: capture.script.locale,
+      // 분석은 전체 막대의 85%까지, 생성 대기는 걸리는 시간을 알 수 없어 90%에 멈춘다.
+      const result = await runGeneration(capture, {
+        getLocale: () => localeRef.current,
         signal,
-        onProgress: (next) => {
-          if (!signal.aborted) setProgress({ stage: next.stage, value: next.progress * 0.85 })
-        },
+        onProgress: (next) => setProgress({ stage: next.stage, value: next.progress * 0.85 }),
+        onStage: (stage) => setProgress({ stage, value: 0.9 }),
       })
-      if (signal.aborted) return
-
-      // 2) 켜져 있는 기능만 병렬로 요청한다. 초상은 타입 코드·씨앗, 리딩은 타입 코드·반올림한 축·언어만 보낸다.
-      //    어느 쪽이 실패해도 null 로 받아 결과로 진행한다(초상은 자리표시, 리딩은 카탈로그 설명).
-      const config = await configPromise
-      if (signal.aborted) return
-      const plan = planGeneration(config.features, profile.quality)
-      if (plan.stage) setProgress({ stage: plan.stage, value: 0.9 })
-      let readingSettled = false
-      const portraitPromise = plan.wantPortrait ? requestPortrait({ typeCode: profile.typeCode, seed: profile.seed }, signal) : Promise.resolve(null)
-      const readingPromise = plan.wantReading
-        ? requestReading({ typeCode: profile.typeCode, axes: toReadingAxes(profile.axes), locale: localeRef.current }, signal).finally(() => {
-            readingSettled = true
-          })
-        : Promise.resolve(null)
-      // 초상이 먼저 끝났는데 리딩을 아직 기다리면 단계 문구를 리딩으로 바꾼다(요청은 둘 다 null 로 끝나므로 reject 하지 않는다).
-      void portraitPromise.then(() => {
-        if (plan.wantPortrait && plan.wantReading && !readingSettled && !signal.aborted) setProgress({ stage: 'reading', value: 0.9 })
-      })
-      const [portrait, reading] = await Promise.all([portraitPromise, readingPromise])
-      if (signal.aborted) return
 
       const remaining = MIN_DISPLAY_MS - (performance.now() - startedAt)
       if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
       if (signal.aborted) return
       setProgress({ stage: 'profiling', value: 1 })
-      onGeneratedRef.current({ profile, portrait, reading })
+      onGeneratedRef.current(result)
     }
 
     run().catch(() => {
