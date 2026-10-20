@@ -23,11 +23,11 @@ function isChainProviderName(value: string): value is ChainProviderName {
   return (CHAIN_NAMES as readonly string[]).includes(value)
 }
 
-/** 콤마로 나누고 공백을 지운 뒤 아는 이름만 순서대로, 중복은 처음 것만 남긴다. */
+/** 콤마로 나누고 공백을 지운 뒤(대소문자 무시) 아는 이름만 순서대로, 중복은 처음 것만 남긴다. 모르는 이름은 버린다(적용된 체인은 /api/config 로 확인). */
 export function parseTextProviderChain(value: string | undefined): ChainProviderName[] {
   const names: ChainProviderName[] = []
   for (const raw of (value ?? '').split(',')) {
-    const name = raw.trim()
+    const name = raw.trim().toLowerCase()
     if (isChainProviderName(name) && !names.includes(name)) names.push(name)
   }
   return names
@@ -70,25 +70,48 @@ export interface ChainLogger {
   error(message: string): void
 }
 
+/** 체인 전체의 시간 예산. 클라이언트 타임아웃(30초)보다 짧아야 클라이언트가 포기한 뒤 유료 호출이 나가지 않는다. */
+export const CHAIN_TIME_BUDGET_MS = 25_000
+/** 이보다 적게 남으면 다음 제공자를 시도하지 않는다(제대로 답할 시간이 없다). */
+const MIN_REMAINING_MS = 3_000
+
+export interface TextChainOptions {
+  fallback?: TextProvider
+  logger?: ChainLogger
+  timeBudgetMs?: number
+  /** 테스트용 시계. */
+  now?: () => number
+}
+
 function describe(cause: unknown): string {
   return cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause)
 }
 
 /**
  * 폴백 체인. 앞에서부터 시도하고, 예외(할당량 소진·429·타임아웃·거부·형식 불일치)가 나면 이유를 로그에 남기고 다음으로 넘어간다.
+ * 체인 전체에 시간 예산이 있어, 앞 제공자가 오래 끌면 남은 제공자는 건너뛰고(mock), 시도하는 제공자에는 남은 예산을 신호로 넘긴다.
  * 로그에는 오류 이름·메시지만 들어간다(요청 본문·축 값 없음).
  */
-export function createTextChain(providers: readonly TextProvider[], options: { fallback?: TextProvider; logger?: ChainLogger } = {}): TextChain {
+export function createTextChain(providers: readonly TextProvider[], options: TextChainOptions = {}): TextChain {
   const fallback = options.fallback ?? mockTextProvider
   const logger = options.logger ?? console
+  const timeBudgetMs = options.timeBudgetMs ?? CHAIN_TIME_BUDGET_MS
+  const now = options.now ?? Date.now
   return {
     names: providers.map((provider) => provider.name),
     supportsReading: providers.length > 0,
     async generateReading(input: ReadingInput): Promise<ReadingResult> {
+      const started = now()
       const failures: string[] = []
       for (const provider of providers) {
+        const remaining = timeBudgetMs - (now() - started)
+        if (remaining < MIN_REMAINING_MS) {
+          failures.push(`${provider.name}: skipped, time budget exhausted`)
+          logger.warn(`[reading] ${provider.name} skipped: time budget exhausted (${timeBudgetMs}ms)`)
+          continue
+        }
         try {
-          const output = await provider.generateReading(input)
+          const output = await provider.generateReading(input, { signal: AbortSignal.timeout(remaining) })
           return { ...output, provider: provider.name }
         } catch (cause) {
           const reason = describe(cause)

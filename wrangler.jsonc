@@ -19,8 +19,8 @@
     "AI_PROVIDER": "workers-ai",
     "TEXT_PROVIDER": "workers-ai"
   },
-  // Workers AI 바인딩. mock 상태에서는 쓰지 않지만, 변수만 바꾸면 바로 켤 수 있도록 미리 둔다.
-  // remote: true — Workers AI는 로컬 개발에서도 항상 원격 자원이므로 명시해 경고를 없앤다.
+  // Workers AI 바인딩. 초상(AI_PROVIDER=workers-ai)과 리딩 체인의 workers-ai(기본값)가 함께 쓴다.
+  // 무료 할당량(하루 10,000뉴런)도 둘이 함께 쓴다. remote: true — Workers AI는 로컬 개발에서도 항상 원격 자원이므로 명시해 경고를 없앤다.
   "ai": {
     "binding": "AI",
     "remote": true

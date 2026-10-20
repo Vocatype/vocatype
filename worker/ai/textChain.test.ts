@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { DEFAULT_TEXT_MODEL } from './claude.ts'
-import { buildTextChain, createTextChain, parseTextProviderChain, resolveTextModel, selectTextChain } from './textChain.ts'
+import { buildTextChain, CHAIN_TIME_BUDGET_MS, createTextChain, parseTextProviderChain, resolveTextModel, selectTextChain } from './textChain.ts'
 import type { TextProvider } from './types.ts'
 
 const axes = { warmth: 0.8, density: 0.25, pace: 0.5, variation: 0.1, pitch: 0.4, brightness: 0.9 }
@@ -11,6 +11,7 @@ describe('parseTextProviderChain', () => {
   it('콤마 목록을 순서대로 읽고 공백·중복·모르는 값·mock 을 뺀다', () => {
     expect(parseTextProviderChain('workers-ai,claude')).toEqual(['workers-ai', 'claude'])
     expect(parseTextProviderChain(' claude , workers-ai ')).toEqual(['claude', 'workers-ai'])
+    expect(parseTextProviderChain('Workers-AI,Claude')).toEqual(['workers-ai', 'claude'])
     expect(parseTextProviderChain('workers-ai,workers-ai,claude')).toEqual(['workers-ai', 'claude'])
     expect(parseTextProviderChain('mock')).toEqual([])
     expect(parseTextProviderChain('openai,claude')).toEqual(['claude'])
@@ -53,12 +54,10 @@ describe('createTextChain', () => {
   const logger = () => ({ warn: vi.fn<(m: string) => void>(), error: vi.fn<(m: string) => void>() })
   const ok = (name: TextProvider['name'], reading: string): TextProvider => ({
     name,
-    supportsReading: true,
     generateReading: vi.fn(async () => ({ reading, caption: `${name} caption` })),
   })
   const failing = (name: TextProvider['name'], error: Error): TextProvider => ({
     name,
-    supportsReading: true,
     generateReading: vi.fn(async () => {
       throw error
     }),
@@ -108,6 +107,38 @@ describe('createTextChain', () => {
     expect(log.error).toHaveBeenCalledTimes(1)
     expect(log.error.mock.calls[0]?.[0]).toContain('all providers failed (workers-ai: AiError: 4006')
     expect(log.error.mock.calls[0]?.[0]).toContain('claude: InternalServerError: 529 overloaded')
+  })
+
+  it('시도하는 제공자에 남은 시간 예산을 신호로 넘긴다', async () => {
+    const seen: (AbortSignal | undefined)[] = []
+    const provider: TextProvider = {
+      name: 'claude',
+      generateReading: vi.fn(async (_input, options) => {
+        seen.push(options?.signal)
+        return { reading: 'paid text', caption: 'c' }
+      }),
+    }
+    await createTextChain([provider], { logger: logger() }).generateReading(input)
+    expect(seen[0]).toBeInstanceOf(AbortSignal)
+    expect(seen[0]?.aborted).toBe(false)
+  })
+
+  it('앞 제공자가 시간 예산을 다 쓰면 남은 제공자는 건너뛰고 mock 으로 끝난다', async () => {
+    const log = logger()
+    let clock = 0
+    const slow: TextProvider = {
+      name: 'workers-ai',
+      generateReading: vi.fn(async () => {
+        clock += CHAIN_TIME_BUDGET_MS - 1000
+        throw quota
+      }),
+    }
+    const second = ok('claude', 'paid text')
+    const result = await createTextChain([slow, second], { logger: log, now: () => clock }).generateReading(input)
+    expect(result.provider).toBe('mock')
+    expect(second.generateReading).not.toHaveBeenCalled()
+    expect(log.warn.mock.calls[1]?.[0]).toContain('[reading] claude skipped: time budget exhausted')
+    expect(log.error.mock.calls[0]?.[0]).toContain('claude: skipped, time budget exhausted')
   })
 
   it('빈 체인은 로그 없이 mock', async () => {

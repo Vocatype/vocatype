@@ -30,10 +30,13 @@ export interface ReadingOutput {
   caption: string
 }
 
-/** 텍스트 제공자 어댑터. 이미지 제공자와 별도로 켜진다. */
+export interface GenerateOptions {
+  /** 체인이 넘기는 남은 시간 예산. 신호를 받을 수 있는 제공자(Claude)는 이걸로 요청을 끊는다. */
+  signal?: AbortSignal
+}
+
+/** 텍스트 제공자 어댑터. 폴백 체인(textChain.ts)이 순서대로 부르며, 실패는 예외로 알린다. */
 export interface TextProvider {
   readonly name: TextProviderName
-  /** 이 제공자가 리딩을 실제로 만드는지. 클라이언트는 false면 호출하지 않는다. */
-  readonly supportsReading: boolean
-  generateReading(input: ReadingInput): Promise<ReadingOutput>
+  generateReading(input: ReadingInput, options?: GenerateOptions): Promise<ReadingOutput>
 }

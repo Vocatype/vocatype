@@ -19,7 +19,6 @@ const FIXED_READINGS: Record<ReadingInput['locale'], ReadingOutput> = {
 
 export const mockTextProvider: TextProvider = {
   name: 'mock',
-  supportsReading: false,
   async generateReading(input: ReadingInput): Promise<ReadingOutput> {
     return FIXED_READINGS[input.locale]
   },

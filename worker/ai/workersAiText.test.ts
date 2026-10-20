@@ -21,7 +21,7 @@ describe('buildWorkersAiTextInput', () => {
     expect(built.messages[1]?.content).toContain('- warmth: 0.80')
     expect(built.messages[1]?.content).toContain('Output language: Korean')
     expect(built.response_format).toEqual({ type: 'json_schema', json_schema: READING_OUTPUT_SCHEMA })
-    expect(built.max_tokens).toBeLessThanOrEqual(1024)
+    expect(built.max_tokens).toBe(1024)
   })
 })
 
@@ -38,6 +38,8 @@ describe('parseWorkersAiTextResult', () => {
     expect(() => parseWorkersAiTextResult({ response: JSON.stringify([GOOD]) })).toThrow(/not an object/)
     expect(() => parseWorkersAiTextResult({})).toThrow(/empty response/)
     expect(() => parseWorkersAiTextResult(null)).toThrow(/empty response/)
+    // 생성 타입상 출력이 문자열일 수도 있다(스트림이 아니면 실제로 오지 않지만 방어).
+    expect(() => parseWorkersAiTextResult('plain string output')).toThrow(/empty response/)
   })
 })
 
@@ -53,7 +55,6 @@ describe('createWorkersAiTextProvider', () => {
     } as unknown as Ai
     const provider = createWorkersAiTextProvider(ai)
     expect(provider.name).toBe('workers-ai')
-    expect(provider.supportsReading).toBe(true)
     await expect(provider.generateReading(input)).resolves.toEqual(GOOD)
     expect(calls[0]?.[0 as never]).toBe(WORKERS_AI_TEXT_MODEL)
     expect((calls[0] as [string, { response_format: { type: string } }])[1].response_format.type).toBe('json_schema')
