@@ -90,12 +90,13 @@ interface RenderOptions {
   portrait?: string | null
   reading?: VoiceReading | null
   capture?: Capture | null
+  calibration?: boolean
 }
 
-function render({ locale = 'ko', profile = makeProfile(), portrait = null, reading = null, capture: captured = null }: RenderOptions = {}): string {
+function render({ locale = 'ko', profile = makeProfile(), portrait = null, reading = null, capture: captured = null, calibration }: RenderOptions = {}): string {
   return renderToStaticMarkup(
     <I18nProvider initialLocale={locale}>
-      <ResultScreen capture={captured} profile={profile} portrait={portrait} reading={reading} onNavigate={() => undefined} />
+      <ResultScreen capture={captured} profile={profile} portrait={portrait} reading={reading} calibration={calibration} onNavigate={() => undefined} />
     </I18nProvider>,
   )
 }
@@ -237,5 +238,38 @@ describe('ResultScreen 리딩·초상·머리글·버튼', () => {
     for (const key of ['result.section.color', 'result.section.scent', 'result.section.signature', 'result.section.match', 'result.save', 'common.retry'] as const) {
       expect(html, key).not.toContain(escape(messages.ko[key]))
     }
+  })
+})
+
+describe('ResultScreen 보정용 내보내기(개발용)', () => {
+  const calibrationKeys = ['result.calibration.title', 'result.calibration.note', 'result.calibration.export'] as const
+
+  it('기본(플래그 없음)에는 보정용 카드·버튼이 전혀 없다', () => {
+    for (const html of [render({ capture }), render({ capture, calibration: false })]) {
+      for (const key of calibrationKeys) expect(html, key).not.toContain(escape(messages.ko[key]))
+      expect(html).not.toContain('card--dev')
+      expect(html).not.toContain('result-calibration')
+    }
+  })
+
+  it.each(['ko', 'en'] as const)('플래그가 있으면 맨 아래 점선 카드에 안내 문구·내려받기 버튼·상태 영역이 있다 (%s)', (locale) => {
+    const html = render({ capture, locale, calibration: true })
+    const sections = openingTags(html, /<section[^>]*\bclass="card card--dev"[^>]*>/g)
+    expect(sections).toHaveLength(1)
+    expect(sections[0]!['aria-labelledby']).toBe('result-calibration')
+    expect(textOf(html, 'result-calibration')).toBe(escape(messages[locale]['result.calibration.title']))
+    expect(html).toContain(escape(messages[locale]['result.calibration.note']))
+    const buttons = [...html.matchAll(/<button[^>]*>(.*?)<\/button>/gs)].map((match) => match[1]!)
+    expect(buttons).toContain(escape(messages[locale]['result.calibration.export']))
+    // 저장 상태 영역이 하나 더 생기고, 아직 누르지 않았으므로 비어 있다(파일 이름 접두사 "calib"가 없음).
+    expect(openingTags(html, /<p[^>]*\brole="status"[^>]*>/g)).toHaveLength(2)
+    expect(html).not.toContain('-calib-')
+    // 카드는 면책 문구 뒤(화면 맨 아래)에 온다.
+    expect(html.indexOf('card--dev')).toBeGreaterThan(html.indexOf(escape(messages[locale]['result.disclaimer'])))
+  })
+
+  it('결과가 없으면 플래그가 있어도 보정용 카드가 없다', () => {
+    const html = render({ profile: null, calibration: true })
+    for (const key of calibrationKeys) expect(html, key).not.toContain(escape(messages.ko[key]))
   })
 })
