@@ -46,6 +46,8 @@ const DESCENT = 4
  * 예외: 축 막대가 없는 low-signal 카드는 설명/캡션 블록의 커서가 한 줄 간격만큼 내려간 채 퍼스널 컬러 제목을 만나 간격이 더 넓다(약 55). 예산이 남아 그대로 둔다.
  */
 const SECTION_GAP = 40
+/** 향 노트(25px) 줄 간격. 마지막 줄의 시각적 바닥을 되짚을 때도 쓴다. */
+const NOTE_LINE = 34
 
 function font(weight: number, size: number): string {
   return `${weight} ${size}px ${FONT}`
@@ -290,8 +292,6 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   }
   sy += 4
   ctx.font = font(400, 25)
-  /** 향 노트(25px) 줄 간격. 아래에서 마지막 줄의 시각적 바닥을 되짚을 때도 쓴다. */
-  const NOTE_LINE = 34
   const noteLines = [
     `${labels.top} · ${view.scent.top.join(', ')}`,
     `${labels.middle} · ${view.scent.middle.join(', ')}`,
