@@ -33,7 +33,11 @@
    - `client.ts:18`의 잘못된 주석("SDK 12초 × 2")을 고친다. `claude.ts`의 `REQUEST_TIMEOUT_MS` 주석도 "클라이언트 타임아웃(30초) 안에"에서 "두 번(12초 × 2 = 24초)이 체인 예산 안에, 전체 상한은 신호가 건다"로 정정한다.
 3. **2b. Workers AI 텍스트 제공자가 체인 신호를 받는다** — `ai.run(model, inputs, { signal: options?.signal })`.
    - 확인 결과(구현 전 조사): 생성된 바인딩 타입(`worker-configuration.d.ts`의 `AiOptions`)에 `signal?: AbortSignal`이 001 이후로 줄곧 있었고, 로컬 런타임(workerd 1.20261012.1, wrangler 안의 1.20261019.1)에 내장된 `cloudflare-internal:ai-api` 구현이 `run()`의 `options.signal`을 바인딩 `fetch`의 `signal`로 넘기며(`#generateFetch`·스트림·웹소켓 세 경로 모두), 본문 `options`에서는 뺀다. 따라서 "바인딩이 신호를 받지 못한다"는 42행 주석이 틀렸다. 공식 문서의 `run()` 옵션 표에는 `signal`이 없어(문서는 `stream`만 나열), 근거는 타입과 런타임 소스로 적는다.
-   - 동작 차이: 체인 예산(25초)을 넘기는 Workers AI 호출이 지금은 끝날 때까지 기다린 뒤 mock으로 가고, 바뀐 뒤에는 25초에 끊기고 mock으로 간다. 남은 예산이 3초 미만이라 Claude는 어느 쪽이든 건너뛴다. 사용자에게 보이는 결과(리딩 없음 → 카탈로그 설명)는 같고, Worker가 더 일찍 답한다. 예산 안에서 끝나는 호출(실측 2~9초)은 그대로다.
+   - 동작 차이: 체인 예산(25초)을 넘기는 Workers AI 호출이 지금은 끝날 때까지 기다리고, 바뀐 뒤에는 25초에 끊기고 mock으로 간다. 남은 예산이 3초 미만이라 Claude는 어느 쪽이든 건너뛴다.
+     - 25초를 넘겨 실패하는 호출: 사용자에게 보이는 결과(리딩 없음 → 카탈로그 설명)는 같고, Worker가 더 일찍 답한다.
+     - 25~30초 사이에 정상 JSON으로 끝나는 호출: 지금은 체인이 성공을 예산과 상관없이 돌려주므로 클라이언트 대기(30초) 안이면 리딩이 보인다. 바뀐 뒤에는 25초에 끊겨 리딩이 사라진다(1차 리뷰 #1로 추가). Scout 실측(2~9초)으로는 드물고, "체인은 예산 안에 답한다"는 시간 규칙과 맞는 쪽이라 받아들인다.
+     - 예산 안에서 끝나는 호출(실측 2~9초)은 그대로다.
+   - 010 문서(`branches/010-feature-text-provider-chain/02-implementation.md`, `03-review.md`)의 "바인딩 호출 옵션에는 중단 신호가 없다"는 서술은 이 확인으로 대체한다(이력이라 고치지 않는다).
    - 신호를 끊은 뒤 Cloudflare 쪽 추론이 실제로 멈추는지(뉴런 과금)는 바인딩 밖이라 확인할 수 없다. Worker가 기다리지 않는다는 것까지만 보장한다.
 4. **`readBodyLimited` 이동** — `worker/http.ts` 신설로 옮기고 `portrait.ts`·`reading.ts`가 각각 import. 함수 본문은 그대로.
 5. **녹음 지원 판정 재사용** — `LandingScreen`의 `checkAvailability`가 보안 컨텍스트 검사 뒤 `isRecordingSupported()`를 부른다. 두 조건식은 드모르간으로 같은 식이다.
