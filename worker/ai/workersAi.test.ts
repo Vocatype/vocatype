@@ -38,7 +38,8 @@ describe('createWorkersAiProvider', () => {
     expect(seen?.signal).toBe(timeout.mock.results[0]?.value)
   })
 
-  it('바인딩이 끝나지 않으면 상한에서 신호로 끊겨 실패한다(라우트는 503)', async () => {
+  // 라우트가 제공자 예외를 503 provider_failed 로 바꾸는 경로는 worker/index.test.ts 의 '제공자가 실패하면 503' 테스트가 맡는다.
+  it('바인딩이 끝나지 않으면 상한에서 신호로 끊겨 실패한다', async () => {
     // 신호를 존중하는 바인딩 흉내: 끝나지 않다가 신호가 오면 그 이유로 거부한다.
     const hangingAi = {
       run: (_model: string, _input: unknown, options?: AiOptions) =>
