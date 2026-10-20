@@ -3,7 +3,7 @@
 ## 요약
 
 설계의 네 가지 정리를 구현 커밋 넷(설계 문서 커밋 별도)으로 나눠 넣었다. 언어 목록·리딩 시간 규칙은 `shared/` 한 곳에서 정하고 나머지는 거기서 타입·값을 가져오며, 관계는 테스트로 고정했다. `readBodyLimited`는 `worker/http.ts`로 옮겼고, 메인 화면은 녹음 훅과 같은 `isRecordingSupported()`를 쓴다.
-요청·응답 JSON과 화면 동작은 그대로다. 의도된 동작 차이는 하나뿐이다. Workers AI 텍스트 호출이 체인 예산(25초)을 넘기면 이제 25초에 끊긴다(설계 3번 항목). 25~30초 사이에 성공했을 호출도 이제 mock이 된다(드묾, 1차 리뷰 #1). 테스트 파일 29 → 33, 테스트 193 → 214.
+요청·응답 JSON과 화면 동작은 그대로다. 의도된 동작 차이는 하나뿐이다. Workers AI 텍스트 호출이 체인 예산(25초)을 넘기면 이제 25초에 끊긴다(설계 3번 항목). 25~30초 사이에 성공했을 호출도 이제 mock이 된다(드묾, 1차 리뷰 #1). 테스트 파일 29 → 33, 테스트 193 → 215.
 
 ## 변경 파일
 
@@ -28,7 +28,7 @@
 | `worker/ai/workersAiText.test.ts` | 신호가 바인딩 옵션으로 그대로 가고, 없으면 `signal`이 없음 |
 | `worker/ai/types.ts` | `GenerateOptions.signal` 주석: 두 제공자 모두 쓴다 |
 | `worker/http.ts` | 신설. `readBodyLimited`(본문은 `portrait.ts`에서 그대로 옮김) |
-| `worker/http.test.ts` | 신설. 7개(아래) |
+| `worker/http.test.ts` | 신설. 8개(아래) |
 | `worker/portrait.ts` | `readBodyLimited` 정의 제거, `./http.ts`에서 import |
 | `worker/portrait.test.ts` | `describe('readBodyLimited')`(실제로는 `parsePortraitRequest`를 부르던 두 테스트)를 `parsePortraitRequest`로 합침 |
 | `src/screens/LandingScreen.tsx` | `checkAvailability`가 보안 컨텍스트 검사 뒤 `isRecordingSupported()` |
@@ -46,7 +46,9 @@
 | `a126318` | `readBodyLimited` 이동 |
 | `06dc414` | 메인 화면 녹음 지원 판정 재사용 |
 | `d75c538` | 구현 문서, README |
-| (1차 반영) | 리뷰 문서와 1차 리뷰 반영(테스트 2개, 언어 예시, 문서 정정) |
+| `279da4c` | 1차 리뷰 반영 테스트(Claude 상한, 본문 경계, 언어 예시 `xx`) |
+| `a91c805` | 리뷰 문서 1차, 설계·구현 문서 정정 |
+| (이 문서 커밋) | 2차 리뷰 반영(`content-length` 경계 테스트), 리뷰 문서 2차 |
 
 ## 주요 구현 내용
 
@@ -75,6 +77,7 @@
 | 정확히 최대 바이트까지는 받고 1바이트라도 넘으면 null | 1024바이트 통과, 1025바이트 `null`(1차 리뷰 #4) |
 | 글자 수가 아니라 바이트로 센다 | `'가'` 341개(1023바이트) 통과, 342개(1026바이트) `null` |
 | 본문이 없으면 빈 문자열 | `body: null` → `''` |
+| 선언된 content-length 도 정확히 최대 바이트까지는 받고 넘으면 읽지 않는다 | 선언 1024 + 본문 1024바이트 통과, 선언 1025 → `null`(2차 리뷰 N1: 실제 요청은 `content-length`를 달고 와서 이 경로를 탄다) |
 | 선언된 content-length 가 제한을 넘으면 본문을 읽지 않고 null | `body` 접근 시 던지는 가짜 요청으로 읽지 않음을 확인 |
 | 길이 선언 없이 조각으로 와도 제한을 넘는 순간 스트림을 취소하고 null | 600바이트 × 3 스트림, `cancel` 호출됨 |
 | 조각으로 온 본문을 이어 붙여 읽는다 | 두 조각 → 원래 문자열 |
@@ -94,7 +97,7 @@
 
 | 항목 | 명령 | 결과 |
 | --- | --- | --- |
-| 단위 테스트 | `npm test` | 33 파일 214 테스트 통과, 종료 코드 0(1차 리뷰 전 212) |
+| 단위 테스트 | `npm test` | 33 파일 215 테스트 통과, 종료 코드 0(1차 리뷰 전 212, 1차 반영 뒤 214) |
 | 타입 검사 | `npm run typecheck` | 종료 코드 0 |
 | 린트 | `npm run lint` | 종료 코드 0, 출력 없음 |
 | 빌드 | `npm run build` | 종료 코드 0 |

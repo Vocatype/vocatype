@@ -21,6 +21,12 @@
 - **import 관례:** 지켜졌다.
 - **개인정보:** 바뀐 점이 없다. `signal`은 본문에 직렬화되지 않는다.
 
+리뷰어가 확인하지 않은 것(2차 리뷰 N3로 추가):
+
+- 구현 문서의 "로컬 Worker·브라우저(구현자 확인)" 행은 재현하지 않았다. Workers AI가 `remote: true` 바인딩이라 dev 서버에 계정 연결이 필요하다. 같은 경로는 단위 테스트로 확인했다(400/413은 `reading.test.ts`·`portrait.test.ts`, 시작 버튼·안내는 `LandingScreen.test.tsx`).
+- 설계의 "공식 문서 `run()` 옵션 표에 `signal`이 없다"는 외부 문서라 확인하지 않았다.
+- 운영 Worker에서 Workers AI가 25초에 실제로 끊기는지는 확인하지 못했다(구현 문서와 같은 한계).
+
 ### 회귀 시도
 
 20건을 넣어 18건이 잡혔다. 놓친 2건은 아래 #3(B3)과 #4(D4)다.
@@ -77,3 +83,70 @@
 | `npm run typecheck` | 종료 코드 0 |
 | `npm run lint` | 종료 코드 0 |
 | `npm run build` | 종료 코드 0 |
+
+## 2차 리뷰
+
+대상: `a91c805`. 같은 리뷰 에이전트가 `git diff d75c538..HEAD`(테스트 4개 파일과 문서만, 코드 변경 없음)를 읽었다. 검증 4종은 종료 코드 0이었고 33 파일 214 테스트였다. `279da4c` 단독으로도 통과했다. 전체 스위트를 `--sequence.shuffle`(seed 7, 8)과 `--no-isolate`로 돌려도 214/214였다.
+
+### 1차 항목 해결 여부
+
+#1·#2·#3·#5·#6·#7은 해결됐다. #4는 스트림 경로의 경계만 고정되어 부분 해결이었고, 남은 `content-length` 선언 경로가 N1이다. 03 문서의 1차 기록은 리뷰어 보고와 일치하지만, 리뷰어가 확인하지 않은 범위가 빠져 있었다(N3).
+
+### 재실험
+
+| 시도 | 결과 |
+| --- | --- |
+| B3 Claude 자체 상한 90초 | 잡힘 |
+| B3c 체인 신호 무시 | 잡힘 |
+| B3b 타임아웃 신호를 미리 만들어 둠 | 잡힘(N4) |
+| B3d `AbortSignal.any`로 감쌈 | 잡힘(N4) |
+| D4 두 경계 모두 `>=` | 잡힘 |
+| D4a 스트림 경계만 `>=` | 잡힘 |
+| D4c 스트림 한도 `maxBytes + 1` | 잡힘 |
+| D4b `content-length` 경계만 `>=` | **놓침** → N1 |
+| D4d `content-length` 경계 `> maxBytes + 1` | **놓침** → N1 |
+
+`vi.spyOn(AbortSignal, 'timeout')`은 describe 안의 `afterEach(vi.restoreAllMocks)`로 복구된다. 리뷰어가 describe 밖에 임시 검사를 붙여 확인했다. 순서를 섞어도 통과했고, `afterEach`를 지우면 실패했다. 같은 파일의 다른 테스트와 간섭은 없다.
+
+### 신규 발견 사항과 조치
+
+| # | 심각도 | 위치 | 내용 | 조치 |
+| --- | --- | --- | --- | --- |
+| N1 | 낮음 | `worker/http.ts:8`, `worker/http.test.ts` | `content-length` 선언 경로의 정확한 경계가 고정되지 않았다. `new Request`에 문자열 본문을 주면 헤더에 `content-length`가 생기지 않아, 경계 테스트가 스트림 경로만 탔다. 실제 요청은 이 경로를 탄다 | 테스트를 추가했다. 선언 1024 + 본문 1024바이트는 통과, 선언 1025는 본문을 읽지 않고 `null` |
+| N2 | nit | 구현 문서 커밋 표 | "(1차 반영)" 행에 해시가 없다 | `279da4c`, `a91c805`를 적고 이 문서 커밋 행을 추가했다 |
+| N3 | nit | 이 문서 1차 "독립 확인" | 리뷰어가 확인하지 않은 범위가 없다 | 1차 절에 "리뷰어가 확인하지 않은 것" 세 줄을 추가했다 |
+| N4 | nit | `worker/ai/claude.test.ts` | 새 테스트가 구현 형태에 묶여 있다. 동작이 같은 `AbortSignal.any` 감싸기도 실패로 잡는다 | 조치하지 않는다. 지금 구현은 한 줄이고, 신호 합성 방식으로 바꿀 때 테스트도 함께 고친다 |
+
+### 2차 결론
+
+**병합 가능.** N1~N4는 병합을 막지 않는다. N1~N3은 반영했다.
+
+### 2차 반영 후 구현자 확인
+
+- D4b(`declared >= maxBytes`)를 다시 넣으면 새 테스트 1개가 실패하고, 되돌리면 통과한다. D4d(`> maxBytes + 1`)는 선언 1025·본문 없음이 `''`를 돌려주므로 같은 테스트에서 잡힌다.
+- 검증 명령 4종을 다시 돌렸다.
+
+| 명령 | 결과 |
+| --- | --- |
+| `npm test` | 33 파일 215 테스트, 종료 코드 0 |
+| `npm run typecheck` | 종료 코드 0 |
+| `npm run lint` | 종료 코드 0 |
+| `npm run build` | 종료 코드 0 |
+
+- 현재 main(`d129f35`, 019 병합 뒤)과 `git merge-tree`로 확인한 결과 충돌이 없다. 병합 트리에서 tsc 3종·oxlint·vitest가 통과했다(1차 반영 시점 기준 34 파일 231 테스트).
+
+## 최종
+
+main 체크아웃은 형제 세션이 함께 쓰므로, 병합은 이 작업을 시작한 세션이나 사용자가 한다(019와 같은 방식).
+
+병합 순서: `refactor/021-generation-orchestration`과 함께 병합할 때는 나중에 병합하는 쪽에서 `ReadingLocale`을 `Locale`로 바꾼다(구현 문서 "병합 순서 주의").
+
+```bash
+git -C /Users/hyunseop/Developer/Projects/ai-voice-image-generator merge --no-ff refactor/020-contract-cleanup
+```
+
+병합한 뒤 브랜치를 삭제한다.
+
+```bash
+git -C /Users/hyunseop/Developer/Projects/ai-voice-image-generator branch -d refactor/020-contract-cleanup
+```

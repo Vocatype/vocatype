@@ -43,6 +43,13 @@ describe('readBodyLimited', () => {
     expect(await readBodyLimited(request, 1024)).toBeNull()
   })
 
+  it('선언된 content-length 도 정확히 최대 바이트까지는 받고 넘으면 읽지 않는다', async () => {
+    const declared = (length: number, body: ReadableStream<Uint8Array> | null) =>
+      ({ headers: new Headers({ 'content-length': String(length) }), body }) as unknown as Request
+    expect(await readBodyLimited(declared(1024, streamRequest([new Uint8Array(1024).fill(0x78)]).body), 1024)).toBe('x'.repeat(1024))
+    expect(await readBodyLimited(declared(1025, null), 1024)).toBeNull()
+  })
+
   it('길이 선언 없이 조각으로 와도 제한을 넘는 순간 스트림을 취소하고 null', async () => {
     let cancelled = false
     const request = streamRequest([new Uint8Array(600), new Uint8Array(600), new Uint8Array(600)], () => {
