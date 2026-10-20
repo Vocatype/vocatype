@@ -10,12 +10,12 @@
 | 파일 | 내용 |
 | --- | --- |
 | `src/features/export/calibration.ts` | 신설. `buildCalibrationExport`(프로필 + 캡처의 글 id·언어·길이 → 레코드), `normalizedTilt`(`tiltMedian / (2π·f0Median / sampleRate)`, f0 없으면 null), `calibrationFilename`, `serializeCalibration`(2칸 들여쓰기 + 끝 줄바꿈), `calibrationBlob`(`application/json`), `isCalibrationEnabled`(`calibrate=1`만 참). 상수 `CALIBRATION_SCHEMA`, `CALIBRATION_SCHEMA_VERSION = 1`, `CALIBRATION_QUERY_KEY` |
-| `src/features/export/calibration.test.ts` | 신설. 테스트 14개(아래 표) |
+| `src/features/export/calibration.test.ts` | 신설. 테스트 15개(아래 표) |
 | `src/features/analysis/version.ts` | 신설. `ANALYSIS_VERSION = 1`. 특징 계산이나 `AXIS_RANGES`가 바뀌면 올린다 |
 | `src/App.tsx` | 첫 렌더에 `isCalibrationEnabled(window.location.search)`를 한 번 읽어 `ResultScreen`의 `calibration` prop으로 넘김 |
-| `src/screens/ResultScreen.tsx` | `calibration?: boolean`(기본 false). 참이면 면책 문구 뒤에 `section.card.card--dev`(제목·안내·버튼·`role="status"` 상태 문구). 버튼 → `buildCalibrationExport` → `calibrationBlob` → 기존 `downloadBlob` → 상태 문구에 파일 이름 |
+| `src/screens/ResultScreen.tsx` | `calibration?: boolean`(기본 false). 참이면 면책 문구 뒤에 `section.card.card--dev`(제목·안내·버튼·`role="status"` 상태 문구). 버튼 → `buildCalibrationExport` → `calibrationBlob` → 기존 `downloadBlob` → 상태 문구에 파일 이름. 예외가 나면 `is-error` 상태 문구로 다시 시도 안내 |
 | `src/screens/ResultScreen.test.tsx` | `render()`에 `calibration` 옵션. 테스트 3개 추가(기본에 카드 없음, ko/en 카드 구조, 결과 없음이면 플래그가 있어도 없음) |
-| `src/i18n/messages/ko.ts`, `en.ts` | `result.calibration.title`·`note`·`export`·`saved` |
+| `src/i18n/messages/ko.ts`, `en.ts` | `result.calibration.title`·`note`·`export`·`saved`·`failed` |
 | `src/styles/global.css` | `.card--dev`(점선 테두리, 그림자 없음) |
 | `branches/018-feature-axis-export/` | 설계·구현·리뷰 문서 |
 
@@ -23,7 +23,8 @@
 
 - **순수 함수와 화면의 분리**: `calibration.ts`에는 DOM·네트워크·저장소 접근이 없다. 다운로드는 PNG 저장과 같은 `downloadBlob`(`<a download>` + `URL.createObjectURL`, 10초 뒤 해제)만 쓴다.
 - **음성에 손대지 않음**: `buildCalibrationExport`의 캡처 매개변수 타입은 `CalibrationCapture = { script: Pick<Script,'id'|'locale'>; recording: Pick<Recording,'durationMs'> }`라 `recording.blob`을 타입에서부터 받지 않는다. 테스트는 `blob` getter가 예외를 던지는 실제 `Capture`를 넘겨 함수가 Blob을 읽지 않음을 확인한다.
-- **스키마 고정**: 최상위 13개 키와 `features`의 17개 키(= `VoiceFeatures` 16개 − `envelope` + `envelopeLength`)를 테스트가 목록으로 고정한다. `VoiceFeatures`에 필드가 늘면 테스트가 실패해 `schemaVersion`을 올리도록 강제한다.
+- **스키마 고정**: 최상위 13개 키와 `features`의 17개 키(= `VoiceFeatures` 17개 − `envelope` + `envelopeLength`)를 테스트가 목록으로 고정한다. `features`는 구조 분해가 아니라 **허용 목록**으로 필드를 하나씩 옮기므로, `VoiceFeatures`에 필드가 늘면 `CalibrationFeatures` 타입이 그 필드를 요구해 먼저 컴파일이 실패하고 테스트도 실패한다. 새 필드가 음성·시계열이 아닌지 확인하고 `schemaVersion`을 올린 뒤에만 더할 수 있다. 음성 부재 테스트는 금지 키 14개와 "길이 3 이상의 배열 없음"도 검사한다.
+- **전역 상수 보호**: `axisRanges`는 `structuredClone(AXIS_RANGES)`로 복사한다. 레코드를 받은 쪽이 바꿔도 축 계산에 쓰는 상수는 변하지 않는다(테스트로 고정).
 - **f0 정규화 밝기 후보**: `spectralTilt`가 순음에서 `2π·f/fs`에 비례하는 성질(dsp.ts)을 테스트로 확인했다. 125Hz 순음(16kHz, 1024 창에 정확히 8주기) → `tiltNormalized ≈ 1.000`, 배음 1 : 0.5 : 0.3을 더하면 > 1.3(이론값 ≈ 1.45).
 - **플래그는 App에서 한 번**: `useState(() => isCalibrationEnabled(window.location.search))`. 라우터가 없어 `location.search`는 녹음 → 생성 → 결과까지 유지되고, 언어·테마 전환도 URL을 건드리지 않는다. 어디에도 저장하지 않으므로 쿼리 없이 다시 열면 바로 사라진다.
 - **상태 문구**: 내려받은 뒤 `저장했어요: <파일 이름>`을 `role="status"`로 보여 수집자가 파일 이름을 바로 확인할 수 있다. 언어를 바꿔도 파일 이름은 유지된다.
@@ -35,6 +36,10 @@
 | `ResultScreen`이 마운트 때 `window.location.search`를 읽음 | `App`이 읽어 `calibration` prop으로 넘김. `ResultScreen`은 prop만 봄 | 화면 컴포넌트가 전역을 읽지 않아 정적 렌더 테스트가 플래그 켜짐·꺼짐을 모두 검사할 수 있다(설계는 꺼짐만 테스트할 계획이었다) |
 | 테스트 픽스처를 `satisfies CalibrationCapture`로 | 실제 `Capture` 타입의 픽스처(+ `CalibrationCapture`로 대입 가능 확인) | `satisfies`는 초과 속성(`mimeType`, `blob`)을 거부한다. 화면이 넘기는 모양 그대로 넣는 편이 "Blob을 읽지 않는다"는 의도에도 맞다 |
 | 브라우저 확인은 `?calibrate=1` 흐름만 | 플래그 없는 흐름도 한 번 더 돌려 카드 부재 확인 | 설계 검증 계획 4의 마지막 문장대로 |
+| `features`는 `envelope`를 뺀 나머지를 구조 분해로 통째로 | 필드를 하나씩 옮기는 허용 목록 | 1차 리뷰 #4. 구조 분해는 앞으로 추가되는 필드(예: 프레임별 배열)가 자동으로 JSON에 들어가고, 막는 장치가 테스트 목록뿐이었다. 허용 목록은 타입 검사 단계에서 결정을 강제한다 |
+| 메시지 4개 | + `result.calibration.failed` | 1차 리뷰 #3. 내보내기 핸들러에 try/catch가 없어 예외가 나면 상태 문구가 빈 채로 남았다. `save()`와 같은 꼴로 실패 문구를 보인다 |
+| `axisRanges: AXIS_RANGES`(참조) | `structuredClone(AXIS_RANGES)` | 1차 리뷰 #8. `as const`는 타입에서만 읽기 전용이라 받은 쪽이 바꾸면 전역 상수가 바뀐다 |
+| 음성 금지 키 8개 | 14개(`frames`·`waveform`·`spectrum`·`buffer`·`signal`·`url` 추가) + 배열 길이 ≤ 2 검사 | 1차 리뷰 #5 |
 
 ## 검증 결과
 
@@ -42,19 +47,20 @@
 | --- | --- | --- |
 | 타입 검사 | `npm run typecheck` | 종료 코드 0 |
 | 린트 | `npm run lint` | 종료 코드 0, 경고 0 |
-| 단위 테스트 | `npm test` | 종료 코드 0. 30 파일 211 테스트 통과(이전 29 파일 193 + `calibration.test.ts` 14개 + `ResultScreen.test.tsx` 4개(ko/en `it.each` 포함)) |
+| 단위 테스트 | `npm test` | 종료 코드 0. 30 파일 212 테스트 통과(이전 29 파일 193 + `calibration.test.ts` 15개 + `ResultScreen.test.tsx` 4개(ko/en `it.each` 포함)) |
 | 빌드 | `npm run build` | 종료 코드 0 |
 
 ### 단위 테스트 목록 (`calibration.test.ts`)
 
 | 테스트 | 확인하는 것 |
 | --- | --- |
-| 최상위 키 집합과 식별자가 스키마 1판대로 고정된다 | 13개 키의 순서까지, `schema`·`schemaVersion`·`analysisVersion`, `derived` 키, `axisRanges === AXIS_RANGES` |
+| 최상위 키 집합과 식별자가 스키마 1판대로 고정된다 | 13개 키의 순서까지, `schema`·`schemaVersion`·`analysisVersion`, `derived` 키, `axisRanges`가 `AXIS_RANGES`와 같은 값 |
+| axisRanges는 전역 상수의 복사본 | 참조가 다르고(`pace`까지), 레코드의 `pitch[0]`을 바꿔도 `AXIS_RANGES.pitch[0]`은 85 |
 | features는 VoiceFeatures에서 envelope만 뺀 전체 + envelopeLength | 17개 키 목록 고정, 픽스처와 값 일치, `envelopeLength` 4 |
 | 여섯 축·타입 코드·씨앗·품질과 캡처의 언어·글 id·녹음 길이 | 값 그대로, `axes` 키 6개 |
 | 캡처가 없으면 화면 언어와 분석 길이 | `locale: 'en'`, `scriptId: null`, `durationMs: 12000` |
 | 입력이 같으면 JSON 문자열도 같다 | 결정성 |
-| 음성 Blob을 읽지 않고 음성 키가 없다 | `blob` getter가 던지는 캡처로 예외 없음, 모든 경로에서 `envelope`·`blob`·`audio`·`samples`·`pcm`·`recording`·`mimeType`·`previewUrl` 없음 |
+| 음성 Blob을 읽지 않고 음성 키가 없다 | `blob` getter가 던지는 캡처로 예외 없음, 모든 경로에서 `envelope`·`blob`·`audio`·`samples`·`pcm`·`recording`·`mimeType`·`previewUrl`·`frames`·`waveform`·`spectrum`·`buffer`·`signal`·`url` 없음, JSON 안의 모든 배열 길이 ≤ 2(축 범위 쌍뿐) |
 | 식별 정보 키가 없다 | 모든 키의 마지막 조각이 `time`·`date`·`stamp`·`agent`·`address`·`device`·`platform`·`user`·`mail`·`ip`·`geo`·`location`·`name`·`browser`·`os`에 걸리지 않음 |
 | JSON은 숫자·문자열·null·배열·객체만 담고 작다 | `JSON.parse(text)` 왕복 동일, 2000자 미만 |
 | `normalizedTilt` 수식 | 픽스처 `0.18 / (2π·150/16000) ≈ 3.0558` |
@@ -78,6 +84,7 @@
 | 저장소 | 클릭 전후 모두 `localStorage.length 0`, `sessionStorage.length 0`, `document.cookie ""` |
 | 언어 전환(English) | 카드가 "CALIBRATION EXPORT (DEVELOPER) / Saves only the analysis numbers … / Download JSON / Saved: vocatype-calib-ko-WLQE-2744110069.json"으로 바뀌고 파일 이름은 유지 |
 | `/`(쿼리 없음) → 같은 흐름(0:07 녹음) → 결과 | `WLQE`. `.card--dev` 0개, "보정용 내보내기"·"JSON" 문구 없음, 버튼은 이미지로 저장·다시 하기·처음으로뿐, `role="status"` 1개, 저장소 비어 있음 |
+| 1차 리뷰 반영(허용 목록·try/catch·`structuredClone`) 뒤 `/?calibrate=1` → 『청포도』 0:08 → 결과 → JSON 내려받기 | `WFQE`. `vocatype-calib-ko-WFQE-4241510302.json`(1,457자): 최상위 13개 키 순서 동일, `features` 17개(`envelope` 없음, `envelopeLength: 230`), `scriptId: "ko-cheongpodo"`, `durationMs: 8021`, `tiltNormalized: 1.625`, `axisRanges.pitch: [85, 255]`. 상태 문구 `저장했어요: …`, 클릭 전후 리소스 항목 62 → 62, 저장소·쿠키 비어 있음 |
 
 합성 스트림의 수치 자체(속도 +9%, 밀도 0.72)는 004 때 관찰과 같은 경향이며 이 작업의 검증 대상은 아니다.
 
@@ -104,7 +111,8 @@
 ### 파일 모으기
 
 - 저장소 **밖**의 폴더에 `calib/<locale>/p<참가자 번호>/` 로 둔다(예: `calib/ko/p03/vocatype-calib-ko-WLQE-….json` 두 개). 참가자 번호와 사람의 대응표는 만들지 않거나, 만들면 수집자만 보관하고 저장소에 넣지 않는다.
-- 수집자가 따로 적어 두는 것(파일에는 없음): 참가자 번호, 기기 종류(폰/노트북·내장/이어폰 마이크), 두 번 사이에 달라진 조건, 선택으로 성별·연령대.
+- 수집자가 따로 적어 두는 것(파일에는 없음): 참가자 번호, 기기 종류(폰/노트북·내장/이어폰 마이크), 두 번 사이에 달라진 조건, 선택으로 성별·연령대(온도 축이 성별 분류기가 되지 않았는지 보는 용도로만).
+- 참가자에게 미리 말한다: 파일에는 음성·이름·시각이 없고 분석 수치만 있다는 것, 수집자가 따로 적는 항목이 무엇인지. 보정 브랜치의 02 문서에 집계 표를 적은 뒤에는 메모와 원본 JSON을 지운다(보존 기한 = 보정 작업 종료).
 - 받은 파일은 `schema === "voice-axis-calibration"`, `schemaVersion`, `analysisVersion`을 확인하고 `quality !== "ok"`인 파일은 따로 둔다(재녹음 요청).
 - 모인 파일을 저장소에 커밋하지 않는다. 보정 브랜치의 02 문서에는 **집계 표**(백분위·분포)만 적는다.
 
@@ -121,26 +129,47 @@
 7. **variation**: `f0Variation`·`rmsVariation` 범위를 각각 옮긴 뒤 가중치 0.6/0.4에서 `variation`의 중앙값이 0.5 근처인지 본다.
 8. **적용과 확인**: 새 범위로 모인 `features`에서 축과 타입을 다시 계산해(JSON의 `axisRanges`가 아니라 새 범위로) 축별 중앙값과 16타입 분포 표를 만든다. `fix/NNN-axis-ranges` 브랜치에서 `AXIS_RANGES` 갱신 → `axes.test.ts` 기대값 조정 → `ANALYSIS_VERSION` 올림 → 설계·구현·리뷰 문서. 집계 표를 02에 남기고 원본 JSON은 넣지 않는다.
 
-집계는 Node 한 파일로 충분하다(저장소에는 넣지 않는다).
+집계는 Node 한 파일로 충분하다(저장소에는 넣지 않는다). 절차 1~3대로 `analysisVersion`이 같은 파일만 쓰고, 참가자 폴더(`p<번호>`)의 회차를 평균해 한 표본으로 세며, 회차 사이 축 차이(`|Δ|`)도 함께 보여 준다. 가짜 파일 7개(ko 참가자 2명 × 2회차 + `analysisVersion: 2`인 파일 1개, en 1명 × 2회차 중 하나는 `low-signal`)로 실행해 제외 규칙(ko 파일 4개·en 1개만 집계)과 출력 형식을 확인했다.
 
 ```js
-// node summarize.mjs ./calib   — 언어별 p10/p50/p90
+// node summarize.mjs ./calib [analysisVersion=1]  — 언어별 p10/p50/p90. 참가자 폴더(p<번호>)의 회차를 평균해 한 표본으로 센다.
 import { readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
-const rows = []
-const walk = (dir) => { for (const name of readdirSync(dir, { withFileTypes: true })) { const p = join(dir, name.name); if (name.isDirectory()) walk(p); else if (name.name.endsWith('.json')) rows.push(JSON.parse(readFileSync(p, 'utf8'))) } }
-walk(process.argv[2])
-const ok = rows.filter((r) => r.schema === 'voice-axis-calibration' && r.quality === 'ok')
+import { basename, dirname, join } from 'node:path'
+const [root, version = '1'] = process.argv.slice(2)
+const files = []
+const walk = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) { const p = join(dir, e.name); if (e.isDirectory()) walk(p); else if (e.name.endsWith('.json')) files.push(p) } }
+walk(root)
+const FEATURES = ['f0Median', 'tiltMedian', 'speechRatio', 'syllableRate', 'f0Variation', 'rmsVariation']
+const AXES = ['warmth', 'density', 'pace', 'variation', 'pitch', 'brightness']
+// 참가자(폴더 이름 p<번호>)별로 회차를 모은다. quality !== 'ok'와 다른 analysisVersion은 제외.
+const byParticipant = new Map()
+for (const file of files) {
+  const r = JSON.parse(readFileSync(file, 'utf8'))
+  if (r.schema !== 'voice-axis-calibration' || r.quality !== 'ok' || String(r.analysisVersion) !== version) continue
+  const key = `${r.locale}/${basename(dirname(file))}`
+  byParticipant.set(key, [...(byParticipant.get(key) ?? []), r])
+}
+const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length
 const q = (xs, p) => { const s = [...xs].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(p * s.length))] }
+const samples = [...byParticipant.entries()].map(([key, takes]) => ({
+  locale: key.split('/')[0],
+  takes: takes.length,
+  features: Object.fromEntries(FEATURES.map((k) => [k, mean(takes.map((r) => r.features[k]))])),
+  tiltNormalized: mean(takes.map((r) => r.derived.tiltNormalized ?? NaN)),
+  axes: Object.fromEntries(AXES.map((k) => [k, mean(takes.map((r) => r.axes[k]))])),
+  // 같은 참가자의 두 회차 사이 축 차이(재현성). 회차가 하나면 NaN.
+  delta: Object.fromEntries(AXES.map((k) => [k, takes.length > 1 ? Math.abs(takes[0].axes[k] - takes[1].axes[k]) : NaN])),
+}))
 for (const locale of ['ko', 'en']) {
-  const set = ok.filter((r) => r.locale === locale)
+  const set = samples.filter((s) => s.locale === locale)
   if (!set.length) continue
-  console.log(`\n${locale} n=${set.length}`)
-  for (const key of ['f0Median', 'tiltMedian', 'speechRatio', 'syllableRate', 'f0Variation', 'rmsVariation']) {
-    const xs = set.map((r) => r.features[key]); console.log(key.padEnd(14), [0.1, 0.5, 0.9].map((p) => q(xs, p).toFixed(3)).join('  '))
+  console.log(`\n${locale}: 참가자 ${set.length}명, 파일 ${set.reduce((n, s) => n + s.takes, 0)}개 (analysisVersion ${version})`)
+  for (const k of FEATURES) console.log(k.padEnd(14), [0.1, 0.5, 0.9].map((p) => q(set.map((s) => s.features[k]), p).toFixed(3)).join('  '))
+  console.log('tiltNormalized', [0.1, 0.5, 0.9].map((p) => q(set.map((s) => s.tiltNormalized).filter(Number.isFinite), p).toFixed(3)).join('  '))
+  for (const k of AXES) {
+    const deltas = set.map((s) => s.delta[k]).filter(Number.isFinite)
+    console.log(`axis ${k}`.padEnd(16), 'p50', q(set.map((s) => s.axes[k]), 0.5).toFixed(3), ' |Δ| p50', deltas.length ? q(deltas, 0.5).toFixed(3) : '-')
   }
-  const xs = set.map((r) => r.derived.tiltNormalized).filter((v) => v !== null); console.log('tiltNormalized', [0.1, 0.5, 0.9].map((p) => q(xs, p).toFixed(3)).join('  '))
-  for (const key of ['warmth', 'density', 'pace', 'variation', 'pitch', 'brightness']) console.log(`axis ${key}`.padEnd(16), q(set.map((r) => r.axes[key]), 0.5).toFixed(3))
 }
 ```
 
@@ -149,4 +178,4 @@ for (const locale of ['ko', 'en']) {
 - `envelope`를 빼므로 쉼 판정·봉우리 검출처럼 **특징 추출 자체를 바꾸는 변경**은 모인 JSON으로 재계산할 수 없다. 그런 변경은 재수집이 필요하다. 범위(`AXIS_RANGES`) 조정과 brightness 지표 교체(`tiltMedian` ↔ `tiltNormalized`)는 JSON만으로 된다.
 - 씨앗이 회차마다 달라 파일 이름만으로 같은 사람의 두 파일을 짝지을 수 없다. 짝은 수집자의 폴더 구조가 담당한다(개인 식별 정보를 파일에 넣지 않기 위한 선택).
 - `autoGainControl`로 `rmsMean`의 절대값은 기기 사이에 비교할 수 없다.
-- 내장 브라우저는 다운로드를 작업 폴더에 저장했다. 일반 브라우저는 다운로드 폴더에 저장하며, 동작(`<a download>`)은 PNG 저장과 같다.
+- 내장 브라우저는 첫 확인에서는 다운로드를 작업 폴더에 저장했고, 1차 리뷰 뒤 재확인에서는 파일을 남기지 않았다(앵커 클릭과 Blob 내용은 두 번 모두 가로채어 확인). 일반 브라우저는 다운로드 폴더에 저장하며, 동작(`<a download>`)은 PNG 저장과 같다.
