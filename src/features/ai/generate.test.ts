@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ApiConfigResponse, ReadingLocale } from '../../../shared/api'
+import type { ApiConfigResponse } from '../../../shared/api'
 import { analyzeRecording, type AnalysisProgress } from '../analysis/analyze'
+import type { Locale } from '../../i18n/locales'
 import type { VoiceProfile } from '../profile/types'
 import type { Capture } from '../recorder/types'
 import { resetAiConfigCache } from './client'
@@ -180,7 +181,7 @@ describe('runGeneration 정상 흐름', () => {
 
   it('리딩 언어는 요청을 보내는 순간에 읽는다(분석 중에 화면 언어가 바뀌면 바뀐 언어)', async () => {
     const api = stubApi({ '/api/config': configOf(false, true), '/api/reading': readingOk })
-    let locale: ReadingLocale = 'ko'
+    let locale: Locale = 'ko'
     analyze.mockImplementation(async () => {
       locale = 'en'
       return PROFILE
@@ -212,7 +213,7 @@ describe('runGeneration 무엇을 요청할지', () => {
   it('목소리가 거의 잡히지 않은(low-signal) 녹음은 리딩이 켜져 있어도 리딩을 요청하지 않는다', async () => {
     const api = stubApi({ '/api/config': configOf(true, true), '/api/portrait': portraitOk, '/api/reading': readingOk })
     analyze.mockResolvedValue(makeProfile({ quality: 'low-signal' }))
-    const getLocale = vi.fn((): ReadingLocale => 'ko')
+    const getLocale = vi.fn((): Locale => 'ko')
     const { pending, stages } = run({ getLocale })
     const result = await pending
 
@@ -263,6 +264,17 @@ describe('runGeneration 대기 단계 전환', () => {
 
     reading.resolve(Response.json({ reading: READING_TEXT, caption: CAPTION, provider: 'claude' }))
     expect(await pending).toMatchObject({ portrait: null, reading: { reading: READING_TEXT } })
+  })
+
+  it('리딩이 실패로 먼저 끝난 뒤 초상이 끝나도 단계를 바꾸지 않는다', async () => {
+    const portrait = deferred<Response>()
+    stubApi({ '/api/config': configOf(true, true), '/api/portrait': () => portrait.promise, '/api/reading': httpError })
+    const { pending, stages } = run()
+
+    await settle()
+    portrait.resolve(Response.json({ image: IMAGE, provider: 'workers-ai' }))
+    expect(await pending).toMatchObject({ portrait: IMAGE, reading: null })
+    expect(stages).toEqual(['portrait'])
   })
 
   it('리딩이 먼저 끝나면 단계를 바꾸지 않는다', async () => {

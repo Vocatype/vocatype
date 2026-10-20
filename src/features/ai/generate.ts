@@ -1,4 +1,4 @@
-import type { ReadingLocale } from '../../../shared/api'
+import type { Locale } from '../../i18n/locales'
 import { analyzeRecording, type AnalysisProgress } from '../analysis/analyze'
 import type { VoiceProfile } from '../profile/types'
 import type { Capture } from '../recorder/types'
@@ -18,7 +18,7 @@ export type WaitingStage = 'portrait' | 'reading'
 
 export interface GenerateOptions {
   /** 리딩 언어. 요청을 보내는 순간(분석이 끝난 뒤)에 읽으므로 분석 중에 화면 언어가 바뀌면 바뀐 언어로 요청한다. */
-  getLocale: () => ReadingLocale
+  getLocale: () => Locale
   /** 취소. 중단되면 거부(reject)되고, 그 뒤로는 콜백을 부르지 않는다. 진행 중인 요청도 끊는다. */
   signal?: AbortSignal
   /** 기기 안 분석의 진행. */
