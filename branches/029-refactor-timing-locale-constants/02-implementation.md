@@ -53,3 +53,18 @@ main(`e417d49`과 같은 코드) 빌드와 이 브랜치 빌드를 비교했다.
 
 - 재시도 대기 값(첫 대기 0.5초, 최대 8초, 0.75~1배)은 SDK 내부 값이라 테스트 안에 옮겨 적었다. SDK를 올리면서 이 값이 바뀌어도 테스트는 모른다. 버전(0.135.0)을 주석에 적어 두었다
 - 서버가 `retry-after`(또는 `retry-after-ms`)를 주면 SDK는 0 < 값 ≤ 2³¹−1ms이면 그 값을 그대로 기다린다(0.135.0 `client.mjs`, 그 밖에는 기본 대기). 그 경우는 이 관계로 막지 않으며, 지금처럼 중단 신호가 상한이다
+
+## 배포 후 확인
+
+사용자 승인(상위 세션 전달)에 따라 2026-10-22 16:56:45 KST에 main(`7b6fc27`)을 푸시했다. Cloudflare Workers Builds가 자동 배포했다: GitHub 커밋 검사 "Workers Builds: vocatype — completed/success"(07:57:20Z), 배포 기록 07:57:15Z, 버전 `41b95935-1650-4982-87de-d495567097a1`.
+
+16:57:25 KST, `https://vocatype.hs827.workers.dev`:
+
+| 확인 | 결과 |
+| --- | --- |
+| `GET /`, `GET /api/health` | 200, 200 |
+| `GET /api/config` | `textProviders: ["claude","workers-ai"]`, 초상·해설 켜짐 |
+| 배포된 클라이언트 번들 | `index-DijGa0wH.js`, `index-CpSgsQrj.css`로 배포 전과 같다. 빌드 비교(위)대로 클라이언트 결과물이 바이트까지 같아 기대한 결과다 |
+| Worker | 바뀐 것은 같은 값의 상수 인라인과 주석뿐이라 밖에서 보이는 동작 차이가 없다. 새 버전이 100% 배포된 것만 확인했다 |
+
+- AI 호출(초상·해설)은 하지 않았다. Claude 시간 관계는 단위 테스트로만 확인한다.
