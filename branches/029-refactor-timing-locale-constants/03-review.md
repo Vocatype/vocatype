@@ -13,7 +13,7 @@
 | `axes.ts` | `import { DEFAULT_LOCALE, type Locale }`가 `verbatimModuleSyntax`에 맞음. 순환 import 없음(`locales.ts`는 `shared/locale`만). 새 테스트는 음절 속도 5에서 en 0.83, ko 0.43으로 실제로 갈림. 같은 식으로 기본값을 박아 둔 곳은 더 없음(`ResultScreen.tsx`·`scripts.ts`의 `'en'`은 언어별 분기라 020에서 따로 분류한 범위 밖) |
 | Claude 시간 관계 | 두 부등식이 맞는 불변식. SDK 0.135.0 `client.mjs` 기준 재시도 대기 최댓값 합 0.5초, `retry-after-ms` → `retry-after` → 기본값 순, 대기 중에도 중단 신호가 걸림. "24.5초", "13초", "체인 밖" 정확. 다만 "체인의 마지막 제공자"는 부정확(#1) |
 | 기존 테스트와 중복 | 없음. 01 겹침 표 정확(빠진 줄 하나, #3) |
-| 변이 | 02 표 5건 재현. 리뷰어 추가: 체인 예산 24,000 실패, 24,500 통과(`≤` 경계), 23,000 둘 다 실패, `MAX_RETRIES` 0 통과, `REQUEST_TIMEOUT_MS` 12,251 실패, `FALLBACK_RESERVE_MS` 13,001 실패, `axes.ts`를 `'en'` 직접 기재로 되돌리고 `DEFAULT_LOCALE`을 `'ko'`로 하면 새 테스트 실패(원래 겨냥한 어긋남), `DEFAULT_LOCALE`만 `'ko'`면 새 테스트 통과 |
+| 변이 | 02 표 5건 재현. 리뷰어 추가: 체인 예산 24,000 실패, 24,500 통과(`≤` 경계), 23,000 둘 다 실패, `MAX_RETRIES` 0 통과, `REQUEST_TIMEOUT_MS` 12,251 실패, `FALLBACK_RESERVE_MS` 13,001 실패, `axes.ts`를 `'en'` 직접 기재로 되돌리고 `DEFAULT_LOCALE`을 `'ko'`로 하면 새 테스트 실패(원래 겨냥한 어긋남), `DEFAULT_LOCALE`만 `'ko'`면 새 테스트 통과(기존 `axes.test.ts`의 영어 전제 테스트와 `locales.test`는 실패) |
 | 빌드 비교 | 클라이언트 `diff -r` 차이 없음(파일 이름 같음). Worker는 `assets`·`wrangler.json` 같고 `index.js`는 상수 인라인·선언과 주석만 다름 |
 | 문서 | 정확하고 읽기 쉬움(#2·#4는 다듬기) |
 
@@ -38,3 +38,23 @@
 ### 1차 반영 뒤 구현자 검사
 
 `npm run typecheck` / `lint` / `build` 종료 코드 0, `npm test` 종료 코드 0(37 파일 299 테스트).
+
+## 2차
+
+- 검토자: 1차와 같은 독립 리뷰 에이전트(임시 워크트리에서 검사 후 제거)
+- 대상: `ee70448`(`a713004..ee70448`)
+
+| 항목 | 결과 |
+| --- | --- |
+| #1 `claude.ts:19` 주석·`claude.test.ts` 테스트 제목·01 관계 표가 "체인 밖이거나 유일한 제공자(마지막 제공자는 남은 예산, 최대 25초)", `textChain.ts`의 배분과 일치. 남은 "마지막 제공자" 표현은 모두 "남은 예산을 받는다"는 올바른 뜻 | 통과 |
+| #2 retry-after 조건(0 < 값 ≤ 2³¹−1ms, 그 밖에는 기본 대기)이 SDK 코드와 일치 | 통과 |
+| #3 01 겹침 표 추가 줄(신호 13초·25초, 배분 동작) | 통과 |
+| #4 02 실수 문단 | 통과 |
+| 03 1차 기록 | 일치(`DEFAULT_LOCALE`만 바꿀 때 `locales.test`도 실패한다는 점이 빠짐 → 1차 표에 보탬) |
+| 동작 변경 | 없음. 코드 차이는 주석 1줄·테스트 제목 1줄, 빌드 클라이언트 파일 이름 같음, Worker `timeout: 12e3, maxRetries: 1` 그대로 |
+
+검사: `npm run typecheck` / `lint` / `test`(37 파일 299) / `build` 종료 코드 모두 0.
+
+### 2차 결론
+
+**병합 가능.** 새 발견 없음.
