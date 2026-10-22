@@ -32,6 +32,9 @@ interface ShapeCall {
   clipped: boolean
 }
 
+/** 가짜 폭에서만 0.05em인 채움 글자. 긴 이름을 이 글자로 채우면 줄이 폭 한도 바로 앞(48px에서 2.4px 안)까지 찬다(028 1차 리뷰 #1). */
+const FILL = 'ı'
+
 /**
  * 글꼴 크기와 글자 종류로 폭을 어림하는 가짜 2D 컨텍스트. 그린 글자의 좌표와 도형의 경계 상자를 기록한다.
  * 도형: beginPath로 경로를 열고 moveTo·lineTo는 점, arc는 원 전체 상자, arcTo는 두 제어점을 넣는다. stroke는 선 굵기의 절반만큼 넓힌다.
@@ -41,13 +44,13 @@ function fakeContext() {
   const calls: TextCall[] = []
   const shapes: ShapeCall[] = []
   let fontSize = 16
-  const state = { font: '', textAlign: 'left', lineWidth: 1, clipped: false }
+  const state = { font: '', textAlign: 'left', textBaseline: 'alphabetic', lineWidth: 1, clipped: false }
   const saved: { lineWidth: number; clipped: boolean }[] = []
   let points: [number, number][] = []
   let kind: ShapeCall['kind'] = 'line'
   const measure = (text: string) => {
     let width = 0
-    for (const char of text) width += /[ᄀ-ᇿ㄰-㆏가-힯　-〿＀-￯『』“”]/.test(char) ? fontSize : fontSize * 0.58
+    for (const char of text) width += char === FILL ? fontSize * 0.05 : /[ᄀ-ᇿ㄰-㆏가-힯　-〿＀-￯『』“”]/.test(char) ? fontSize : fontSize * 0.58
     return width
   }
   const commit = (op: ShapeCall['op']) => {
@@ -84,13 +87,22 @@ function fakeContext() {
     get lineWidth() {
       return state.lineWidth
     },
-    textBaseline: 'alphabetic',
+    set textBaseline(value: string) {
+      state.textBaseline = value
+    },
+    get textBaseline() {
+      return state.textBaseline
+    },
     fillStyle: '',
     strokeStyle: '',
     lineCap: 'butt',
     globalAlpha: 1,
     measureText: (text: string) => ({ width: measure(text) }),
-    fillText: (text: string, x: number, y: number) => calls.push({ text, x, y, width: measure(text), align: state.textAlign, size: fontSize }),
+    fillText: (text: string, x: number, y: number) => {
+      // 글자 상자(textBox)는 alphabetic 기준선을 전제로 한다. 기준선이 바뀌면 상자가 어긋나므로 바로 실패시킨다(028 1차 리뷰 #3).
+      if (state.textBaseline !== 'alphabetic') throw new Error(`fake context supports only alphabetic baseline, got ${state.textBaseline}`)
+      calls.push({ text, x, y, width: measure(text), align: state.textAlign, size: fontSize })
+    },
     fillRect: () => undefined,
     beginPath: () => {
       points = []
@@ -199,8 +211,8 @@ function drawnAs(calls: TextCall[], text: string): TextCall | undefined {
 }
 
 const longWords = (n: number) => Array.from({ length: n }, (_, i) => `Word${i}`).join(' ')
-/** 공백 없는 긴 이름. 글자 단위로 잘려 줄마다 폭 한도까지 찬다. */
-const LONG_RUN = 'M'.repeat(60)
+/** 공백 없는 긴 이름. 글자 단위로 잘려 줄마다 폭 한도 바로 앞까지 찬다(좁은 채움 글자라 한도와의 차이가 1px 남짓). */
+const LONG_RUN = FILL.repeat(1000)
 
 /**
  * 간격 검사용 최악 조합: 예산 테스트의 조합(이름 2줄, 긴 궁합 이름)에 폭 한도까지 찬 계절 이름(1줄, 원 견본에 가장 가깝다)과 향 이름을 더한다.
@@ -413,7 +425,7 @@ describe('drawCard 도형과 글자 간격 (028)', () => {
     ])
   })
 
-  it.each(['ko', 'en'] as const)('모든 타입(%s)에서 고리·원 견본이 글자와, 그리고 서로 24px 넘게 떨어지고 다른 도형도 글자와 겹치지 않는다', (locale) => {
+  it.each(['ko', 'en'] as const)('모든 타입(%s)에서 고리·원 견본이 글자와, 그리고 서로 24px 이상 떨어지고 다른 도형도 글자와 겹치지 않는다', (locale) => {
     const labels = locale === 'ko' ? labelsKo : labelsEn
     for (const code of ALL_TYPE_CODES) {
       const view = fullRing(presentResult(profileFor(code), null, locale))
@@ -426,7 +438,7 @@ describe('drawCard 도형과 글자 간격 (028)', () => {
   it.each([
     ['향 이름 2줄 폭 한도까지', LONG_RUN, 2],
     ['향 이름 1줄, 고리가 원 견본에 가장 가깝다', 'Word0 Word1', 1],
-  ] as const)('최악 조합(%s)에서도 고리·원 견본이 글자와, 그리고 서로 24px 넘게 떨어진다', (_, scentName, scentLines) => {
+  ] as const)('최악 조합(%s)에서도 고리·원 견본이 글자와, 그리고 서로 24px 이상 떨어진다', (_, scentName, scentLines) => {
     const view = fullRing(crowdedView(presentResult(profileFor('WFQV'), null, 'en'), scentName))
     const { ctx, calls, shapes } = fakeContext()
     drawCard(ctx, view, null, { ...labelsEn, caption: longWords(40) })
