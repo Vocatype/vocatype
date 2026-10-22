@@ -8,6 +8,7 @@ import { formatMessage } from '../i18n/format'
 import { I18nProvider } from '../i18n/I18nProvider'
 import type { Locale } from '../i18n/locales'
 import { messages } from '../i18n/messages'
+import { ThemeProvider } from '../theme/ThemeProvider'
 import { ResultScreen } from './ResultScreen'
 
 /*
@@ -95,9 +96,11 @@ interface RenderOptions {
 
 function render({ locale = 'ko', profile = makeProfile(), portrait = null, reading = null, capture: captured = null, calibration }: RenderOptions = {}): string {
   return renderToStaticMarkup(
-    <I18nProvider initialLocale={locale}>
-      <ResultScreen capture={captured} profile={profile} portrait={portrait} reading={reading} calibration={calibration} onNavigate={() => undefined} />
-    </I18nProvider>,
+    <ThemeProvider>
+      <I18nProvider initialLocale={locale}>
+        <ResultScreen capture={captured} profile={profile} portrait={portrait} reading={reading} calibration={calibration} onNavigate={() => undefined} />
+      </I18nProvider>
+    </ThemeProvider>,
   )
 }
 

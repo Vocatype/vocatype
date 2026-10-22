@@ -6,6 +6,15 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } | nul
   return { r: parseInt(full.slice(0, 2), 16), g: parseInt(full.slice(2, 4), 16), b: parseInt(full.slice(4, 6), 16) }
 }
 
+/** 두 색을 t(0..1) 비율로 섞은 6자리 hex. 잘못된 값은 회색으로 본다. */
+export function mixHex(hexA: string, hexB: string, t: number): string {
+  const a = hexToRgb(hexA) ?? { r: 128, g: 128, b: 128 }
+  const b = hexToRgb(hexB) ?? { r: 128, g: 128, b: 128 }
+  const k = Math.min(1, Math.max(0, t))
+  const channel = (x: number, y: number) => Math.round(x + (y - x) * k).toString(16).padStart(2, '0')
+  return `#${channel(a.r, b.r)}${channel(a.g, b.g)}${channel(a.b, b.b)}`
+}
+
 export function hexToRgba(hex: string, alpha: number): string {
   const rgb = hexToRgb(hex) ?? { r: 128, g: 128, b: 128 }
   return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`
