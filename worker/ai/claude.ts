@@ -14,11 +14,14 @@ export function isTextModel(value: unknown): value is string {
 
 /**
  * SDK 타임아웃은 밀리초(요청 1회 기준).
- * 재시도·대기(retry-after)까지 합친 실제 상한은 SDK 설정이 아니라 중단 신호가 건다: 체인 안에서는 체인이 배분한 시간
- * (운영 순서 claude,workers-ai 에서 13초라 요청 12초 한 번은 들어가고 재시도는 남은 시간 안에서만 된다), 체인 밖에서는 체인 예산 전체.
+ * 재시도·대기(retry-after)까지 합친 실제 상한은 SDK 설정이 아니라 중단 신호가 건다: 체인 안에서는 체인이 배분한 시간, 체인 밖에서는 체인 예산 전체.
+ * 그 상한과의 관계 두 가지를 claude.test.ts 가 검사한다:
+ * - 예산 전부를 받을 때(체인 밖, 체인의 마지막 제공자): 요청 12초 × 시도 2번 + 첫 재시도 대기(최대 0.5초) = 24.5초 ≤ 25초
+ * - 뒤 제공자가 있을 때(운영 순서 claude,workers-ai): 받은 13초(25 − 12) 안에 요청 12초 한 번이 다 들어간다. 재시도는 남은 시간 안에서만 된다
  */
-const REQUEST_TIMEOUT_MS = 12_000
-const MAX_RETRIES = 1
+export const REQUEST_TIMEOUT_MS = 12_000
+/** SDK 자동 재시도 횟수. 시도는 1 + 이 값이다. */
+export const MAX_RETRIES = 1
 /**
  * 적응형 사고가 켜져 있어 사고 토큰이 max_tokens 에 포함된다. 실제 출력은 200토큰 안팎이지만
  * 사고가 길어져 잘리면(503 → 폴백) 사용자에게 리딩이 조용히 사라지므로 넉넉히 둔다. 쓴 토큰만 과금된다.

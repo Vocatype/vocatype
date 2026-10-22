@@ -1,5 +1,5 @@
 import type { TypeCode } from '../../../shared/typeCode'
-import type { Locale } from '../../i18n/locales'
+import { DEFAULT_LOCALE, type Locale } from '../../i18n/locales'
 import type { VoiceFeatures } from './features'
 
 export type { TypeCode }
@@ -21,7 +21,7 @@ export interface VoiceAxes {
 }
 
 export interface AxisOptions {
-  /** 낭독한 글의 언어. 한국어는 영어보다 음절이 짧아 조음 속도 범위가 다르다. */
+  /** 낭독한 글의 언어. 한국어는 영어보다 음절이 짧아 조음 속도 범위가 다르다. 없으면 DEFAULT_LOCALE. */
   locale?: Locale
 }
 
@@ -67,7 +67,7 @@ export function featuresToAxes(features: VoiceFeatures, options: AxisOptions = {
   if (isLowSignal(features)) {
     return { warmth: 0.5, density: 0.5, pace: 0.5, variation: 0.5, pitch: 0.5, brightness: 0.5 }
   }
-  const paceRange = AXIS_RANGES.pace[options.locale ?? 'en']
+  const paceRange = AXIS_RANGES.pace[options.locale ?? DEFAULT_LOCALE]
   const pitch = mapLog(features.f0Median, ...AXIS_RANGES.pitch)
   const brightness = mapRange(features.tiltMedian, ...AXIS_RANGES.brightness)
   const density = mapRange(features.speechRatio, ...AXIS_RANGES.density)

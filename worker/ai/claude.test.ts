@@ -1,8 +1,9 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { READING_CHAIN_BUDGET_MS } from '../../shared/api.ts'
-import { buildReadingParams, createClaudeTextProvider, DEFAULT_TEXT_MODEL, isTextModel, parseReadingMessage } from './claude.ts'
+import { buildReadingParams, createClaudeTextProvider, DEFAULT_TEXT_MODEL, isTextModel, MAX_RETRIES, parseReadingMessage, REQUEST_TIMEOUT_MS } from './claude.ts'
 import { READING_SYSTEM_PROMPT } from './readingPrompt.ts'
+import { FALLBACK_RESERVE_MS } from './textChain.ts'
 
 const axes = { warmth: 0.8, density: 0.25, pace: 0.5, variation: 0.1, pitch: 0.4, brightness: 0.9 }
 const input = { typeCode: 'WFQV', axes, locale: 'ko' } as const
@@ -125,6 +126,27 @@ describe('createClaudeTextProvider', () => {
   it('제공자 오류는 그대로 전파된다(라우트가 503으로 바꾼다)', async () => {
     const provider = createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage: async () => { throw new Error('overloaded') } })
     await expect(provider.generateReading(input)).rejects.toThrow('overloaded')
+  })
+})
+
+/**
+ * SDK 기본 재시도 대기의 최댓값 합(밀리초). @anthropic-ai/sdk 0.135.0 `calculateDefaultRetryTimeoutMillis`:
+ * n번째(0부터) 재시도 전에 min(0.5초 × 2^n, 8초)에 0.75~1을 곱한 만큼 기다린다. 서버가 retry-after 를 주면 그 값을 기다리고, 그때의 상한은 중단 신호다.
+ */
+function maxDefaultRetryDelaysMs(retries: number): number {
+  let total = 0
+  for (let n = 0; n < retries; n += 1) total += Math.min(500 * 2 ** n, 8000)
+  return total
+}
+
+describe('Claude 시간 상수와 리딩 체인 예산', () => {
+  it('예산 전부를 받을 때(체인 밖, 체인의 마지막 제공자) 요청 시간 × 시도 횟수와 재시도 대기가 체인 예산 안에 든다', () => {
+    expect(maxDefaultRetryDelaysMs(1)).toBe(500)
+    expect(REQUEST_TIMEOUT_MS * (1 + MAX_RETRIES) + maxDefaultRetryDelaysMs(MAX_RETRIES)).toBeLessThanOrEqual(READING_CHAIN_BUDGET_MS)
+  })
+
+  it('뒤에 제공자가 있을 때(운영 순서 claude,workers-ai) 받은 몫(체인 예산 − 뒤 제공자 몫) 안에 요청 한 번이 다 들어간다', () => {
+    expect(REQUEST_TIMEOUT_MS).toBeLessThanOrEqual(READING_CHAIN_BUDGET_MS - FALLBACK_RESERVE_MS)
   })
 })
 
