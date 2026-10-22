@@ -78,7 +78,7 @@ wrangler.jsonc   Workers 설정
 - 녹음은 브라우저 안에서 분석한다. AI 초상 생성 요청에는 타입 코드와 씨앗만, 목소리 해설 요청에는 타입 코드·여섯 축 수치(0..1, 소수 둘째 자리)·언어만 들어가며 음성은 어떤 경우에도 서버로 가지 않는다.
 - 외부 폰트, 분석 스크립트, 광고 등 제3자 요청을 넣지 않는다. 브라우저는 자기 Worker하고만 통신하고, AI 제공자 호출은 Worker가 대신 한다(사용자 IP는 제공자에 가지 않는다).
 - Workers 요청 로그(`observability`)는 기본 비활성화한다.
-- 초상·리딩 생성 속도 제한에 접속 IP를 쓰지만 Workers Rate Limiting 바인딩 안에서 최대 60초 동안 카운터 키로만 유지되고 영구 저장·로그는 없다.
+- 초상·해설 생성 속도 제한에 접속 IP를 쓰지만 Workers Rate Limiting 바인딩 안에서 최대 60초 동안 카운터 키로만 유지되고 영구 저장·로그는 없다.
 
 ## AI 제공자
 
@@ -109,7 +109,7 @@ AI는 어댑터(`worker/ai/`) 뒤에 있고, 기본값은 이미지를 만들지
 
 ### 텍스트 제공자 (목소리 해설)
 
-결과 화면의 "목소리 해설"(3~4문장)과 공유용 캡션 한 줄은 초상과 별도의 **텍스트 제공자 폴백 체인**이 만든다. 화면에서는 "목소리 해설"이라 부르고(026), 코드·API에서는 `reading`(리딩)이라는 이름을 그대로 쓴다(`/api/reading`, `ReadingResponse` 등). 아래에서 "리딩"은 이 기능을 가리킨다. 지금 운영 순서는 `claude,workers-ai`다. 모든 사용자가 같은 모델(Claude)의 문장을 받게 하고, Claude가 실패하면 무료 Workers AI 모델이 받친다(022에서 010의 "무료 우선" 순서를 바꿨다. 근거는 `branches/022-chore-claude-first-reading/01-design.md`).
+결과 화면의 "목소리 해설"(3~4문장)과 공유용 캡션 한 줄은 초상과 별도의 **텍스트 제공자 폴백 체인**이 만든다. 화면에서는 "목소리 해설"이라 부르고(026), 코드·API에서는 `reading`(리딩)이라는 이름을 그대로 쓴다(`/api/reading`, `ReadingResponse` 등). README에서 "리딩"은 이 기능을 가리킨다. 지금 운영 순서는 `claude,workers-ai`다. 모든 사용자가 같은 모델(Claude)의 문장을 받게 하고, Claude가 실패하면 무료 Workers AI 모델이 받친다(022에서 010의 "무료 우선" 순서를 바꿨다. 근거는 `branches/022-chore-claude-first-reading/01-design.md`).
 
 ```
 claude (키가 있을 때만) ──실패──▶ workers-ai (무료 Workers AI 텍스트 모델) ──실패──▶ mock 고정 문구 (화면에는 안 보임)
