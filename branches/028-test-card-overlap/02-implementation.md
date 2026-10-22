@@ -76,3 +76,17 @@
 - 고리는 막대 180개를 합친 상자(원의 외접 사각형)로 본다. 상자 모서리 쪽은 실제로 비어 있으므로, 앞으로 글자를 고리 대각선 방향 가까이 두는 배치는 실제로 안 겹쳐도 실패할 수 있다. 그때는 막대별 상자로 바꾼다
 - 글자 폭은 어림(한글 1em, 그 밖 0.58em, 채움 글자 0.05em)이다. 실제보다 넓어 보수적이지만, 특정 글자(W, M 등)는 실제가 어림보다 넓을 수 있다
 - 글자 상자 높이의 근거는 macOS(내장 브라우저) 측정뿐이다. Windows(Segoe UI, 맑은 고딕)와 Android(Roboto, Noto CJK)는 재지 않았다. 몇 px 차이는 24px 간격이 흡수한다(1차 리뷰 #4)
+
+## 배포 후 확인
+
+사용자 승인(상위 세션 전달, 원문 "이후 연달아 처리후 병합 후 푸쉬까지 하세요.. 알아서 모든 권한 줍니다.")에 따라 2026-10-22 16:44:17 KST에 main(`047e409`)을 푸시했다(`origin`은 SSH). Cloudflare Workers Builds가 자동 배포했다: GitHub 커밋 검사 "Workers Builds: vocatype — completed/success"(07:44:54Z), 배포 기록 07:44:50Z, 버전 `09de40c7-784d-4a71-8347-318850c33699`.
+
+16:45:22 KST, `https://vocatype.hs827.workers.dev`:
+
+| 확인 | 결과 |
+| --- | --- |
+| `GET /`, `GET /api/health` | 200, 200 |
+| `GET /api/config` | `textProviders: ["claude","workers-ai"]`, 초상·해설 켜짐 |
+| 배포된 번들 | `index-DijGa0wH.js`, `index-CpSgsQrj.css`로 배포 전과 같다. 028은 테스트와 문서만 바꿔 화면 코드가 그대로이므로 기대한 결과다(브랜치에서 빌드한 파일 이름도 같았다) |
+
+- AI 호출(초상·해설)은 하지 않았다.
