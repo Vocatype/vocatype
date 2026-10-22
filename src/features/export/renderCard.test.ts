@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { ALL_TYPE_CODES } from '../../../shared/typeCode'
-import { presentResult } from '../profile/present'
+import { presentResult, type ResultView } from '../profile/present'
 import type { VoiceProfile } from '../profile/types'
+import { SIGNATURE_BINS } from '../signature/signature'
 import { BUDGET_RESERVE, CARD_HEIGHT, CARD_WIDTH, FOOTER_TOP, clampLines, drawCard, type CardLabels } from './renderCard'
 
 interface TextCall {
@@ -10,17 +11,56 @@ interface TextCall {
   y: number
   width: number
   align: string
+  /** 글꼴 크기(px). 글자 상자 높이에 쓴다. */
+  size: number
 }
 
-/** 글꼴 크기와 글자 종류로 폭을 어림하는 가짜 2D 컨텍스트. 그린 글자의 좌표를 기록한다. */
+interface Box {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+/** stroke·fill로 그린 경로 하나의 경계 상자(028). */
+interface ShapeCall {
+  /** arcTo가 있으면 둥근 사각형, arc가 있으면 원, 둘 다 없으면 선. */
+  kind: 'line' | 'circle' | 'rounded'
+  op: 'stroke' | 'fill'
+  box: Box
+  /** clip 안에서 그렸는지(자리표시 초상 안의 고리). */
+  clipped: boolean
+}
+
+/**
+ * 글꼴 크기와 글자 종류로 폭을 어림하는 가짜 2D 컨텍스트. 그린 글자의 좌표와 도형의 경계 상자를 기록한다.
+ * 도형: beginPath로 경로를 열고 moveTo·lineTo는 점, arc는 원 전체 상자, arcTo는 두 제어점을 넣는다. stroke는 선 굵기의 절반만큼 넓힌다.
+ * fillRect(바탕·아우라)와 drawImage(초상)는 글자 뒤에 깔리는 것이라 기록하지 않는다.
+ */
 function fakeContext() {
   const calls: TextCall[] = []
+  const shapes: ShapeCall[] = []
   let fontSize = 16
-  const state = { font: '', textAlign: 'left' }
+  const state = { font: '', textAlign: 'left', lineWidth: 1, clipped: false }
+  const saved: { lineWidth: number; clipped: boolean }[] = []
+  let points: [number, number][] = []
+  let kind: ShapeCall['kind'] = 'line'
   const measure = (text: string) => {
     let width = 0
     for (const char of text) width += /[ᄀ-ᇿ㄰-㆏가-힯　-〿＀-￯『』“”]/.test(char) ? fontSize : fontSize * 0.58
     return width
+  }
+  const commit = (op: ShapeCall['op']) => {
+    if (points.length === 0) return
+    const pad = op === 'stroke' ? state.lineWidth / 2 : 0
+    const xs = points.map(([x]) => x)
+    const ys = points.map(([, y]) => y)
+    shapes.push({
+      kind,
+      op,
+      clipped: state.clipped,
+      box: { left: Math.min(...xs) - pad, top: Math.min(...ys) - pad, right: Math.max(...xs) + pad, bottom: Math.max(...ys) + pad },
+    })
   }
   const gradient = { addColorStop: () => undefined }
   const ctx = {
@@ -38,31 +78,56 @@ function fakeContext() {
     get textAlign() {
       return state.textAlign
     },
+    set lineWidth(value: number) {
+      state.lineWidth = value
+    },
+    get lineWidth() {
+      return state.lineWidth
+    },
     textBaseline: 'alphabetic',
     fillStyle: '',
     strokeStyle: '',
-    lineWidth: 1,
     lineCap: 'butt',
     globalAlpha: 1,
     measureText: (text: string) => ({ width: measure(text) }),
-    fillText: (text: string, x: number, y: number) => calls.push({ text, x, y, width: measure(text), align: state.textAlign }),
+    fillText: (text: string, x: number, y: number) => calls.push({ text, x, y, width: measure(text), align: state.textAlign, size: fontSize }),
     fillRect: () => undefined,
-    beginPath: () => undefined,
-    moveTo: () => undefined,
-    lineTo: () => undefined,
-    arcTo: () => undefined,
-    arc: () => undefined,
+    beginPath: () => {
+      points = []
+      kind = 'line'
+    },
+    moveTo: (x: number, y: number) => {
+      points.push([x, y])
+    },
+    lineTo: (x: number, y: number) => {
+      points.push([x, y])
+    },
+    arcTo: (x1: number, y1: number, x2: number, y2: number) => {
+      points.push([x1, y1], [x2, y2])
+      kind = 'rounded'
+    },
+    arc: (x: number, y: number, r: number) => {
+      points.push([x - r, y - r], [x + r, y + r])
+      if (kind === 'line') kind = 'circle'
+    },
     closePath: () => undefined,
-    stroke: () => undefined,
-    fill: () => undefined,
-    clip: () => undefined,
-    save: () => undefined,
-    restore: () => undefined,
+    stroke: () => commit('stroke'),
+    fill: () => commit('fill'),
+    clip: () => {
+      state.clipped = true
+    },
+    // 실제 캔버스처럼 선 굵기와 clip을 되돌린다.
+    save: () => {
+      saved.push({ lineWidth: state.lineWidth, clipped: state.clipped })
+    },
+    restore: () => {
+      Object.assign(state, saved.pop())
+    },
     drawImage: () => undefined,
     createLinearGradient: () => gradient,
     createRadialGradient: () => gradient,
   }
-  return { ctx: ctx as unknown as CanvasRenderingContext2D, calls }
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, calls, shapes }
 }
 
 const labelsKo: CardLabels = {
@@ -131,6 +196,77 @@ const leftOf = (c: TextCall) => (c.align === 'left' ? c.x : c.align === 'center'
 /** 이름이 그대로 그려졌거나, 말줄임된 앞부분으로 그려졌는지. */
 function drawnAs(calls: TextCall[], text: string): TextCall | undefined {
   return calls.find((c) => c.text === text || (c.text.endsWith('…') && text.startsWith(c.text.slice(0, -1))))
+}
+
+const longWords = (n: number) => Array.from({ length: n }, (_, i) => `Word${i}`).join(' ')
+/** 공백 없는 긴 이름. 글자 단위로 잘려 줄마다 폭 한도까지 찬다. */
+const LONG_RUN = 'M'.repeat(60)
+
+/**
+ * 간격 검사용 최악 조합: 예산 테스트의 조합(이름 2줄, 긴 궁합 이름)에 폭 한도까지 찬 계절 이름(1줄, 원 견본에 가장 가깝다)과 향 이름을 더한다.
+ * 향 이름은 기본이 2줄 폭 한도까지(고리에 가장 가깝다)이고, 1줄을 주면 고리가 가장 위로 올라가 원 견본에 가장 가깝다.
+ */
+function crowdedView(base: ResultView, scentName = LONG_RUN): ResultView {
+  return {
+    ...base,
+    name: longWords(14),
+    color: { ...base.color, name: LONG_RUN },
+    scent: { ...base.scent, name: scentName },
+    match: { ...base.match, best: { ...base.match.best, name: longWords(12) }, opposite: { ...base.match.opposite, name: longWords(12) } },
+  }
+}
+
+/** 모든 막대가 바깥 반지름까지 닿는 가장 큰 고리. 녹음 모양에 따라 고리 상자가 작아져 겹침을 놓치지 않게 한다. */
+const fullRing = (view: ResultView): ResultView => ({ ...view, signature: new Array<number>(SIGNATURE_BINS).fill(1) })
+
+/** 고리·원 견본은 글자와, 그리고 서로 이만큼 떨어져야 한다. 지금 배치가 일부러 둔 가장 좁은 간격(계절 이름–원 견본 24px)이다. */
+const MIN_GAP = 24
+
+/** 글자 상자. 가로는 정렬과 어림 폭, 세로는 기준선 위 1.0em·아래 0.25em(실제 글꼴 상자 약 0.98em·0.22em보다 넉넉하게, 028 설계). */
+function textBox(c: TextCall): Box {
+  const left = leftOf(c)
+  return { left, top: c.y - c.size, right: left + c.width, bottom: c.y + c.size * 0.25 }
+}
+
+/** 두 상자 사이 거리. 겹치거나 맞닿으면 0. */
+function gapBetween(a: Box, b: Box): number {
+  const dx = Math.max(0, a.left - b.right, b.left - a.right)
+  const dy = Math.max(0, a.top - b.bottom, b.top - a.bottom)
+  return Math.hypot(dx, dy)
+}
+
+/**
+ * 고리(잘리지 않은 선 180개를 합친 상자)와 원 견본(잘리지 않은 원 5개)이 모든 글자와, 고리와 각 원 견본이 서로 MIN_GAP 이상 떨어지는지,
+ * 그 밖의 도형(초상 테두리, 축 막대, 자리표시 초상 안의 고리)이 글자와 겹치지 않는지 보고 어긋난 것을 돌려준다.
+ */
+function spacingProblems(calls: TextCall[], shapes: ShapeCall[]): string[] {
+  const bars = shapes.filter((s) => s.kind === 'line' && !s.clipped)
+  const swatches = shapes.filter((s) => s.kind === 'circle' && !s.clipped)
+  if (bars.length !== SIGNATURE_BINS || swatches.length !== 5) return [`ring bars ${bars.length}, swatches ${swatches.length}`]
+  const ring: Box = {
+    left: Math.min(...bars.map((s) => s.box.left)),
+    top: Math.min(...bars.map((s) => s.box.top)),
+    right: Math.max(...bars.map((s) => s.box.right)),
+    bottom: Math.max(...bars.map((s) => s.box.bottom)),
+  }
+  const spaced: [string, Box][] = [['ring', ring], ...swatches.map((s, i): [string, Box] => [`swatch ${i + 1}`, s.box])]
+  const others = shapes.filter((s) => !bars.includes(s) && !swatches.includes(s))
+  const problems: string[] = []
+  for (const call of calls) {
+    const box = textBox(call)
+    for (const [name, shape] of spaced) {
+      const gap = gapBetween(shape, box)
+      if (gap < MIN_GAP - 0.01) problems.push(`${name} – "${call.text}" ${gap.toFixed(1)}px`)
+    }
+    for (const shape of others) {
+      if (gapBetween(shape.box, box) === 0) problems.push(`${shape.kind} ${shape.op} overlaps "${call.text}"`)
+    }
+  }
+  swatches.forEach((s, i) => {
+    const gap = gapBetween(ring, s.box)
+    if (gap < MIN_GAP - 0.01) problems.push(`ring – swatch ${i + 1} ${gap.toFixed(1)}px`)
+  })
+  return problems
 }
 
 describe('drawCard (027 배치)', () => {
@@ -234,6 +370,71 @@ describe('drawCard 예산', () => {
     expect(calls.filter((c) => c.text.startsWith('Word') && c.align === 'left').length).toBeGreaterThanOrEqual(4)
     const maxY = Math.max(...body.map((c) => c.y))
     expect(maxY, '최악 조합 최대 y').toBeLessThanOrEqual(FOOTER_TOP - BUDGET_RESERVE)
+  })
+})
+
+describe('drawCard 도형과 글자 간격 (028)', () => {
+  it('가짜 컨텍스트는 경로의 상자·종류·clip 안 여부를 기록하고, restore로 선 굵기와 clip을 되돌린다', () => {
+    const { ctx, shapes } = fakeContext()
+    ctx.beginPath()
+    ctx.arc(100, 200, 30, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.lineWidth = 4
+    ctx.beginPath()
+    ctx.moveTo(10, 10)
+    ctx.lineTo(50, 30)
+    ctx.stroke()
+    ctx.save()
+    ctx.beginPath()
+    ctx.moveTo(20, 0)
+    ctx.arcTo(100, 0, 100, 50, 20)
+    ctx.arcTo(100, 50, 0, 50, 20)
+    ctx.arcTo(0, 50, 0, 0, 20)
+    ctx.arcTo(0, 0, 100, 0, 20)
+    ctx.closePath()
+    ctx.clip()
+    ctx.fill()
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(5, 5)
+    ctx.lineTo(6, 6)
+    ctx.stroke()
+    ctx.restore()
+    ctx.beginPath()
+    ctx.moveTo(1, 1)
+    ctx.lineTo(2, 2)
+    ctx.stroke()
+    expect(shapes).toEqual([
+      { kind: 'circle', op: 'fill', clipped: false, box: { left: 70, top: 170, right: 130, bottom: 230 } },
+      { kind: 'line', op: 'stroke', clipped: false, box: { left: 8, top: 8, right: 52, bottom: 32 } },
+      { kind: 'rounded', op: 'fill', clipped: true, box: { left: 0, top: 0, right: 100, bottom: 50 } },
+      { kind: 'line', op: 'stroke', clipped: true, box: { left: 4, top: 4, right: 7, bottom: 7 } },
+      { kind: 'line', op: 'stroke', clipped: false, box: { left: -1, top: -1, right: 4, bottom: 4 } },
+    ])
+  })
+
+  it.each(['ko', 'en'] as const)('모든 타입(%s)에서 고리·원 견본이 글자와, 그리고 서로 24px 넘게 떨어지고 다른 도형도 글자와 겹치지 않는다', (locale) => {
+    const labels = locale === 'ko' ? labelsKo : labelsEn
+    for (const code of ALL_TYPE_CODES) {
+      const view = fullRing(presentResult(profileFor(code), null, locale))
+      const { ctx, calls, shapes } = fakeContext()
+      drawCard(ctx, view, null, labels)
+      expect(spacingProblems(calls, shapes), `${code} ${locale}`).toEqual([])
+    }
+  })
+
+  it.each([
+    ['향 이름 2줄 폭 한도까지', LONG_RUN, 2],
+    ['향 이름 1줄, 고리가 원 견본에 가장 가깝다', 'Word0 Word1', 1],
+  ] as const)('최악 조합(%s)에서도 고리·원 견본이 글자와, 그리고 서로 24px 넘게 떨어진다', (_, scentName, scentLines) => {
+    const view = fullRing(crowdedView(presentResult(profileFor('WFQV'), null, 'en'), scentName))
+    const { ctx, calls, shapes } = fakeContext()
+    drawCard(ctx, view, null, { ...labelsEn, caption: longWords(40) })
+    // 한도가 실제로 찼는지: 이름(72px) 2줄, 계절 이름(48px) 말줄임 1줄, 향 이름(42px)은 의도한 줄 수
+    expect(calls.filter((c) => c.size === 72)).toHaveLength(2)
+    expect(calls.filter((c) => c.size === 48 && c.text.endsWith('…'))).toHaveLength(1)
+    expect(calls.filter((c) => c.size === 42)).toHaveLength(scentLines)
+    expect(spacingProblems(calls, shapes)).toEqual([])
   })
 })
 
