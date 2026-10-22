@@ -14,7 +14,9 @@ import { presentResult, type ResultView } from '../features/profile/present'
 import type { VoiceProfile } from '../features/profile/types'
 import { formatDuration } from '../features/recorder/recorderSupport'
 import type { Capture } from '../features/recorder/types'
+import { signatureColors } from '../features/signature/signature'
 import { useI18n } from '../i18n/useI18n'
+import { useTheme } from '../theme/useTheme'
 
 interface Props {
   capture: Capture | null
@@ -32,6 +34,7 @@ type SaveState = 'idle' | 'working' | 'saved' | 'shared' | 'failed' | 'share-blo
 
 export function ResultScreen({ capture, profile, portrait, reading, calibration = false, onNavigate }: Props) {
   const { locale, t } = useI18n()
+  const { resolved: theme } = useTheme()
   const [saveState, setSaveState] = useState<SaveState>('idle')
   // 공유 시트 지원 여부는 마운트 시점에 한 번만 판단하면 된다.
   const [shareAvailable] = useState(() => canShareFiles())
@@ -71,16 +74,10 @@ export function ResultScreen({ capture, profile, portrait, reading, calibration 
       tagline: t('app.tagline'),
       color: t('result.section.color'),
       scent: t('result.section.scent'),
-      signature: t('result.section.signature'),
-      match: t('result.section.match'),
       best: t('result.match.best'),
       opposite: t('result.match.opposite'),
-      top: t('result.notes.top'),
-      middle: t('result.notes.middle'),
-      base: t('result.notes.base'),
       readOf: current.scriptTitle ? t('result.readOf', { title: current.scriptTitle }) : '',
       date: new Date().toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-US'),
-      stats: statLines,
       caption,
     })
   }
@@ -258,7 +255,13 @@ export function ResultScreen({ capture, profile, portrait, reading, calibration 
         <h2 id="result-signature" className="card__title">
           {t('result.section.signature')}
         </h2>
-        <SoundSignature values={view.signature} size={220} title={t('result.section.signature')} className="signature" />
+        <SoundSignature
+          values={view.signature}
+          size={220}
+          colors={signatureColors(view.color.palette, view.signature.length, theme)}
+          title={t('result.section.signature')}
+          className="signature"
+        />
         <p className="card__text">{t('result.signatureCaption')}</p>
         <p className="card__stats">{statLines.join(' · ')}</p>
       </section>
