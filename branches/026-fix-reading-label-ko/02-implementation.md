@@ -33,3 +33,9 @@
 - **자동 배포가 일어나지 않았다.** 푸시 뒤 4분 동안 배포 주소의 번들이 그대로였고(`index-np10x9bi.js`), 마지막 배포 기록은 2026-10-20 07:12:45Z(`4addb30` 문서 푸시)였다.
 - 원인: GitHub의 커밋 검사 기록에서 `4addb30`에는 Cloudflare의 "Workers Builds: vocatype — completed/success"가 있지만 `1cd5e08`에는 아무 검사도 없다. 저장소가 `hyunseop827/vocatype`에서 `Vocatype` 조직으로 옮겨지면서 Cloudflare Workers Builds가 푸시를 받지 못하는 것으로 본다.
 - 따라서 이 시점 운영 화면은 아직 "목소리 리딩"이다. 반영은 (1) Cloudflare 대시보드에서 Git 연결을 `Vocatype/vocatype`로 다시 하거나, (2) `npm run deploy`로 직접 배포하면 된다. 반영 뒤 결과를 이 절에 덧붙인다.
+
+### 자동 배포 복구 뒤 (2026-10-22)
+
+- 사용자가 Cloudflare 대시보드에서 Git 연결을 `Vocatype/vocatype`로 다시 하고, `origin`을 SSH(`git@github.com:Vocatype/vocatype.git`)로 바꾼 뒤 빈 커밋 `3a4fd50`("chore: 자동 배포 확인")을 푸시했다.
+- GitHub 커밋 검사에 "Workers Builds: vocatype — completed/success"(02:06:24Z)가 생겼고, 배포 기록이 02:06:11Z에 추가됐다. **푸시 → 자동 배포가 다시 동작한다.**
+- 배포 주소의 번들(`index-B-Ob9t2h.js`)에 "목소리 해설"이 있다. 026이 운영에 반영됐다.
