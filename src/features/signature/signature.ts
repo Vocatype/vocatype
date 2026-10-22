@@ -28,7 +28,8 @@ export function resampleEnvelope(values: readonly number[], bins: number = SIGNA
     out[i] = sum / (Math.min(end, values.length) - start)
   }
   const sorted = [...out].sort((a, b) => a - b)
-  const reference = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * SIGNATURE_PERCENTILE))] ?? 0
+  // 소리가 있는 칸이 5%도 안 되면 백분위수가 0이므로 가장 큰 값을 기준으로 쓴다.
+  const reference = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * SIGNATURE_PERCENTILE))] || (sorted[sorted.length - 1] ?? 0)
   return reference > 0 ? out.map((value) => Math.sqrt(Math.min(1, value / reference))) : out
 }
 

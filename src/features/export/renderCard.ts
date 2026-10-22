@@ -272,7 +272,8 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   const ringCx = CARD_WIDTH - MARGIN - RING_R
   const ringLeft = ringCx - RING_R
   const scentWidth = ringLeft - 30 - MARGIN
-  y += 124
+  // 원형 파형 윗점이 퍼스널 컬러 원과 약 30px 떨어지도록 둔다(1차 리뷰 #4).
+  y += 134
   const scentLabelY = y
   ctx.fillStyle = MUTED
   ctx.font = font(500, 34)

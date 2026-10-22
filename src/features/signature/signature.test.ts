@@ -30,6 +30,18 @@ describe('resampleEnvelope', () => {
   })
 })
 
+describe('resampleEnvelope 드문 소리', () => {
+  it('소리가 있는 칸이 5%도 안 되면 가장 큰 값을 기준으로 정규화한다', () => {
+    const values = new Array<number>(180).fill(0)
+    values[10] = 0.2
+    values[90] = 0.05
+    const out = resampleEnvelope(values, 180)
+    expect(out[10]).toBe(1)
+    expect(out[90]).toBeCloseTo(Math.sqrt(0.25), 5)
+    expect(out[0]).toBe(0)
+  })
+})
+
 describe('signatureColors', () => {
   const palette = ['#9A8CD6', '#C9B6E4', '#A7C7E7', '#F4C2C2', '#EEEFF5']
 
