@@ -73,3 +73,18 @@ en은 모든 폭에서 낱말 사이에서만 줄이 바뀌고 "12 o'clock"이 �
 - 낭독 글(문학 원문)은 회귀 테스트 대상이 아니다(1차 리뷰 #2). 정규식 "지문"은 "낭독 지문" 같은 정당한 쓰임도 걸지만, 그때는 실패 메시지에 문장이 그대로 나와 바로 알 수 있다(1차 리뷰 #5)
 - 회귀 테스트는 정해 둔 낱말(지문, fingerprint, voiceprint, 당신)만 본다. "고유한 목소리 서명"처럼 다른 말로 같은 과장을 하면 잡지 못한다
 - 해설 본문(AI가 만드는 글)은 이 테스트 대상이 아니다. "당신" 규칙은 해설 프롬프트와 배포 후 출력 점검이 맡는다
+
+## 배포 후 확인
+
+사용자 승인(상위 세션 전달)에 따라 2026-10-22 17:13:14 KST에 main(`c74d5c0`)을 푸시했다. Cloudflare Workers Builds가 자동 배포했다: GitHub 커밋 검사 "Workers Builds: vocatype — completed/success"(08:14:00Z), 배포 기록 08:13:56Z, 버전 `7ff09fbd-9a13-4aec-aaf6-91f247088e5b`.
+
+17:14:13 KST, `https://vocatype.hs827.workers.dev`:
+
+| 확인 | 결과 |
+| --- | --- |
+| `GET /`, `GET /api/health` | 200, 200 |
+| `GET /api/config` | `textProviders: ["claude","workers-ai"]`, 초상·해설 켜짐 |
+| 배포된 번들 | `index-DHXyh8CH.js`(브랜치 빌드와 같은 이름), `index-CpSgsQrj.css` |
+| 배포된 JS의 문구 | "rise and fall of this recording" 1건, "이번 녹음에서 소리가 커지고 작아진 흐름을 12시 방향부터 시계 방향으로 그렸어요." 1건. "fingerprint", "voiceprint", "목소리 지문", "당신" 0건 |
+
+- AI 호출(초상·해설)은 하지 않았다. 실제 녹음으로 결과 화면을 보는 확인은 마이크가 있어야 해서 하지 않았다(미리보기 페이지로 같은 컴포넌트를 확인, 위 구현자 확인). 실기기 확인은 사용자가 나중에 한다.
