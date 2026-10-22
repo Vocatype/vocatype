@@ -140,7 +140,7 @@ function maxDefaultRetryDelaysMs(retries: number): number {
 }
 
 describe('Claude 시간 상수와 리딩 체인 예산', () => {
-  it('예산 전부를 받을 때(체인 밖, 체인의 마지막 제공자) 요청 시간 × 시도 횟수와 재시도 대기가 체인 예산 안에 든다', () => {
+  it('예산 전부를 받을 때(체인 밖이거나 유일한 제공자) 요청 시간 × 시도 횟수와 재시도 대기가 체인 예산 안에 든다', () => {
     expect(maxDefaultRetryDelaysMs(1)).toBe(500)
     expect(REQUEST_TIMEOUT_MS * (1 + MAX_RETRIES) + maxDefaultRetryDelaysMs(MAX_RETRIES)).toBeLessThanOrEqual(READING_CHAIN_BUDGET_MS)
   })
