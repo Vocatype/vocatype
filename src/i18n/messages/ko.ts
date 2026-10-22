@@ -87,7 +87,7 @@ export const ko = {
   'result.disclaimer': '재미로 보는 해석이에요. 녹음은 저장되지 않았어요.',
   'generating.stage.portrait': '초상을 그리는 중 (조금 걸려요)',
   'generating.stage.reading': '목소리를 읽는 중',
-  'result.section.reading': '목소리 리딩',
+  'result.section.reading': '목소리 해설',
   'result.readingNote': 'AI가 타입과 여섯 축 수치만 보고 쓴 글이에요. 녹음은 듣지 않았어요.',
   'result.calibration.title': '보정용 내보내기 (개발용)',
   'result.calibration.note': '음성 없이 분석 수치(원시 특징·여섯 축·타입)만 JSON 파일로 이 기기에 저장해요. 서버로 보내지 않아요.',
