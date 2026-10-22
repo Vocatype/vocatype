@@ -75,7 +75,7 @@ export const MIN_REMAINING_MS = 3_000
 /**
  * 뒤에 시도할 제공자가 남아 있으면 그 몫으로 남겨 두는 시간. 앞 제공자는 남은 예산에서 이만큼을 뺀 시간만 신호로 받는다.
  * Workers AI(Llama 4 Scout) 실측 1.8~9.4초(011, 8회)에 약 2.6초 여유를 둔 값이다. 그래서 앞 제공자가 느리게 실패해도 뒤 제공자가 시도된다.
- * 운영 순서(claude,workers-ai)에서 Claude 는 25 − 12 = 13초를 받아 SDK 요청 12초 한 번은 그대로 들어간다.
+ * 운영 순서(claude,workers-ai)에서 Claude 는 25 − 12 = 13초를 받아 SDK 요청 12초 한 번은 그대로 들어간다(claude.test.ts 가 검사한다).
  */
 export const FALLBACK_RESERVE_MS = 12_000
 

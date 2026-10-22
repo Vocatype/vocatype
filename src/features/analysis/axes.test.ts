@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ALL_TYPE_CODES } from '../../../shared/typeCode'
+import { DEFAULT_LOCALE } from '../../i18n/locales'
 import { axesToTypeCode, featuresToAxes, mapLog, mapRange, seedFromFeatures } from './axes'
 import type { VoiceFeatures } from './features'
 
@@ -61,6 +62,11 @@ describe('featuresToAxes / axesToTypeCode', () => {
     const rate = { ...base, syllableRate: 5 }
     expect(featuresToAxes(rate, { locale: 'en' }).pace).toBeGreaterThan(0.5)
     expect(featuresToAxes(rate, { locale: 'ko' }).pace).toBeLessThan(0.5)
+  })
+
+  it('언어를 주지 않으면 앱 기본 언어(DEFAULT_LOCALE)의 조음 속도 범위를 쓴다', () => {
+    const rate = { ...base, syllableRate: 5 }
+    expect(featuresToAxes(rate).pace).toBe(featuresToAxes(rate, { locale: DEFAULT_LOCALE }).pace)
   })
 
   it('신호가 거의 없으면 모든 축이 0.5', () => {
