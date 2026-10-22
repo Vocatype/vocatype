@@ -74,7 +74,7 @@ export const ko = {
   'result.notes.base': '베이스',
   'result.match.best': '최고의 짝',
   'result.match.opposite': '정반대',
-  'result.signatureCaption': '녹음의 에너지 흐름을 원형으로 그린, 당신만의 목소리 지문',
+  'result.signatureCaption': '이번 녹음에서 소리가 커지고 작아진 흐름을 12시 방향부터 시계 방향으로 그렸어요.',
   'result.stat.pitch': '평균 음높이 {hz}Hz',
   'result.stat.pace': '분당 {count}음절',
   'result.save': '이미지로 저장',

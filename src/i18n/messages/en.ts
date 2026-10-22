@@ -76,7 +76,7 @@ export const en = {
   'result.notes.base': 'Base',
   'result.match.best': 'Best match',
   'result.match.opposite': 'Polar opposite',
-  'result.signatureCaption': 'Your voice fingerprint: the energy of your recording drawn in a circle',
+  'result.signatureCaption': "The rise and fall of this recording's volume, drawn clockwise from 12\u00a0o'clock.",
   'result.stat.pitch': 'Average pitch {hz} Hz',
   'result.stat.pace': '{count} syllables per minute',
   'result.save': 'Save as image',
