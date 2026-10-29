@@ -56,6 +56,10 @@ describe('buildPortraitPrompt', () => {
     // 성별·나이·인종 금지는 축 값뿐 아니라 문장 전체에 건다(1차 리뷰 #1).
     expect(prompt).toContain(NOTHING_INDICATES_IDENTITY)
     expect(prompt.indexOf(NOTHING_INDICATES_IDENTITY)).toBeGreaterThan(prompt.indexOf('overall brightness'))
+    // 상수가 들어 있는지만이 아니라 무엇을 말하는지도 고정한다(2차 리뷰 #10).
+    expect(TITLE_ONLY_MOOD).toContain("not the person's job, age or appearance")
+    expect(MOOD_VALUES_SCOPE).toContain("never to decide the person's gender, age or ethnicity")
+    expect(NOTHING_INDICATES_IDENTITY).toBe("Nothing above indicates the person's gender, age or ethnicity.")
     expect(prompt).not.toContain('WFQV')
     expect(prompt).not.toContain(String(seed))
   })

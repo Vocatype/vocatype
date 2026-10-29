@@ -32,13 +32,14 @@ WFQV, 축 `{ warmth: 0.82, density: 0.71, pace: 0.77, variation: 0.68, pitch: 0.
 Photorealistic portrait photograph of one person looking at the camera.
 glancing back over the shoulder, close-up framing, plain softly blurred studio backdrop.
 wearing a denim jacket in deep brick red and mustard tones, small earrings, curly hair.
-Overall feeling inspired by the title "The Fireside Storyteller" — use it only as a mood; do not show any text, letters or logos in the image.
-Mood values from 0 to 1. Use them only for light, color and mood, never to decide the person's gender, age or ethnicity:
+Overall feeling inspired by the mood of The Fireside Storyteller. This title sets only the mood, not the person's job, age or appearance; do not show any text, letters or logos in the image.
+Mood values from 0 to 1. Use them only for light, color, pose and expression, never to decide the person's gender, age or ethnicity:
 - lighting warmth: 0.82 (0 = cool bluish daylight, 1 = deep golden light)
 - color richness: 0.71 (0 = pale, airy colors, 1 = deep, saturated colors)
 - sense of motion: 0.77 (0 = perfectly still pose, 1 = caught mid-movement)
 - expression liveliness: 0.68 (0 = calm, serene expression, 1 = animated expression, mid-laugh)
 - overall brightness: 0.45 (0 = dark, low-key image, 1 = bright, high-key image)
+Nothing above indicates the person's gender, age or ethnicity.
 85mm lens, shallow depth of field, natural skin texture, high detail, editorial photography.
 ```
 
@@ -46,7 +47,12 @@ Mood values from 0 to 1. Use them only for light, color and mood, never to decid
 
 ## 설계 대비 달라진 점
 
-없음.
+1차 리뷰 반영:
+
+- 타입 이름 뒤에 "사람의 직업·나이·외모가 아니다"(`TITLE_ONLY_MOOD`), 축 값 뒤에 "성별·나이·인종의 근거 없음"(`NOTHING_INDICATES_IDENTITY`)을 붙였다(#1).
+- 제목 따옴표를 뺐다(#2).
+- 범위 문구를 "light, color, pose and expression"으로 바꿨다(#4).
+- 음높이 복원 가능성을 01·README에 적었다(#3).
 
 ## 검증 결과
 
