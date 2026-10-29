@@ -209,6 +209,7 @@ claude (키가 있을 때만) ──실패──▶ workers-ai (무료 Workers A
 - 일부만 옮기더라도, 받는 사람이 라이선스 원문(또는 URL <https://polyformproject.org/licenses/noncommercial/1.0.0>)과 `LICENSE.md` 첫 줄의 `Required Notice:` 줄을 함께 받게 해야 한다.
 - 이 라이선스는 이 코드의 저작권·특허 이용만 허락하고 상표 사용권은 주지 않는다(원문 No Other Rights). "Vocatype" 이름·로고를 자기 서비스·제품을 가리키는 이름이나 표지로 쓸 권리는 이 라이선스에서 나오지 않는다. 아이디어 자체는 저작권 보호 대상이 아니어서, 이 코드를 쓰지 않고 같은 아이디어를 새로 구현하는 것은 이 라이선스로 막지 못한다.
 - 의존성(React, Anthropic SDK 등)과 `worker-configuration.d.ts` 의 런타임 타입 부분(Cloudflare·Microsoft, Apache-2.0, 파일 안 고지)은 각자의 라이선스를 따른다.
+- 브라우저로 내려가는 번들에 든 의존성 패키지(지금은 react, react-dom, scheduler)의 라이선스 원문은 빌드 때 `dist/client/third-party-licenses.txt` 로 함께 만들어져 사이트의 `/third-party-licenses.txt` 에서 볼 수 있다. 각 JS 파일 맨 앞 주석이 이 위치를 가리킨다(033).
 
 ## 작업 흐름
 
