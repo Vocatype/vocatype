@@ -19,7 +19,7 @@
 
 - `LICENSE.md`(새 파일): 첫 줄에 `Required Notice: Copyright (c) 2026 Vocatype (https://github.com/Vocatype/vocatype)`, 그 아래 PolyForm 공식 저장소(`polyformproject/polyform-licenses`)의 원문을 그대로 넣는다
 - `package.json`: `"license": "PolyForm-Noncommercial-1.0.0"`. `package-lock.json` 의 루트 항목도 같이 맞춘다
-- `README.md`: "라이선스" 절(원문 우선, 원문이 드는 허용 범위, 상업 금지, 일부를 옮겨도 원문과 `Required Notice:` 줄 전달, 이름 사용권은 주지 않음, 아이디어는 저작권 보호 대상 아님, 의존성과 `worker-configuration.d.ts` 런타임 타입은 각자의 라이선스) — 1차 리뷰 #1·#2·#5로 다듬음
+- `README.md`: "라이선스" 절(원문 우선, 원문이 드는 허용 범위, 상업 금지, 일부를 옮겨도 원문과 `Required Notice:` 줄 전달, 상표 사용권은 주지 않음, 아이디어는 저작권 보호 대상 아님, 의존성과 `worker-configuration.d.ts` 런타임 타입은 각자의 라이선스) — 1차 리뷰 #1·#2·#5, 2차 리뷰 #13·#14로 다듬음
 
 ### 제외
 

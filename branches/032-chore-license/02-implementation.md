@@ -31,6 +31,6 @@
 ## 확인하지 못한 것
 
 - 저작권자 이름: `Vocatype` 으로 넣었고, 사용자가 "저작권자 먼저 바꾸기" 대신 "리뷰 후 병합"을 골라 유지했다. 개인 이름·법인명으로 바꾸려면 `LICENSE.md` 첫 줄과 README 한 줄을 바꾼다. Vocatype이 법적 주체가 아니면 licensor가 누구인지 모호할 수 있다(불확실).
-- GitHub는 PolyForm을 알아보지 못해 "Other"(NOASSERTION)로 표시한다(Licensee 대조 목록에 PolyForm 없음, PolyForm NC 공개 저장소 5곳 모두 NOASSERTION — 1차 리뷰 #6). 첫 줄 유무와 무관하며, 라이선스 이름은 README와 `package.json` 으로 알린다.
+- GitHub는 PolyForm을 알아보지 못해 "Other"(NOASSERTION)로 표시한다(Licensee 대조 목록에 PolyForm 없음, PolyForm NC 공개 저장소 5곳 모두 NOASSERTION — 1차 리뷰 #6). 첫 줄 유무와 무관하며, 라이선스 이름은 README와 `package.json` 으로 알린다(이 저장소의 실제 화면은 푸시 뒤 확인).
 - 상업 이용 허락을 받을 연락 경로는 README에 없다(사용자가 정할 일).
 - AI 도구로 만든 부분의 저작권 성립 범위는 법적으로 불확실하다. 라이선스는 저작권이 성립하는 범위에서만 효력이 있다(법률 자문 아님).
