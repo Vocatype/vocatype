@@ -1,6 +1,6 @@
 import type { ApiConfigResponse, ApiErrorResponse, PortraitResponse, ReadingResponse } from '../shared/api.ts'
-import { buildPortraitPrompt } from '../shared/catalog.ts'
 import { SERVICE_NAME } from '../shared/config.ts'
+import { buildPortraitPrompt } from './ai/portraitPrompt.ts'
 import { selectProvider } from './ai/select.ts'
 import { selectTextChain } from './ai/textChain.ts'
 import { parsePortraitRequest } from './portrait.ts'
@@ -81,7 +81,7 @@ export default {
       const provider = selectProvider(env)
       try {
         const output = await provider.generatePortrait({
-          prompt: buildPortraitPrompt(parsed.value.typeCode),
+          prompt: buildPortraitPrompt(parsed.value),
           seed: parsed.value.seed,
         })
         const response: PortraitResponse = { image: output.image, provider: provider.name }

@@ -54,26 +54,26 @@ describe('worker routes', () => {
   })
 
   it('portrait: mock은 image null, 잘못된 요청은 400, 큰 본문은 413, GET은 405', async () => {
-    const ok = await call('/api/portrait', { method: 'POST', body: JSON.stringify({ typeCode: 'WFQV', seed: 7 }) })
+    const ok = await call('/api/portrait', { method: 'POST', body: JSON.stringify({ typeCode: 'WFQV', seed: 7, axes: { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 } }) })
     expect(ok.status).toBe(200)
     expect(await ok.json()).toEqual({ image: null, provider: 'mock' })
-    expect((await call('/api/portrait', { method: 'POST', body: '{"typeCode":"ZZZZ","seed":1}' })).status).toBe(400)
-    expect((await call('/api/portrait', { method: 'POST', body: JSON.stringify({ typeCode: 'WFQV', seed: 1, pad: 'x'.repeat(2000) }) })).status).toBe(413)
+    expect((await call('/api/portrait', { method: 'POST', body: '{"typeCode":"ZZZZ","seed":1,"axes":{"warmth":0.8,"density":0.2,"pace":0.5,"variation":0.4,"pitch":0.3,"brightness":0.6}}' })).status).toBe(400)
+    expect((await call('/api/portrait', { method: 'POST', body: JSON.stringify({ typeCode: 'WFQV', seed: 1, axes: { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 }, pad: 'x'.repeat(2000) }) })).status).toBe(413)
     const get = await call('/api/portrait')
     expect(get.status).toBe(405)
     expect(get.headers.get('allow')).toBe('POST')
   })
 
   it('다른 사이트에서 온 요청은 403, 속도 제한에 걸리면 429', async () => {
-    const cross = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"WFQV","seed":1}', headers: { 'sec-fetch-site': 'cross-site' } })
+    const cross = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"WFQV","seed":1,"axes":{"warmth":0.8,"density":0.2,"pace":0.5,"variation":0.4,"pitch":0.3,"brightness":0.6}}', headers: { 'sec-fetch-site': 'cross-site' } })
     expect(cross.status).toBe(403)
-    const limited = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"WFQV","seed":1}' }, {
+    const limited = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"WFQV","seed":1,"axes":{"warmth":0.8,"density":0.2,"pace":0.5,"variation":0.4,"pitch":0.3,"brightness":0.6}}' }, {
       ...mockEnv,
       PORTRAIT_LIMITER: { limit: async () => ({ success: false }) },
     })
     expect(limited.status).toBe(429)
     expect(limited.headers.get('retry-after')).toBe('60')
-    const allowed = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"WFQV","seed":1}' }, {
+    const allowed = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"WFQV","seed":1,"axes":{"warmth":0.8,"density":0.2,"pace":0.5,"variation":0.4,"pitch":0.3,"brightness":0.6}}' }, {
       ...mockEnv,
       PORTRAIT_LIMITER: { limit: async () => ({ success: true }) },
     })
@@ -83,7 +83,7 @@ describe('worker routes', () => {
   it('제공자가 실패하면 503이고 세부 내용은 숨긴다', async () => {
     const failingAi = { run: async () => { throw new Error('upstream exploded') } } as unknown as Ai
     const env = { AI_PROVIDER: 'workers-ai', AI: failingAi } as unknown as FakeEnv
-    const response = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"WFQV","seed":1}' }, env)
+    const response = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"WFQV","seed":1,"axes":{"warmth":0.8,"density":0.2,"pace":0.5,"variation":0.4,"pitch":0.3,"brightness":0.6}}' }, env)
     expect(response.status).toBe(503)
     expect(await response.text()).not.toContain('exploded')
   })
@@ -92,7 +92,7 @@ describe('worker routes', () => {
     const ai = { run: async () => ({ image: '/9j/QUJD' }) } as unknown as Ai
     const env = { AI_PROVIDER: 'workers-ai', AI: ai } as unknown as FakeEnv
     expect(await (await call('/api/config', undefined, env)).json()).toEqual({ provider: 'workers-ai', textProviders: [], features: { portrait: true, reading: false } })
-    const response = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"CLME","seed":3}' }, env)
+    const response = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"CLME","seed":3,"axes":{"warmth":0.8,"density":0.2,"pace":0.5,"variation":0.4,"pitch":0.3,"brightness":0.6}}' }, env)
     expect(await response.json()).toEqual({ image: 'data:image/jpeg;base64,/9j/QUJD', provider: 'workers-ai' })
   })
 
@@ -102,7 +102,7 @@ describe('worker routes', () => {
     vi.stubGlobal('fetch', fetchMock)
     const env = { AI_PROVIDER: PRODUCTION_AI_PROVIDER, OPENAI_API_KEY: 'sk-openai-test' } as unknown as FakeEnv
     expect(await (await call('/api/config', undefined, env)).json()).toEqual({ provider: 'openai', textProviders: [], features: { portrait: true, reading: false } })
-    const response = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"CLME","seed":3}', headers: { 'cf-connecting-ip': '203.0.113.9', 'user-agent': 'TestBrowser' } }, env)
+    const response = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"CLME","seed":3,"axes":{"warmth":0.8,"density":0.2,"pace":0.5,"variation":0.4,"pitch":0.3,"brightness":0.6}}', headers: { 'cf-connecting-ip': '203.0.113.9', 'user-agent': 'TestBrowser' } }, env)
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ image: 'data:image/jpeg;base64,/9j/QUJD', provider: 'openai' })
     expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -111,17 +111,22 @@ describe('worker routes', () => {
     expect(new Headers(init?.headers as HeadersInit).get('authorization')).toBe('Bearer sk-openai-test')
     const raw = String(init?.body)
     expect(JSON.parse(raw)).toMatchObject({ model: 'gpt-image-2.5-flare', size: '1024x1024', quality: 'medium' })
-    // 사용자 IP·UA·씨앗은 요청 어디에도 없다.
+    // 사용자 IP·UA·씨앗(숫자·이름)·타입 코드는 요청 어디에도 없다. 프롬프트에는 그림 의미의 축 값과 타입 영어 이름이 든다(035).
     expect(raw).not.toContain('203.0.113.9')
     expect(raw).not.toContain('TestBrowser')
     expect(raw).not.toContain('seed')
+    expect(raw).not.toContain('CLME')
+    const prompt = (JSON.parse(raw) as { prompt: string }).prompt
+    expect(prompt).toContain('- lighting warmth: 0.80')
+    expect(prompt).toContain('The Frosty Morning Bookseller')
+    expect(prompt).not.toMatch(/pitch/i)
   })
 
   it('openai 제공자가 실패하면 503이고 세부 내용은 숨긴다(로그에는 상태·코드만)', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: { code: 'moderation_blocked', message: 'secret-detail' } }, { status: 400 })))
     const env = { AI_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-openai-test' } as unknown as FakeEnv
-    const response = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"WFQV","seed":1}' }, env)
+    const response = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"WFQV","seed":1,"axes":{"warmth":0.8,"density":0.2,"pace":0.5,"variation":0.4,"pitch":0.3,"brightness":0.6}}' }, env)
     expect(response.status).toBe(503)
     expect(await response.text()).not.toContain('secret-detail')
     expect(String(logged.mock.calls[0]?.[1])).toBe('OpenAiError: HTTP 400 moderation_blocked')

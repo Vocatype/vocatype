@@ -101,19 +101,19 @@ describe('requestPortrait', () => {
       sentBody = String(init?.body)
       return Response.json({ image: 'data:image/jpeg;base64,QUJD', provider: 'workers-ai' })
     })
-    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9 })).toBe('data:image/jpeg;base64,QUJD')
-    expect(JSON.parse(sentBody)).toEqual({ typeCode: 'WFQV', seed: 9 })
+    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9, axes: { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 } })).toBe('data:image/jpeg;base64,QUJD')
+    expect(JSON.parse(sentBody)).toEqual({ typeCode: 'WFQV', seed: 9, axes: { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 } })
   })
 
   it('실패하거나 이미지가 이상하면 null', async () => {
     mockFetch(() => new Response('', { status: 503 }))
-    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9 })).toBeNull()
+    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9, axes: { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 } })).toBeNull()
     mockFetch(() => Response.json({ image: 'javascript:alert(1)', provider: 'mock' }))
-    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9 })).toBeNull()
+    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9, axes: { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 } })).toBeNull()
     mockFetch(() => Response.json({ image: 'data:image/svg+xml;base64,QUJD', provider: 'mock' }))
-    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9 })).toBeNull()
+    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9, axes: { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 } })).toBeNull()
     mockFetch(() => Response.json({ image: `data:image/png;base64,${'A'.repeat(5 * 1024 * 1024)}`, provider: 'mock' }))
-    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9 })).toBeNull()
+    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9, axes: { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 } })).toBeNull()
   })
 
   it('이미 취소된 신호를 주면 취소된 채로 요청이 나가고 즉시 null로 끝난다', async () => {
@@ -124,7 +124,7 @@ describe('requestPortrait', () => {
     mockFetch(handler)
     const controller = new AbortController()
     controller.abort()
-    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9 }, controller.signal)).toBeNull()
+    expect(await requestPortrait({ typeCode: 'WFQV', seed: 9, axes: { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 } }, controller.signal)).toBeNull()
     expect(handler).toHaveBeenCalledTimes(1)
     expect((handler.mock.calls[0]?.[1] as RequestInit | undefined)?.signal?.aborted).toBe(true)
   })
@@ -132,7 +132,7 @@ describe('requestPortrait', () => {
   it('타임아웃이 지나면 요청을 끊고 null', async () => {
     vi.useFakeTimers()
     mockFetch((_input, init) => new Promise((_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })))))
-    const pending = requestPortrait({ typeCode: 'WFQV', seed: 9 })
+    const pending = requestPortrait({ typeCode: 'WFQV', seed: 9, axes: { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 } })
     await vi.advanceTimersByTimeAsync(60_001)
     expect(await pending).toBeNull()
   })

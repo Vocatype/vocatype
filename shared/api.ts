@@ -22,8 +22,13 @@ export interface ApiConfigResponse {
 
 export interface PortraitRequest {
   typeCode: TypeCode
-  /** 0 이상의 정수. 같은 녹음이면 같은 값이다. Workers AI 는 같은 씨앗이면 같은 얼굴을 그리고, OpenAI 는 씨앗을 받지 않는다(매번 다른 얼굴). */
+  /**
+   * 0 이상의 정수. 같은 녹음이면 같은 값이다. 서버가 이 값으로 연출 후보(각도·구도·배경·옷·머리·소품)를 고른다(035).
+   * Workers AI 는 이 값을 씨앗으로도 받는다. OpenAI 에는 숫자가 가지 않고 고른 단어만 간다.
+   */
   seed: number
+  /** 리딩과 같은 여섯 축(0..1, 소수 둘째 자리). 서버가 음높이를 뺀 다섯 축을 그림 의미(조명·색·움직임·표정·밝기)로 프롬프트에 넣는다(035). */
+  axes: ReadingAxes
 }
 
 export interface PortraitResponse {
@@ -36,7 +41,7 @@ export interface ApiErrorResponse {
   error: 'not_found' | 'method_not_allowed' | 'forbidden' | 'rate_limited' | 'invalid_request' | 'too_large' | 'provider_failed'
 }
 
-/** /api/portrait 요청 본문 최대 크기(바이트). 타입 코드와 씨앗뿐이라 넉넉히 1KB. */
+/** /api/portrait 요청 본문 최대 크기(바이트). 타입 코드·씨앗·여섯 수치뿐이라 1KB면 넉넉하다. */
 export const PORTRAIT_REQUEST_MAX_BYTES = 1024
 
 /** 씨앗 상한. Workers AI seed 입력은 32비트 정수면 충분하다(OpenAI 는 씨앗을 쓰지 않는다). */

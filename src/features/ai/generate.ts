@@ -46,16 +46,18 @@ export async function runGeneration(capture: Capture, options: GenerateOptions):
   })
   signal?.throwIfAborted()
 
-  // 2) 켜져 있는 기능만 병렬로 요청한다. 초상은 타입 코드·씨앗, 리딩은 타입 코드·반올림한 축·언어만 보낸다.
+  // 2) 켜져 있는 기능만 병렬로 요청한다. 초상은 타입 코드·씨앗·반올림한 축, 리딩은 타입 코드·반올림한 축·언어만 보낸다.
   //    어느 쪽이 실패해도 null 로 받아 결과로 진행한다(초상은 자리표시, 리딩은 카탈로그 설명).
   const config = await configPromise
   signal?.throwIfAborted()
   const plan = planGeneration(config.features, profile.quality)
   if (plan.stage) onStage?.(plan.stage)
   let readingSettled = false
-  const portraitPromise = plan.wantPortrait ? requestPortrait({ typeCode: profile.typeCode, seed: profile.seed }, signal) : Promise.resolve(null)
+  // 초상과 리딩은 같은 반올림 축을 보낸다. 초상은 서버가 그림 의미(조명·색·움직임·표정·밝기)로만 쓴다(035).
+  const axes = toReadingAxes(profile.axes)
+  const portraitPromise = plan.wantPortrait ? requestPortrait({ typeCode: profile.typeCode, seed: profile.seed, axes }, signal) : Promise.resolve(null)
   const readingPromise = plan.wantReading
-    ? requestReading({ typeCode: profile.typeCode, axes: toReadingAxes(profile.axes), locale: getLocale() }, signal).finally(() => {
+    ? requestReading({ typeCode: profile.typeCode, axes, locale: getLocale() }, signal).finally(() => {
         readingSettled = true
       })
     : Promise.resolve(null)

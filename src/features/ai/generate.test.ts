@@ -167,7 +167,10 @@ describe('runGeneration 정상 흐름', () => {
 
     expect([...api.paths()].sort()).toEqual(['/api/config', '/api/portrait', '/api/reading'])
     // 키까지 정확히 같아야 한다: 음성·특징값·원래 정밀도의 축은 보내지 않는다.
-    expect(api.body('/api/portrait')).toEqual({ typeCode: 'WFME', seed: 4242 })
+    // 초상도 리딩과 같은 반올림 축을 보낸다(035).
+    const readingAxes = (api.body('/api/reading') as { axes: Record<string, number> }).axes
+    expect(api.body('/api/portrait')).toEqual({ typeCode: 'WFME', seed: 4242, axes: readingAxes })
+    expect(Object.keys(readingAxes).sort()).toEqual(['brightness', 'density', 'pace', 'pitch', 'variation', 'warmth'])
     expect(api.body('/api/reading')).toEqual({
       typeCode: 'WFME',
       axes: { warmth: 0.81, density: 0.52, pace: 0.2, variation: 0.46, pitch: 0.4, brightness: 0.4 },
