@@ -360,27 +360,3 @@ export function getCompatibility(code: TypeCode): Compatibility {
     },
   }
 }
-
-/* ---------- 이미지 프롬프트 ---------- */
-
-/** 실사 초상화 생성용 영어 프롬프트. 성별·나이·인종은 지정하지 않는다. */
-export function buildPortraitPrompt(code: TypeCode): string {
-  const warm = axisValue(code, 'temperature') === 0
-  const full = axisValue(code, 'texture') === 0
-  const quick = axisValue(code, 'pace') === 0
-  const vivid = axisValue(code, 'flow') === 0
-  const color = getPersonalColor(code)
-  const lighting = warm ? 'golden hour window light, warm color grading' : 'soft overcast daylight, cool color grading'
-  const presence = full ? 'confident posture, grounded presence' : 'relaxed posture, airy presence'
-  const expression = quick ? (vivid ? 'bright animated smile, eyes mid-laugh' : 'alert friendly half-smile') : vivid ? 'thoughtful expressive gaze, slight smile' : 'calm serene expression, soft eyes'
-  const wardrobe = `simple clothing in ${color.promptColors} tones`
-  return [
-    'Photorealistic head-and-shoulders portrait photograph of one person looking at the camera',
-    lighting,
-    presence,
-    expression,
-    wardrobe,
-    'plain softly blurred studio background',
-    '85mm lens, shallow depth of field, natural skin texture, high detail, editorial photography',
-  ].join(', ')
-}

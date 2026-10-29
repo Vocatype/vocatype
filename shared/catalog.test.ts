@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ALL_TYPE_CODES } from './typeCode.ts'
-import { buildPortraitPrompt, getCompatibility, getPersonalColor, getScent, getVoiceType, seasonFor, VOICE_TYPES } from './catalog.ts'
+import { getCompatibility, getPersonalColor, getScent, getVoiceType, seasonFor, VOICE_TYPES } from './catalog.ts'
 
 describe('catalog', () => {
   it('16개 타입이 모두 이름과 설명을 가진다', () => {
@@ -50,17 +50,6 @@ describe('catalog', () => {
     for (const code of ALL_TYPE_CODES) {
       expect(getCompatibility(code).best.code).not.toBe(code)
       expect(getCompatibility(getCompatibility(code).opposite.code).opposite.code).toBe(code)
-    }
-  })
-
-  it('프롬프트는 성별·나이·인종을 지정하지 않는다', () => {
-    const banned =
-      /\b(wo)?man\b|\b(fe)?male\b|\bgirl\b|\bboy\b|\blady\b|\bgentleman\b|\bchild\b|\bteen(ager)?\b|\byoung\b|\bold\b|\belderly\b|\basian\b|\bcaucasian\b|\bafrican\b|\blatin[oa]?\b|\bblack\b|\bwhite\b/i
-    for (const code of ALL_TYPE_CODES) {
-      const prompt = buildPortraitPrompt(code)
-      expect(prompt, `${code}: ${prompt}`).not.toMatch(banned)
-      expect(prompt.toLowerCase()).toContain('photorealistic')
-      expect(prompt).not.toMatch(/#[0-9a-f]{6}/i)
     }
   })
 })

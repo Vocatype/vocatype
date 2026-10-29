@@ -12,19 +12,26 @@ export function roundAxis(value: number): number {
   return Math.round(value * 100) / 100
 }
 
+/** 0..1 사이의 여섯 축을 반올림해 돌려준다. 하나라도 없거나 범위를 벗어나면 null. 추가 키는 버린다. 리딩과 초상(035)이 함께 쓴다. */
+export function validateAxes(axes: unknown): ReadingAxes | null {
+  if (typeof axes !== 'object' || axes === null) return null
+  const cleaned = {} as ReadingAxes
+  for (const key of READING_AXIS_KEYS) {
+    const value = (axes as Record<string, unknown>)[key]
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) return null
+    cleaned[key] = roundAxis(value)
+  }
+  return cleaned
+}
+
 /** 타입 코드, 0..1 사이의 여섯 축, 로케일만 받는다. 추가 필드는 버린다. */
 export function validateReadingBody(body: unknown): ReadingValidationResult {
   if (typeof body !== 'object' || body === null) return INVALID
   const { typeCode, axes, locale } = body as { typeCode?: unknown; axes?: unknown; locale?: unknown }
   if (!isTypeCode(typeCode)) return INVALID
   if (!isLocale(locale)) return INVALID
-  if (typeof axes !== 'object' || axes === null) return INVALID
-  const cleaned = {} as ReadingAxes
-  for (const key of READING_AXIS_KEYS) {
-    const value = (axes as Record<string, unknown>)[key]
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) return INVALID
-    cleaned[key] = roundAxis(value)
-  }
+  const cleaned = validateAxes(axes)
+  if (!cleaned) return INVALID
   return { ok: true, value: { typeCode, axes: cleaned, locale } }
 }
 

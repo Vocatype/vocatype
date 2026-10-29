@@ -45,7 +45,7 @@ interface ImagesErrorResponse {
   error?: { code?: unknown; type?: unknown }
 }
 
-/** 요청 본문. 프롬프트는 서버가 타입 코드로만 만든다. seed 는 이 API 에 없어 보내지 않는다. */
+/** 요청 본문. 프롬프트는 서버가 만든다(`portraitPrompt.ts`). seed 는 이 API 에 없어 보내지 않는다. */
 export function buildImageRequest(input: PortraitInput, model: string) {
   return {
     model,
