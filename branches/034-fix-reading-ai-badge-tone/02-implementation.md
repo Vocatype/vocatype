@@ -2,57 +2,73 @@
 
 작업 브랜치: `claude/ai-model-migration-e64f72`(앱이 만든 worktree 브랜치). 병합할 때 `fix/034-reading-ai-badge-tone` 을 만들어 `--no-ff` 로 병합한다.
 
-## 변경 파일
+## 변경 파일(1차 리뷰 반영 뒤 최종)
 
 | 파일 | 내용 |
 | --- | --- |
-| `src/screens/ResultScreen.tsx` | 해설 카드의 `<p className="card__note">{t('result.readingNote')}</p>` 삭제, 제목 안에 `<span className="card__badge">{t('result.readingBadge')}</span>` |
-| `src/i18n/messages/ko.ts`, `en.ts` | `result.readingNote` 삭제, `result.readingBadge: 'AI'` |
-| `src/styles/global.css` | `.card__badge`(작은 알약 모양, `--accent-soft` 바탕·`--accent` 글자, 0.7rem, 제목의 대문자 변환을 따르지 않음) |
-| `worker/ai/readingOutput.ts` | `checkKoreanPoliteStyle`(새 함수), `normalizeReadingOutput(value, locale)`·`parseReadingJson(text, locale)`. `ko` 면 해요체 검사 |
+| `src/screens/ResultScreen.tsx` | 해설 카드의 `card__note` 문단 삭제, 제목 안에 `<span className="card__badge">{t('result.aiBadge')}</span>`. `PortraitFrame` 에 `badge`, 공유 이미지 라벨에 `aiMark` 를 넘김 |
+| `src/components/PortraitFrame.tsx` | 선택 속성 `badge`. 생성 초상일 때만 `<span className="portrait__badge">` |
+| `src/features/export/renderCard.ts` | `CardLabels.aiMark`. 생성 초상이 있을 때 초상 오른쪽 위 안쪽(24px)에 어두운 반투명 알약 + 흰 "AI"(`drawAiMark`) |
+| `src/i18n/messages/ko.ts`, `en.ts` | `result.readingNote` 삭제, `result.aiBadge: 'AI'` |
+| `src/styles/global.css` | `.card__badge`(글자 `color-mix(var(--accent) 75%, var(--fg))`), `.portrait` 에 `position: relative`, `.portrait__badge` |
+| `shared/catalog.ts` | 16개 타입 한국어 설명의 첫 문장을 해요체로 |
+| `worker/ai/readingOutput.ts` | `checkKoreanPoliteStyle`(끝 글자가 '다'인 문장이 있으면 위반), `SENTENCE_BREAK`·`SENTENCE_TAIL`, `normalizeReadingOutput(value, locale)`·`parseReadingJson(text, locale)` |
 | `worker/ai/claude.ts` | `parseReadingMessage(message, locale)`, 호출부가 `input.locale` 을 넘김 |
 | `worker/ai/workersAiText.ts` | `parseWorkersAiTextResult(result, locale)`, 호출부가 `input.locale` 을 넘김 |
-| `worker/ai/readingPrompt.ts` | 한국어 규칙을 "모든 문장을 해요체(…요·…죠)로 끝내고 합니다체(…니다)는 쓰지 않는다"로 |
-| `worker/ai/readingOutput.test.ts` (새 파일) | 해요체 통과(…요·…죠·물음표·느낌표·말줄임·물결·따옴표·끝 마침표 없음), 위반(합니다체·해라체, 문장 번호만 담고 본문은 없음), 영어는 검사 안 함, 캡션은 검사 안 함 — 3건 |
-| `worker/ai/claude.test.ts` | `parseReadingMessage` 호출에 `'ko'`. 합니다체가 섞이면 한 번 더 부르는지, 영어는 한 번만 부르는지 — 1건 추가 |
-| `worker/ai/workersAiText.test.ts` | `parseWorkersAiTextResult` 호출에 `'ko'` |
-| `worker/ai/readingPrompt.test.ts` | 새 한국어 규칙 문구 |
-| `src/screens/ResultScreen.test.tsx` | 배지 마크업이 있고 "녹음은 듣지 않았어요"가 없는지 |
+| `worker/ai/readingPrompt.ts` | 한국어 규칙: "모든 문장을 해요체(…요·…죠)로 끝내고 합니다체(…니다)는 쓰지 않는다" |
+| `README.md` | 실패 조건 두 곳에 문체, 알려진 한계에 AI 표시 범위와 해요체 검사의 한계 |
+| 테스트 | 아래 |
+
+| 테스트 파일 | 내용 |
+| --- | --- |
+| `worker/ai/readingOutput.test.ts` (새 파일) | 해요체 통과 11가지(끝 따옴표·물결·말줄임·전각·이모지·괄호·중간 물음표·인용 속 반말·영어 약어), …다 위반 8가지(`.”`·`.)`·`。`·`⋯`·`~` 뒤 포함, 문장 번호만 담음), 영어·캡션은 검사 안 함 — 3건 |
+| `worker/ai/claude.test.ts` | 합니다체가 섞이면 한 번 더 부르고, 영어는 한 번만 — 1건 |
+| `worker/ai/workersAiText.test.ts` | 섞인 ko 응답 실패, `en` 통과, 제공자가 요청 언어를 넘김 — 2건 |
+| `worker/ai/readingPrompt.test.ts` | 새 한국어 규칙 문구, 16개 타입 설명이 모두 문체 검사를 통과 — 1건 |
+| `src/features/export/renderCard.test.ts` | 생성 초상이면 오른쪽 위 안쪽·clip 밖에 "AI" 알약과 가운데 글자, 자리표시 초상·빈 표시면 없음 — 1건 |
+| `src/screens/ResultScreen.test.tsx` | 해설 배지 있음·안내 문장 없음, 생성 초상에 `portrait__badge`, 자리표시 초상에는 없음 |
 
 ## 설계 대비 달라진 점
 
-없음.
+1차 리뷰 뒤 사용자 결정과 지적으로 바뀌었다. 01의 "1차 리뷰 뒤 바뀐 설계" 표가 전부다. 타입 설명 해요체화, 판정 규칙(요·죠 → '다' 위반), 문장 나누기, 배지 대비, 초상·공유 이미지 AI 표시, 메시지 키 이름이 바뀌었다.
 
 ## 검증 결과
 
 | 검사 | 결과 |
 | --- | --- |
 | `npm run typecheck` / `lint` / `build` | 종료 코드 0 |
-| `npm test` | 39파일 321건 통과(새 테스트 4건) |
+| `npm test` | 39파일 325건 통과(이 작업에서 8건 추가) |
 | `git diff --check` | 공백 문제 없음 |
 | 빌드된 번들 | CSS에 `.card__badge`, JS에 "녹음은 듣지 않았어요" 0건 |
 
-변이 확인(관련 테스트 3파일, 확인 뒤 원래대로 되돌리고 `cmp` 로 같음 확인):
+변이 확인(관련 테스트 파일만 실행, 확인 뒤 원래대로 되돌리고 `cmp` 로 같음 확인):
 
 | 변이 | 실패한 테스트 |
 | --- | --- |
-| 해요체 검사 호출 제거 | 2건 |
-| 허용 끝 글자에서 '죠' 제거 | 1건 |
+| 해요체 검사 호출 제거(1차 전 규칙에서) | 2건 |
+| 허용 끝 글자에서 '죠' 제거(1차 전 규칙에서) | 1건 |
 | 오류 메시지에 문장 본문 넣기 | 1건 |
+| 타입 설명을 옛 문구(합니다체)로 되돌리기 | 1건 |
+| 자리표시 초상에도 공유 이미지 표시 | 5건 |
+| 공유 이미지 표시 호출 제거 | 1건 |
+| 결과 화면 초상 배지 제거 | 1건 |
 
 ### 구현자 확인(내장 브라우저)
 
-결과 화면은 녹음이 있어야 들어갈 수 있다. 그래서 030처럼 개발 서버에 임시 미리보기 페이지(`preview-034.html`, `src/preview034.tsx`)를 두었다. 합성 프로필(WFME)과 해요체 해설로 실제 `ResultScreen` 을 앱의 바깥 틀(`.app > main.main`) 안에 그렸고, 확인 뒤 두 파일은 지웠다. AI 호출은 없다.
+결과 화면은 녹음이 있어야 들어갈 수 있다. 그래서 030처럼 개발 서버에 임시 미리보기 페이지를 두었다(`preview-034.html`, `src/preview034.tsx`, `public/preview-034-portrait.jpg`, 확인 뒤 세 파일 삭제). 합성 프로필로 실제 `ResultScreen` 과 `renderCard` 를 그렸다. 초상은 031 첫 실호출에서 받은 운영 이미지 한 장이고, AI 호출은 없다.
 
 | 확인 | 결과 |
 | --- | --- |
-| 제목 | 접근성 이름 "목소리 해설 AI". 배지 글자 "AI", 11.2px, `text-transform: none` |
-| 다크 | 배지 바탕 `rgb(36, 31, 69)`, 글자 `rgb(143, 130, 255)` |
-| 라이트·375px | 배지 바탕 `rgb(239, 234, 255)`, 글자 `rgb(109, 93, 252)`. 가로 스크롤 없음 |
+| 해설 제목 | 접근성 이름 "목소리 해설 AI". 배지 글자 "AI" 11.2px, `text-transform: none`. 라이트 글자색은 `color-mix` 결과 |
+| 해설 배지(1차 전 색) | 다크 바탕 `rgb(36, 31, 69)`/글자 `rgb(143, 130, 255)`, 라이트·375px 바탕 `rgb(239, 234, 255)`/글자 `rgb(109, 93, 252)`, 가로 스크롤 없음 |
+| 결과 화면 초상 | 320×320 초상 오른쪽 위(오른쪽·위 10px)에 "AI" 알약, 사진 위에서 읽힘 |
+| 타입 설명 | "따뜻하고 꽉 찬 목소리가 빠르게 굽이쳐요. …" |
+| 공유 이미지 | 1080×1920. 초상 오른쪽 위 안쪽에 "AI" 알약, 사진 위에서 읽힘 |
 | 안내 문장 | 페이지에 "녹음은 듣지 않았어요" 없음 |
 
 ## 확인하지 못한 것
 
-- 실제 Claude 출력의 해요체 통과율. 위반 비율이 높으면 재호출이 늘고, 재호출도 실패하면 Workers AI 예비가 쓰인다. 예비도 위반이면 고정 문구(카탈로그 설명)가 나온다. 배포 뒤 Worker 로그의 `reading style` 줄로 본다.
-- 문장 나누기는 끝 구두점 뒤 공백 기준이다. 따옴표 안에 마침표가 있는 글처럼 드문 경우는 한 문장으로 묶이거나 나뉠 수 있다. 그러면 정상 해설이 거절될 수도, 섞인 해설이 통과할 수도 있다.
-- AI 표시의 법적 충분성(AI 기본법). 초상·공유 카드에는 표시가 없다. 법률 자문이 아니다.
+- 실제 Claude 출력이 새 검사를 통과하는 비율. 타입 설명을 고쳐 섞임이 줄 것으로 보지만 실측은 없다. 배포 뒤 Worker 로그의 `reading style` 줄로 본다.
+- 해요체 검사의 한계(README 알려진 한계): 끝 구두점 뒤 공백 없이 이어진 문장, 해체·명사 종결.
+- 공유 이미지 캡션에는 따로 AI 표시가 없다. AI 표시가 법적으로 충분한지는 확인하지 않았다(법률 자문 아님).
+- 결과 화면 초상 배지는 보조기기에 "AI"로 읽힌다. `alt` 문구는 바꾸지 않았다.
