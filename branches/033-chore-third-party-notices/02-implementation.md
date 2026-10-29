@@ -43,3 +43,18 @@
 - 배포된 사이트의 `/third-party-licenses.txt` 응답. 정적 자산 설정이 SPA 폴백(`not_found_handling: single-page-application`)이라 파일이 없어도 200으로 `index.html` 이 나오므로, 배포 뒤 상태 코드가 아니라 **내용**(`# Licenses`)과 `content-type` 으로 확인한다.
 - 빌드 산출물 검사는 단위 테스트에 넣지 않았다(전체 빌드가 필요하다). 위 확인은 수동이다.
 - 법률 자문이 아니다. Worker 번들은 사용자에게 내려가지 않고(재배포가 아니다), `wrangler deploy` 로 Cloudflare에 올리는 것은 우리 대신 실행하는 호스팅 업체에 맡기는 것으로 보았다(해석 불확실).
+
+## 배포 후 확인
+
+사용자 승인("Merge and push")에 따라 2026-10-29 14:16:21 KST에 main(`2f0e588`)을 푸시했다. Cloudflare Workers Builds가 자동 배포했다: GitHub 커밋 검사 "Workers Builds: vocatype — completed/success"(05:17:37Z), 버전 `1ffdd209-7507-42c7-8b3d-bbcb5bf0443d`.
+
+14:17 KST, `https://vocatype.hs827.workers.dev`:
+
+| 확인 | 결과 |
+| --- | --- |
+| 메인 페이지의 JS | `assets/index-DhBB3AWr.js`(브랜치 빌드와 같은 이름) |
+| `GET /third-party-licenses.txt` | 200, `content-type: text/plain`, `cache-control: public, max-age=0, must-revalidate`, 3,429바이트, 첫 줄 `# Licenses`, `## react-dom - 19.3.1 (MIT)`·`## react - 19.3.1 (MIT)`·`## scheduler - 0.28.0 (MIT)` — SPA 폴백(`index.html`)이 아니라 원문 파일 |
+| 배포된 JS | 첫 줄 `/*! Third-party licenses: /third-party-licenses.txt */`, `@license React` 5개 |
+| `GET /api/config` | `provider: "openai"`, `textProviders: ["claude","workers-ai"]`(이 작업과 무관한 설정 그대로) |
+
+- 운영의 `content-type` 에는 preview와 달리 `charset` 이 붙지 않는다. 파일이 ASCII라 표시에 문제없다.
