@@ -9,32 +9,36 @@
     // /api/* 만 Worker가 먼저 처리하고, 나머지는 정적 자산이 먼저 응답한다.
     "run_worker_first": ["/api/*"]
   },
-  // AI 제공자 선택. "mock"이면 초상을 만들지 않고, "workers-ai"면 아래 AI 바인딩으로 초상을 만든다.
+  // 초상(이미지) 제공자 선택. 하나만 고른다.
+  //   "openai"     OpenAI GPT 이미지 모델 (현재 값, 031). `wrangler secret put OPENAI_API_KEY`가 있어야 켜진다(없으면 mock처럼 초상을 만들지 않는다).
+  //                기본 모델 gpt-image-2.5-flare. 바꾸려면 "IMAGE_MODEL": "gpt-image-…" 변수를 추가한다. 초상 1장 약 $0.013(medium, 1024×1024).
+  //   "workers-ai" 아래 AI 바인딩(Leonardo Lucid Origin, 무료 할당량)으로 초상을 만든다. 되돌릴 때 이 값으로 바꾼다.
+  //   "mock"       초상을 만들지 않는다(자리표시 초상).
   // TEXT_PROVIDER 는 목소리 리딩(텍스트) 폴백 체인. 콤마 목록을 순서대로 시도하고 모두 실패하면 고정 문구(mock)로 끝난다.
   //   "workers-ai"        무료 Workers AI 텍스트 모델만 (키 없이 동작)
   //   "workers-ai,claude" 무료 모델 → 실패(할당량 소진 등) 시 Claude
   //   "claude,workers-ai" Claude → 실패 시 무료 모델 (현재 값, 022: 모든 사용자에게 같은 모델의 문장)
   // claude는 `wrangler secret put ANTHROPIC_API_KEY`가 있어야 체인에 들어간다(없으면 조용히 빠진다).
-  // 키는 이 파일과 저장소에 절대 넣지 않는다. Claude 모델을 바꾸려면 "TEXT_MODEL": "claude-…" 변수를 추가한다(기본 claude-haiku-5-5).
+  // 키(ANTHROPIC_API_KEY, OPENAI_API_KEY)는 이 파일과 저장소에 절대 넣지 않는다. Claude 모델을 바꾸려면 "TEXT_MODEL": "claude-…" 변수를 추가한다(기본 claude-haiku-5-5).
   // 설정 파일에서만 바꾼다(대시보드 변경은 다음 배포에 덮어써진다). README의 "AI 제공자" 절 참고.
   "vars": {
-    "AI_PROVIDER": "workers-ai",
+    "AI_PROVIDER": "openai",
     "TEXT_PROVIDER": "claude,workers-ai"
   },
-  // Workers AI 바인딩. 초상(AI_PROVIDER=workers-ai)과 리딩 체인의 workers-ai(현재는 Claude 실패 시 예비)가 함께 쓴다.
-  // 무료 할당량(하루 10,000뉴런)도 둘이 함께 쓴다. remote: true — Workers AI는 로컬 개발에서도 항상 원격 자원이므로 명시해 경고를 없앤다.
+  // Workers AI 바인딩. 리딩 체인의 workers-ai(Claude 실패 시 예비)가 쓴다. AI_PROVIDER=workers-ai로 되돌리면 초상도 이 바인딩을 쓴다.
+  // 무료 할당량(하루 10,000뉴런)은 지금은 리딩 예비만 쓴다(031에서 초상이 OpenAI로 옮겼다). remote: true — Workers AI는 로컬 개발에서도 항상 원격 자원이므로 명시해 경고를 없앤다.
   "ai": {
     "binding": "AI",
     "remote": true
   },
-  // 생성 속도 제한: 접속 IP당 1분에 5회. IP는 제한 판단에만 쓰고 저장하지 않는다.
+  // 생성 속도 제한: 접속 IP당 1분에 초상 2회(031, 유료 이미지라 5회에서 낮췄다), 리딩 5회. IP는 제한 판단에만 쓰고 저장하지 않는다.
   // 유료 제공자를 켜기 전에 반드시 유지할 것(무제한 과금 방지). namespace_id는 계정 안에서 고유한 임의 정수.
   // 초상과 리딩은 한 번의 생성에서 함께 나가므로 바인딩을 따로 둔다(공유하면 초상 한도가 절반이 된다).
   "ratelimits": [
     {
       "name": "PORTRAIT_LIMITER",
       "namespace_id": "1001",
-      "simple": { "limit": 5, "period": 60 }
+      "simple": { "limit": 2, "period": 60 }
     },
     {
       "name": "READING_LIMITER",

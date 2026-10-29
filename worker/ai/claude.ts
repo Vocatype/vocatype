@@ -16,12 +16,17 @@ export function isTextModel(value: unknown): value is string {
  * SDK 타임아웃은 밀리초(요청 1회 기준).
  * 재시도·대기(retry-after)까지 합친 실제 상한은 SDK 설정이 아니라 중단 신호가 건다: 체인 안에서는 체인이 배분한 시간, 체인 밖에서는 체인 예산 전체.
  * 그 상한과의 관계 두 가지를 claude.test.ts 가 검사한다:
- * - 예산 전부를 받을 때(체인 밖이거나 체인의 유일한 제공자. 마지막 제공자는 남은 예산, 최대 25초): 요청 12초 × 시도 2번 + 첫 재시도 대기(최대 0.5초) = 24.5초 ≤ 25초
- * - 뒤 제공자가 있을 때(운영 순서 claude,workers-ai): 받은 13초(25 − 12) 안에 요청 12초 한 번이 다 들어간다. 재시도는 남은 시간 안에서만 된다
+ * - 예산 전부를 받을 때(체인 밖이거나 체인의 유일한 제공자. 마지막 제공자는 남은 예산, 최대 40초): 요청 12초 × 시도 3번 + 재시도 대기(최대 0.5 + 1초) = 37.5초 ≤ 40초
+ * - 뒤 제공자가 있을 때(운영 순서 claude,workers-ai): 받은 28초(40 − 12) 안에 요청 12초 두 번과 첫 재시도 대기가 다 들어간다(24.5초). 세 번째 시도와 계약 위반 재호출은 남은 시간 안에서만 된다
  */
 export const REQUEST_TIMEOUT_MS = 12_000
-/** SDK 자동 재시도 횟수. 시도는 1 + 이 값이다. */
-export const MAX_RETRIES = 1
+/** SDK 자동 재시도 횟수. 시도는 1 + 이 값이다. 529 과부하·429 같은 빠른 일시 오류에서 Claude 가 답할 기회를 늘린다(031). */
+export const MAX_RETRIES = 2
+/**
+ * 출력이 계약(JSON·길이)에 맞지 않거나 max_tokens 로 잘렸을 때 Claude 를 다시 부르는 횟수(031). 체인이 준 신호 안에서만 부른다.
+ * 거부(refusal)는 같은 프롬프트로 다시 불러도 거부되므로 다시 부르지 않는다.
+ */
+export const CONTRACT_RETRIES = 1
 /**
  * 적응형 사고가 켜져 있어 사고 토큰이 max_tokens 에 포함된다. 실제 출력은 200토큰 안팎이지만
  * 사고가 길어져 잘리면(503 → 폴백) 사용자에게 리딩이 조용히 사라지므로 넉넉히 둔다. 쓴 토큰만 과금된다.
@@ -80,17 +85,26 @@ export function createClaudeTextProvider(options: ClaudeTextProviderOptions): Te
       // 체인이 배분한 시간을 신호로 주면 그걸 쓰고, 없으면 체인 예산 전체를 자체 상한으로 건다.
       // SDK 는 서버가 준 retry-after 를 그대로 기다리므로, 신호가 없으면 클라이언트가 포기한 뒤에도 두 번째 호출이 나가 비용을 쓸 수 있다.
       const signal = options?.signal ?? AbortSignal.timeout(READING_CHAIN_BUDGET_MS)
-      let message: Anthropic.Message
-      try {
-        message = await createMessage(buildReadingParams(input, model), { signal })
-      } catch (cause) {
-        // SDK 는 중단을 APIUserAbortError 로만 알리므로, 시간 예산에 걸린 경우임을 로그에서 알 수 있게 바꿔 던진다.
-        if (signal.aborted) throw new Error('time budget exceeded (retries included)', { cause })
-        throw cause
+      const params = buildReadingParams(input, model)
+      for (let attempt = 0; ; attempt += 1) {
+        let message: Anthropic.Message
+        try {
+          message = await createMessage(params, { signal })
+        } catch (cause) {
+          // SDK 는 중단을 APIUserAbortError 로만 알리므로, 시간 예산에 걸린 경우임을 로그에서 알 수 있게 바꿔 던진다.
+          if (signal.aborted) throw new Error('time budget exceeded (retries included)', { cause })
+          throw cause
+        }
+        // 비용 추적용 토큰 수만 남긴다(사용자 데이터 없음). 운영에서는 observability 가 꺼져 있어 어디에도 저장되지 않는다.
+        console.info(`[reading] claude ${message.model} in=${message.usage.input_tokens} out=${message.usage.output_tokens} stop=${message.stop_reason ?? 'none'}`)
+        try {
+          return parseReadingMessage(message)
+        } catch (cause) {
+          if (attempt >= CONTRACT_RETRIES || message.stop_reason === 'refusal' || signal.aborted) throw cause
+          // 체인으로 넘기기 전에 남은 시간 안에서 한 번 더 부른다. 오류 메시지만 남긴다(응답 본문 없음).
+          console.warn(`[reading] claude output rejected, retrying: ${cause instanceof Error ? cause.message : String(cause)}`)
+        }
       }
-      // 비용 추적용 토큰 수만 남긴다(사용자 데이터 없음). 운영에서는 observability 가 꺼져 있어 어디에도 저장되지 않는다.
-      console.info(`[reading] claude ${message.model} in=${message.usage.input_tokens} out=${message.usage.output_tokens} stop=${message.stop_reason ?? 'none'}`)
-      return parseReadingMessage(message)
     },
   }
 }

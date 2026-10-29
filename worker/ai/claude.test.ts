@@ -1,7 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { READING_CHAIN_BUDGET_MS } from '../../shared/api.ts'
-import { buildReadingParams, createClaudeTextProvider, DEFAULT_TEXT_MODEL, isTextModel, MAX_RETRIES, parseReadingMessage, REQUEST_TIMEOUT_MS } from './claude.ts'
+import { buildReadingParams, CONTRACT_RETRIES, createClaudeTextProvider, DEFAULT_TEXT_MODEL, isTextModel, MAX_RETRIES, parseReadingMessage, REQUEST_TIMEOUT_MS } from './claude.ts'
 import { READING_SYSTEM_PROMPT } from './readingPrompt.ts'
 import { FALLBACK_RESERVE_MS } from './textChain.ts'
 
@@ -127,6 +127,46 @@ describe('createClaudeTextProvider', () => {
     const provider = createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage: async () => { throw new Error('overloaded') } })
     await expect(provider.generateReading(input)).rejects.toThrow('overloaded')
   })
+
+  it('출력이 계약에 맞지 않으면 체인으로 넘기기 전에 한 번 더 부르고, 그 답을 쓴다', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const replies = [message([text(JSON.stringify({ reading: '짧음', caption: GOOD.caption }))]), message([text(JSON.stringify(GOOD))])]
+    const createMessage = vi.fn(async () => replies.shift() as Anthropic.Message)
+    const provider = createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage })
+    await expect(provider.generateReading(input)).resolves.toEqual(GOOD)
+    expect(createMessage).toHaveBeenCalledTimes(2)
+    expect(String(warn.mock.calls[0]?.[0])).toContain('[reading] claude output rejected, retrying: reading length')
+    // 로그에는 오류 메시지만 들어간다(응답 본문 없음).
+    expect(String(warn.mock.calls[0]?.[0])).not.toContain('짧음')
+  })
+
+  it('다시 부르기는 CONTRACT_RETRIES 번까지이고, 그래도 맞지 않으면 체인으로 실패를 알린다', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const createMessage = vi.fn(async () => message([text('not json')]))
+    await expect(createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage }).generateReading(input)).rejects.toThrow(/not JSON/)
+    expect(createMessage).toHaveBeenCalledTimes(1 + CONTRACT_RETRIES)
+    // max_tokens 로 잘린 응답도 계약 위반으로 보고 다시 부른다.
+    const truncated = vi.fn(async () => message([text('{')], { stop_reason: 'max_tokens' }))
+    await expect(createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage: truncated }).generateReading(input)).rejects.toThrow(/max_tokens/)
+    expect(truncated).toHaveBeenCalledTimes(1 + CONTRACT_RETRIES)
+  })
+
+  it('거부는 다시 부르지 않고, 배분된 시간이 끝났으면 다시 부르지 않는다', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const refusal = vi.fn(async () => message([], { stop_reason: 'refusal', stop_details: { type: 'refusal', category: 'general_harms', explanation: null } as Anthropic.RefusalStopDetails }))
+    await expect(createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage: refusal }).generateReading(input)).rejects.toThrow(/refusal/)
+    expect(refusal).toHaveBeenCalledTimes(1)
+    const controller = new AbortController()
+    const late = vi.fn(async () => {
+      // 답은 왔지만 그 사이 배분된 시간이 끝난 상황.
+      controller.abort()
+      return message([text('not json')])
+    })
+    await expect(createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage: late }).generateReading(input, { signal: controller.signal })).rejects.toThrow(/not JSON/)
+    expect(late).toHaveBeenCalledTimes(1)
+  })
 })
 
 /**
@@ -142,11 +182,13 @@ function maxDefaultRetryDelaysMs(retries: number): number {
 describe('Claude 시간 상수와 리딩 체인 예산', () => {
   it('예산 전부를 받을 때(체인 밖이거나 유일한 제공자) 요청 시간 × 시도 횟수와 재시도 대기가 체인 예산 안에 든다', () => {
     expect(maxDefaultRetryDelaysMs(1)).toBe(500)
+    expect(maxDefaultRetryDelaysMs(2)).toBe(1500)
     expect(REQUEST_TIMEOUT_MS * (1 + MAX_RETRIES) + maxDefaultRetryDelaysMs(MAX_RETRIES)).toBeLessThanOrEqual(READING_CHAIN_BUDGET_MS)
   })
 
-  it('뒤에 제공자가 있을 때(운영 순서 claude,workers-ai) 받은 몫(체인 예산 − 뒤 제공자 몫) 안에 요청 한 번이 다 들어간다', () => {
-    expect(REQUEST_TIMEOUT_MS).toBeLessThanOrEqual(READING_CHAIN_BUDGET_MS - FALLBACK_RESERVE_MS)
+  it('뒤에 제공자가 있을 때(운영 순서 claude,workers-ai) 받은 몫(체인 예산 − 뒤 제공자 몫) 안에 요청 두 번과 첫 재시도 대기가 다 들어간다', () => {
+    expect(MAX_RETRIES).toBeGreaterThanOrEqual(1)
+    expect(REQUEST_TIMEOUT_MS * 2 + maxDefaultRetryDelaysMs(1)).toBeLessThanOrEqual(READING_CHAIN_BUDGET_MS - FALLBACK_RESERVE_MS)
   })
 })
 
