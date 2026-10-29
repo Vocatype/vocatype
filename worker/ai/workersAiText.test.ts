@@ -27,19 +27,37 @@ describe('buildWorkersAiTextInput', () => {
 
 describe('parseWorkersAiTextResult', () => {
   it('문자열 JSON, 코드 펜스로 감싼 JSON, 이미 파싱된 객체를 모두 받는다', () => {
-    expect(parseWorkersAiTextResult({ response: JSON.stringify(GOOD) })).toEqual(GOOD)
-    expect(parseWorkersAiTextResult({ response: '```json\n' + JSON.stringify(GOOD) + '\n```' })).toEqual(GOOD)
-    expect(parseWorkersAiTextResult({ response: { ...GOOD, caption: `  ${GOOD.caption}\n` } })).toEqual(GOOD)
+    expect(parseWorkersAiTextResult({ response: JSON.stringify(GOOD) }, 'ko')).toEqual(GOOD)
+    expect(parseWorkersAiTextResult({ response: '```json\n' + JSON.stringify(GOOD) + '\n```' }, 'ko')).toEqual(GOOD)
+    expect(parseWorkersAiTextResult({ response: { ...GOOD, caption: `  ${GOOD.caption}\n` } }, 'ko')).toEqual(GOOD)
   })
 
   it('형식이 어긋나면 예외(체인이 다음 제공자로 넘긴다)', () => {
-    expect(() => parseWorkersAiTextResult({ response: 'Sure! Here is your reading: ...' })).toThrow(/not JSON/)
-    expect(() => parseWorkersAiTextResult({ response: JSON.stringify({ reading: '짧음', caption: 'x' }) })).toThrow(/reading length/)
-    expect(() => parseWorkersAiTextResult({ response: JSON.stringify([GOOD]) })).toThrow(/not an object/)
-    expect(() => parseWorkersAiTextResult({})).toThrow(/empty response/)
-    expect(() => parseWorkersAiTextResult(null)).toThrow(/empty response/)
+    expect(() => parseWorkersAiTextResult({ response: 'Sure! Here is your reading: ...' }, 'ko')).toThrow(/not JSON/)
+    expect(() => parseWorkersAiTextResult({ response: JSON.stringify({ reading: '짧음', caption: 'x' }) }, 'ko')).toThrow(/reading length/)
+    expect(() => parseWorkersAiTextResult({ response: JSON.stringify([GOOD]) }, 'ko')).toThrow(/not an object/)
+    expect(() => parseWorkersAiTextResult({}, 'ko')).toThrow(/empty response/)
+    expect(() => parseWorkersAiTextResult(null, 'ko')).toThrow(/empty response/)
     // 생성 타입상 출력이 문자열일 수도 있다(스트림이 아니면 실제로 오지 않지만 방어).
-    expect(() => parseWorkersAiTextResult('plain string output')).toThrow(/empty response/)
+    expect(() => parseWorkersAiTextResult('plain string output', 'ko')).toThrow(/empty response/)
+  })
+})
+
+describe('parseWorkersAiTextResult 문체', () => {
+  const mixed = { reading: '목소리가 시원한 바람처럼 흘러나옵니다. 말하는 동안 여유로움이 느껴져요. 듣는 사람이 따라가게 돼요.', caption: GOOD.caption }
+
+  it('한국어 요청에서 …다 문장이 섞이면 이 제공자의 실패로 본다(체인은 다음으로, 마지막이면 고정 문구) — 034', () => {
+    expect(() => parseWorkersAiTextResult({ response: JSON.stringify(mixed) }, 'ko')).toThrow(/reading style/)
+    expect(() => parseWorkersAiTextResult({ response: mixed }, 'ko')).toThrow(/reading style/)
+    expect(parseWorkersAiTextResult({ response: JSON.stringify(mixed) }, 'en')).toEqual(mixed)
+  })
+
+  it('제공자는 요청 언어를 검증에 넘긴다', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const ai = { run: async () => ({ response: JSON.stringify(mixed) }) } as unknown as Ai
+    const provider = createWorkersAiTextProvider(ai)
+    await expect(provider.generateReading(input)).rejects.toThrow(/reading style/)
+    await expect(provider.generateReading({ ...input, locale: 'en' })).resolves.toEqual(mixed)
   })
 })
 

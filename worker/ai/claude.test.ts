@@ -50,20 +50,20 @@ describe('buildReadingParams', () => {
 
 describe('parseReadingMessage', () => {
   it('thinking 블록 뒤의 텍스트에서 JSON 을 읽고 공백을 정리한다', () => {
-    const result = parseReadingMessage(message([thinking(), text(JSON.stringify({ reading: `  ${GOOD.reading}\n\n`, caption: `${GOOD.caption}\n` }))]))
+    const result = parseReadingMessage(message([thinking(), text(JSON.stringify({ reading: `  ${GOOD.reading}\n\n`, caption: `${GOOD.caption}\n` }))]), 'ko')
     expect(result).toEqual(GOOD)
   })
 
   it('거부·잘림·형식 불일치·길이 초과는 예외', () => {
-    expect(() => parseReadingMessage(message([], { stop_reason: 'refusal', stop_details: { type: 'refusal', category: 'general_harms', explanation: null } as Anthropic.RefusalStopDetails }))).toThrow(/refusal: general_harms/)
-    expect(() => parseReadingMessage(message([text('{}')], { stop_reason: 'max_tokens' }))).toThrow(/max_tokens/)
-    expect(() => parseReadingMessage(message([text('not json')]))).toThrow(/not JSON/)
-    expect(() => parseReadingMessage(message([text('[1]')]))).toThrow(/not an object/)
-    expect(() => parseReadingMessage(message([text(JSON.stringify({ reading: '짧음', caption: GOOD.caption }))]))).toThrow(/reading length/)
-    expect(() => parseReadingMessage(message([text(JSON.stringify({ reading: 'x'.repeat(601), caption: GOOD.caption }))]))).toThrow(/reading length/)
-    expect(() => parseReadingMessage(message([text(JSON.stringify({ reading: GOOD.reading, caption: '' }))]))).toThrow(/caption length/)
-    expect(() => parseReadingMessage(message([text(JSON.stringify({ reading: GOOD.reading, caption: 'c'.repeat(101) }))]))).toThrow(/caption length/)
-    expect(() => parseReadingMessage(message([text(JSON.stringify({ reading: GOOD.reading }))]))).toThrow(/caption length/)
+    expect(() => parseReadingMessage(message([], { stop_reason: 'refusal', stop_details: { type: 'refusal', category: 'general_harms', explanation: null } as Anthropic.RefusalStopDetails }), 'ko')).toThrow(/refusal: general_harms/)
+    expect(() => parseReadingMessage(message([text('{}')], { stop_reason: 'max_tokens' }), 'ko')).toThrow(/max_tokens/)
+    expect(() => parseReadingMessage(message([text('not json')]), 'ko')).toThrow(/not JSON/)
+    expect(() => parseReadingMessage(message([text('[1]')]), 'ko')).toThrow(/not an object/)
+    expect(() => parseReadingMessage(message([text(JSON.stringify({ reading: '짧음', caption: GOOD.caption }))]), 'ko')).toThrow(/reading length/)
+    expect(() => parseReadingMessage(message([text(JSON.stringify({ reading: 'x'.repeat(601), caption: GOOD.caption }))]), 'ko')).toThrow(/reading length/)
+    expect(() => parseReadingMessage(message([text(JSON.stringify({ reading: GOOD.reading, caption: '' }))]), 'ko')).toThrow(/caption length/)
+    expect(() => parseReadingMessage(message([text(JSON.stringify({ reading: GOOD.reading, caption: 'c'.repeat(101) }))]), 'ko')).toThrow(/caption length/)
+    expect(() => parseReadingMessage(message([text(JSON.stringify({ reading: GOOD.reading }))]), 'ko')).toThrow(/caption length/)
   })
 })
 
@@ -148,6 +148,21 @@ describe('createClaudeTextProvider', () => {
     expect(String(warn.mock.calls[0]?.[0])).toContain('[reading] claude output rejected, retrying: reading length')
     // 로그에는 오류 메시지만 들어간다(응답 본문 없음).
     expect(String(warn.mock.calls[0]?.[0])).not.toContain('짧음')
+  })
+
+  it('한국어 리딩에 합니다체가 섞이면 계약 위반으로 보고 한 번 더 부른다(034)', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const mixed = { reading: '목소리가 시원한 바람처럼 흘러나옵니다. 말하는 동안 숨을 고르는 여유가 느껴져요. 은은한 밝기와 선명한 음색이 조화롭습니다.', caption: GOOD.caption }
+    const replies = [message([text(JSON.stringify(mixed))]), message([text(JSON.stringify(GOOD))])]
+    const createMessage = vi.fn(async () => replies.shift() as Anthropic.Message)
+    await expect(createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage }).generateReading(input)).resolves.toEqual(GOOD)
+    expect(createMessage).toHaveBeenCalledTimes(2)
+    expect(String(warn.mock.calls[0]?.[0])).toContain('reading style: sentence 1 is not 해요체')
+    // 영어 요청에는 해요체 검사를 하지 않는다: 같은 섞인 글도 한 번만 부르고 그대로 돌려준다(요청 언어가 검증까지 가는지 — 2차 리뷰 #12).
+    const once = vi.fn(async () => message([text(JSON.stringify(mixed))]))
+    await expect(createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage: once }).generateReading({ ...input, locale: 'en' })).resolves.toEqual(mixed)
+    expect(once).toHaveBeenCalledTimes(1)
   })
 
   it('다시 부르기는 CONTRACT_RETRIES 번까지이고, 그래도 맞지 않으면 체인으로 실패를 알린다', async () => {

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { getVoiceType } from '../../shared/catalog.ts'
 import { ALL_TYPE_CODES } from '../../shared/typeCode.ts'
+import { checkKoreanPoliteStyle } from './readingOutput.ts'
 import { buildReadingUserMessage, READING_OUTPUT_SCHEMA, READING_SYSTEM_PROMPT } from './readingPrompt.ts'
 
 const axes = { warmth: 0.8, density: 0.25, pace: 0.5, variation: 0.123, pitch: 0.4, brightness: 0.9 }
@@ -13,6 +15,15 @@ describe('READING_SYSTEM_PROMPT', () => {
     expect(READING_SYSTEM_PROMPT).toContain('never the audio')
     // 캡션 상한은 저장 이미지 한 줄 폭(한글 약 33자·영문 약 60자) 안이어야 한다.
     expect(READING_SYSTEM_PROMPT).toContain('28 characters in Korean or 60 characters in English')
+    // 한국어 리딩은 해요체만(034). 공용 검증(readingOutput.ts)은 합니다체·해라체 종결(…다·…니까·…십시오)을 거른다.
+    expect(READING_SYSTEM_PROMPT).toContain('end every sentence of "reading" in the polite 해요체 (…요 or …죠) and never use the formal 합니다체 (…니다)')
+  })
+})
+
+describe('모델에 넣는 타입 설명', () => {
+  it('16개 한국어 타입 설명이 모두 해요체다. 섞인 문체를 예시로 넣으면 모델이 따라 한다(034, 1차 리뷰 #1)', () => {
+    expect(ALL_TYPE_CODES).toHaveLength(16)
+    for (const code of ALL_TYPE_CODES) expect(() => checkKoreanPoliteStyle(getVoiceType(code).description.ko), code).not.toThrow()
   })
 })
 

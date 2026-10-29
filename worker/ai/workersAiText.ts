@@ -30,10 +30,10 @@ export function buildWorkersAiTextInput(input: ReadingInput): TextModelInput {
 }
 
 /** JSON 모드 응답은 문자열로도, 이미 파싱된 객체로도 올 수 있다. 둘 다 공용 검증을 거친다. */
-export function parseWorkersAiTextResult(result: unknown): ReadingOutput {
+export function parseWorkersAiTextResult(result: unknown, locale: ReadingInput['locale']): ReadingOutput {
   const response = (result as { response?: unknown } | null | undefined)?.response
-  if (typeof response === 'string') return parseReadingJson(response)
-  if (typeof response === 'object' && response !== null) return normalizeReadingOutput(response)
+  if (typeof response === 'string') return parseReadingJson(response, locale)
+  if (typeof response === 'object' && response !== null) return normalizeReadingOutput(response, locale)
   throw new Error('empty response')
 }
 
@@ -53,7 +53,7 @@ export function createWorkersAiTextProvider(ai: Ai): TextProvider {
       const usage = (result as { usage?: { prompt_tokens?: number; completion_tokens?: number } } | null)?.usage
       // 비용 추적용 토큰 수만 남긴다(사용자 데이터 없음).
       console.info(`[reading] workers-ai ${WORKERS_AI_TEXT_MODEL} in=${usage?.prompt_tokens ?? '?'} out=${usage?.completion_tokens ?? '?'}`)
-      return parseWorkersAiTextResult(result)
+      return parseWorkersAiTextResult(result, input.locale)
     },
   }
 }
