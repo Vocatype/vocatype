@@ -8,6 +8,8 @@ const mockEnv = { AI_PROVIDER: 'mock', TEXT_PROVIDER: 'mock' } as unknown as Fak
 const claudeEnv = { AI_PROVIDER: 'mock', TEXT_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'sk-ant-test-key' } as unknown as FakeEnv
 /** 운영 리딩 체인 순서. 생성 타입(wrangler.jsonc → worker-configuration.d.ts)에 묶어, 설정을 바꾸고 타입을 다시 만들면 여기서 타입 검사가 실패한다. */
 const PRODUCTION_TEXT_PROVIDER = 'claude,workers-ai' satisfies Env['TEXT_PROVIDER']
+/** 운영 초상 제공자. 위와 같은 방식으로 생성 타입에 묶는다. */
+const PRODUCTION_AI_PROVIDER = 'openai' satisfies Env['AI_PROVIDER']
 
 const axes = { warmth: 0.8, density: 0.2, pace: 0.5, variation: 0.4, pitch: 0.3, brightness: 0.6 }
 const readingBody = JSON.stringify({ typeCode: 'WFQV', axes, locale: 'ko' })
@@ -92,6 +94,37 @@ describe('worker routes', () => {
     expect(await (await call('/api/config', undefined, env)).json()).toEqual({ provider: 'workers-ai', textProviders: [], features: { portrait: true, reading: false } })
     const response = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"CLME","seed":3}' }, env)
     expect(await response.json()).toEqual({ image: 'data:image/jpeg;base64,/9j/QUJD', provider: 'workers-ai' })
+  })
+
+  it('openai 제공자는 OpenAI 이미지 API 를 부르고 data URL을 돌려준다. 보내는 것은 타입 코드로 만든 프롬프트뿐이다', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => Response.json({ created: 1, data: [{ b64_json: '/9j/QUJD' }], usage: { input_tokens: 80, output_tokens: 439 } }))
+    vi.stubGlobal('fetch', fetchMock)
+    const env = { AI_PROVIDER: PRODUCTION_AI_PROVIDER, OPENAI_API_KEY: 'sk-openai-test' } as unknown as FakeEnv
+    expect(await (await call('/api/config', undefined, env)).json()).toEqual({ provider: 'openai', textProviders: [], features: { portrait: true, reading: false } })
+    const response = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"CLME","seed":3}', headers: { 'cf-connecting-ip': '203.0.113.9', 'user-agent': 'TestBrowser' } }, env)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ image: 'data:image/jpeg;base64,/9j/QUJD', provider: 'openai' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0] ?? []
+    expect(String(url)).toBe('https://api.openai.com/v1/images/generations')
+    expect(new Headers(init?.headers as HeadersInit).get('authorization')).toBe('Bearer sk-openai-test')
+    const raw = String(init?.body)
+    expect(JSON.parse(raw)).toMatchObject({ model: 'gpt-image-2.5-flare', size: '1024x1024', quality: 'medium' })
+    // 사용자 IP·UA·씨앗은 요청 어디에도 없다.
+    expect(raw).not.toContain('203.0.113.9')
+    expect(raw).not.toContain('TestBrowser')
+    expect(raw).not.toContain('seed')
+  })
+
+  it('openai 제공자가 실패하면 503이고 세부 내용은 숨긴다(로그에는 상태·코드만)', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: { code: 'moderation_blocked', message: 'secret-detail' } }, { status: 400 })))
+    const env = { AI_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-openai-test' } as unknown as FakeEnv
+    const response = await call('/api/portrait', { method: 'POST', body: '{"typeCode":"WFQV","seed":1}' }, env)
+    expect(response.status).toBe(503)
+    expect(await response.text()).not.toContain('secret-detail')
+    expect(String(logged.mock.calls[0]?.[1])).toBe('OpenAiError: HTTP 400 moderation_blocked')
   })
 
   it('모르는 API 경로는 404', async () => {

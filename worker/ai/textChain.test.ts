@@ -136,8 +136,8 @@ describe('createTextChain', () => {
     const slowFirst: TextProvider = {
       name: 'claude',
       generateReading: vi.fn(async () => {
-        // 배분된 시간(13초)보다 오래 끈 제공자(신호를 무시한 경우)를 흉내 낸다. 마지막 제공자는 그래도 남은 예산만큼만 받는다.
-        clock += 20_000
+        // 배분된 시간(28초)보다 오래 끈 제공자(신호를 무시한 경우)를 흉내 낸다. 마지막 제공자는 그래도 남은 예산만큼만 받는다.
+        clock += 30_000
         throw Object.assign(new Error('529 overloaded'), { name: 'InternalServerError' })
       }),
     }
@@ -150,7 +150,7 @@ describe('createTextChain', () => {
     } as unknown as Ai
     const chain = createTextChain([slowFirst, createWorkersAiTextProvider(ai)], { logger: logger(), now: () => clock })
     await expect(chain.generateReading(input)).resolves.toMatchObject({ provider: 'workers-ai' })
-    expect(timeout).toHaveBeenLastCalledWith(READING_CHAIN_BUDGET_MS - 20_000)
+    expect(timeout).toHaveBeenLastCalledWith(READING_CHAIN_BUDGET_MS - 30_000)
     expect(runOptions[0]?.signal).toBe(timeout.mock.results.at(-1)?.value)
   })
 
