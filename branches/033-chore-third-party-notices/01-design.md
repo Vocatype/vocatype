@@ -13,7 +13,7 @@
 | 번들 | 패키지 | 사용자에게 배포되나 |
 | --- | --- | --- |
 | 클라이언트(`dist/client`) | node_modules 패키지는 react, react-dom, scheduler — 모두 MIT. 이 밖에 빌드 도구가 넣는 짧은 연결 코드(Vite modulepreload 폴리필 약 670자, Rolldown `__commonJSMin` 헬퍼 약 81자, 둘 다 MIT) | **예.** 브라우저가 내려받는다 → 패키지 고지 필요 |
-| Worker(`dist/worker`) | @anthropic-ai/sdk, @opentelemetry/api(Apache-2.0), fast-sha256(Unlicense), @stablelib/base64, standardwebhooks. 런타임 패키지 중 json-schema-to-ts·@babel/runtime·ts-algebra 는 타입 전용이라 어느 번들에도 없다 | 아니오. 사용자에게 내려가지 않는다 |
+| Worker(`dist/worker`) | @anthropic-ai/sdk, @opentelemetry/api(Apache-2.0), fast-sha256(Unlicense), @stablelib/base64, standardwebhooks. 런타임 패키지 중 json-schema-to-ts 는 sdk가 타입으로만 쓰고 @babel/runtime·ts-algebra 는 그 의존성이라 어느 번들에도 없다 | 아니오. 사용자에게 내려가지 않는다 |
 
 빌드 도구의 연결 코드는 `\0` 가상 모듈이라 Vite `build.license` 가 건너뛴다. 도구가 생성하는 1 kB 미만의 연결 코드라 고지 대상으로 보지 않았다(해석 불확실, 1차 리뷰 #1).
 
