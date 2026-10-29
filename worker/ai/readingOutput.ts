@@ -7,16 +7,46 @@ const SENTENCE_BREAK = /(?<=[.!?…⋯。！？~]["'“”‘’)\]」』》〉]
 /** 문장 끝에서 떼어 내는 것: 공백, 끝 구두점, 따옴표, 닫는 괄호, 이모지. */
 const SENTENCE_TAIL = /[\s.!?…⋯。！？~"'“”‘’)\]」』》〉\p{Extended_Pictographic}\uFE0F\u200D]+$/u
 
+/** 합니다체(…니다·…니까·…십시오)·해라체(…다) 종결. 해요체(…요·…죠)는 이것으로 끝나지 않는다(2차 리뷰 #11). */
+const NON_POLITE_ENDING = /(?:다|니까|십시오)$/u
+/** 닫는 따옴표와 그 여는 짝. */
+const OPENING_QUOTE: Record<string, string> = { '”': '“', '’': '‘', '」': '「', '』': '『', '》': '《', '〉': '〈' }
+
+/** 조각이 그 안에서 연 인용을 닫으며 끝나는지. 그렇다면 문장 속 인용("반갑습니다." 하고 …)이라 문장 끝이 아니다(2차 리뷰 #10). */
+function endsWithInnerQuote(piece: string): boolean {
+  const last = piece.at(-1) ?? ''
+  if (last === '"' || last === "'") return piece.split(last).length % 2 === 1
+  const opening = OPENING_QUOTE[last]
+  return opening !== undefined && piece.includes(opening)
+}
+
+/** SENTENCE_BREAK 로 나눈 뒤, 문장 속 인용으로 끝난 조각은 다음 조각과 다시 붙인다. */
+function splitSentences(reading: string): string[] {
+  const sentences: string[] = []
+  let pending = ''
+  for (const piece of reading.split(SENTENCE_BREAK)) {
+    pending = pending ? `${pending} ${piece}` : piece
+    if (!endsWithInnerQuote(pending)) {
+      sentences.push(pending)
+      pending = ''
+    }
+  }
+  if (pending) sentences.push(pending)
+  return sentences
+}
+
 /**
- * 한국어 리딩에 합니다체(…니다)·해라체(…다) 문장이 섞였는지 본다(034). 끝 글자가 '다'인 문장이 하나라도 있으면 예외.
- * 해요체(…요·…죠)만 통과시키는 엄격한 판정은 문장 중간의 물음표·인용·이모지 같은 정상 글을 거절해서, 사용자가 지적한 '…다' 종결만 잡는다(1차 리뷰 #4).
- * 문장은 SENTENCE_BREAK 로 나누고 SENTENCE_TAIL 을 뗀 마지막 글자를 본다. 오류 메시지에는 몇 번째 문장인지만 넣는다(응답 본문은 로그에 남기지 않는다).
+ * 한국어 리딩에 합니다체·해라체 문장이 섞였는지 본다(034). NON_POLITE_ENDING 으로 끝나는 문장이 하나라도 있으면 예외.
+ * 해요체(…요·…죠)만 통과시키는 엄격한 판정은 문장 중간의 물음표·이모지 같은 정상 글을 거절해서, 사용자가 지적한 종결만 잡는다(1차 리뷰 #4).
+ * 문장은 splitSentences 로 나누고 SENTENCE_TAIL 을 뗀 끝을 본다. 오류 메시지에는 몇 번째 문장인지만 넣는다(응답 본문은 로그에 남기지 않는다).
  * 캡션은 명사구라 보지 않는다.
  */
 export function checkKoreanPoliteStyle(reading: string): void {
-  const sentences = reading.split(SENTENCE_BREAK).map((sentence) => sentence.replace(SENTENCE_TAIL, '')).filter(Boolean)
+  const sentences = splitSentences(reading)
+    .map((sentence) => sentence.replace(SENTENCE_TAIL, ''))
+    .filter(Boolean)
   for (const [index, sentence] of sentences.entries()) {
-    if (sentence.at(-1) === '다') throw new Error(`reading style: sentence ${index + 1} ends in -다, not 해요체`)
+    if (NON_POLITE_ENDING.test(sentence)) throw new Error(`reading style: sentence ${index + 1} is not 해요체`)
   }
 }
 

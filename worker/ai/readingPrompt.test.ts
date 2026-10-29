@@ -15,7 +15,7 @@ describe('READING_SYSTEM_PROMPT', () => {
     expect(READING_SYSTEM_PROMPT).toContain('never the audio')
     // 캡션 상한은 저장 이미지 한 줄 폭(한글 약 33자·영문 약 60자) 안이어야 한다.
     expect(READING_SYSTEM_PROMPT).toContain('28 characters in Korean or 60 characters in English')
-    // 한국어 리딩은 해요체만(034). 공용 검증(readingOutput.ts)이 같은 규칙으로 거른다.
+    // 한국어 리딩은 해요체만(034). 공용 검증(readingOutput.ts)은 합니다체·해라체 종결(…다·…니까·…십시오)을 거른다.
     expect(READING_SYSTEM_PROMPT).toContain('end every sentence of "reading" in the polite 해요체 (…요 or …죠) and never use the formal 합니다체 (…니다)')
   })
 })

@@ -19,11 +19,15 @@ describe('checkKoreanPoliteStyle', () => {
       '와! 하고 감탄이 나오는 목소리예요.',
       '"괜찮아. 다 잘될 거야." 목소리가 그렇게 말하는 것 같아요.',
       '빠름 vs. 느림 사이에서 균형을 잡아요.',
+      // 문장 속 인용이 …다로 끝나도 문장 끝이 아니다(2차 리뷰 #10).
+      '목소리가 "반갑습니다." 하고 인사하는 것 같아요. 듣는 사람이 기대게 되죠.',
+      "'괜찮다, 천천히 가도 된다.' 하고 말해 주는 듯해요.",
+      '“오늘도 잘 해냈다.” 스스로를 다독이는 듯한 목소리예요.',
     ]
     for (const reading of polite) expect(() => checkKoreanPoliteStyle(reading), reading).not.toThrow()
   })
 
-  it('…다로 끝나는 문장(합니다체·해라체)이 섞이면 몇 번째 문장인지만 담아 실패한다', () => {
+  it('합니다체(…니다·…니까·…십시오)·해라체(…다) 문장이 섞이면 몇 번째 문장인지만 담아 실패한다', () => {
     const cases: [string, number][] = [
       ['목소리가 시원한 바람처럼 빠르게 흘러나옵니다. 말하는 동안 여유로움이 느껴져요. 은은한 밝기와 선명한 음색이 조화롭습니다.', 1],
       ['여운이 남아요. 리듬이 살아 있다.', 2],
@@ -34,8 +38,13 @@ describe('checkKoreanPoliteStyle', () => {
       ['목소리가 흘러나옵니다⋯ 듣는 사람이 기대게 되죠.', 1],
       ['목소리가 흘러나옵니다~ 듣는 사람이 기대게 되죠.', 1],
       ['듣는 사람이 기대게 돼요. 목소리가 흘러나옵니다 😊', 2],
+      // 문장 앞의 인용은 그 문장에 붙어 함께 본다.
+      ['"맑아요." 목소리가 흘러나옵니다. 듣는 사람이 기대게 되죠.', 1],
+      // 합니다체 의문·명령(2차 리뷰 #11).
+      ['목소리가 흘러나와요. 이런 목소리를 들어 본 적 있습니까?', 2],
+      ['목소리가 흘러나와요. 천천히 들어 보십시오.', 2],
     ]
-    for (const [reading, sentence] of cases) expect(() => checkKoreanPoliteStyle(reading), reading).toThrow(`reading style: sentence ${sentence} ends in -다, not 해요체`)
+    for (const [reading, sentence] of cases) expect(() => checkKoreanPoliteStyle(reading), reading).toThrow(`reading style: sentence ${sentence} is not 해요체`)
     const error = (() => {
       try {
         checkKoreanPoliteStyle(cases[0]![0])

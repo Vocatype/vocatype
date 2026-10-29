@@ -158,11 +158,10 @@ describe('createClaudeTextProvider', () => {
     const createMessage = vi.fn(async () => replies.shift() as Anthropic.Message)
     await expect(createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage }).generateReading(input)).resolves.toEqual(GOOD)
     expect(createMessage).toHaveBeenCalledTimes(2)
-    expect(String(warn.mock.calls[0]?.[0])).toContain('reading style: sentence 1 ends in -다, not 해요체')
-    // 영어 요청에는 해요체 검사를 하지 않는다.
-    const english = { reading: 'Your voice moves like a cool breeze. It leaves room to breathe between phrases. Listeners lean in to follow it.', caption: 'A voice like morning air' }
-    const once = vi.fn(async () => message([text(JSON.stringify(english))]))
-    await expect(createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage: once }).generateReading({ ...input, locale: 'en' })).resolves.toEqual(english)
+    expect(String(warn.mock.calls[0]?.[0])).toContain('reading style: sentence 1 is not 해요체')
+    // 영어 요청에는 해요체 검사를 하지 않는다: 같은 섞인 글도 한 번만 부르고 그대로 돌려준다(요청 언어가 검증까지 가는지 — 2차 리뷰 #12).
+    const once = vi.fn(async () => message([text(JSON.stringify(mixed))]))
+    await expect(createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage: once }).generateReading({ ...input, locale: 'en' })).resolves.toEqual(mixed)
     expect(once).toHaveBeenCalledTimes(1)
   })
 
