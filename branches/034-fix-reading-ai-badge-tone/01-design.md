@@ -13,7 +13,7 @@
 ### 포함
 
 - `src/screens/ResultScreen.tsx`: 해설 카드의 `card__note` 문단을 지우고, 제목(`h2`) 안에 `<span className="card__badge">` 로 "AI" 표시
-- `src/i18n/messages/ko.ts`, `en.ts`: `result.readingNote` 삭제, `result.readingBadge: 'AI'` 추가(두 언어 같은 값. 키 짝 검사가 있다)
+- `src/i18n/messages/ko.ts`, `en.ts`: `result.readingNote` 삭제, ~~`result.readingBadge`~~ `result.aiBadge: 'AI'` 추가(두 언어 같은 값. 키 짝 검사가 있다. 이름은 1차 리뷰 뒤 바뀜)
 - `src/styles/global.css`: `.card__badge`(기존 `.script__badge`·`.howto__num` 알약 모양과 같은 계열의 작은 표시. 1차 리뷰 #7로 정정)
 - `worker/ai/readingOutput.ts`: `normalizeReadingOutput`·`parseReadingJson` 에 출력 언어를 받는다. `ko` 면 해요체 검사(`checkKoreanPoliteStyle`)를 한다
 - `worker/ai/claude.ts`(`parseReadingMessage`), `worker/ai/workersAiText.ts`(`parseWorkersAiTextResult`): 요청 언어를 넘긴다
@@ -26,6 +26,8 @@
 - 캡션 문체 검사: 캡션은 명사구 한 줄("…한 목소리")이라 문장 끝 규칙이 맞지 않는다
 
 ## 해요체 검사
+
+> 아래 의사코드와 표는 처음 설계다. 판정은 1차 리뷰 뒤 '다' 규칙으로, 2차 리뷰 뒤 `…다·…니까·…십시오` 와 문장 속 인용 합치기로 바뀌었다(아래 "1차 리뷰 뒤 바뀐 설계", "2차 리뷰 뒤 바뀐 설계").
 
 ```
 리딩을 문장 끝 구두점(. ! ? …) 뒤 공백으로 나눈다
@@ -43,7 +45,7 @@
 ## 검증 계획
 
 1. 단위 테스트(위), typecheck / lint / test / build 종료 코드 0
-2. 변이 확인: 검사를 끄면 위반 테스트가, '죠'를 빼면 '죠' 통과 테스트가 실패하는지
+2. 변이 확인: 검사를 끄면 위반 테스트가 실패하는지(처음 계획의 '죠' 변이는 1차 리뷰 뒤 규칙이 바뀌어 의미가 없어졌다)
 3. 독립 리뷰 → 병합 가능이면 사용자 승인 뒤 `--no-ff` 병합, 배포 뒤 결과 화면 확인(실제 녹음은 사용자)
 
 ## 1차 리뷰 뒤 바뀐 설계
@@ -60,3 +62,13 @@
 | 메시지 키 | `result.readingBadge` → `result.aiBadge`(해설·초상·공유 이미지가 함께 씀) | 같은 표시 하나 |
 
 공유 이미지의 캡션(AI 문구)에는 따로 표시하지 않는다. 같은 이미지 안 초상의 표시로 갈음한다(README 알려진 한계).
+
+## 2차 리뷰 뒤 바뀐 설계
+
+| 바뀐 것 | 내용 | 근거 |
+| --- | --- | --- |
+| 판정 종결 | '다' → `…다·…니까·…십시오`(`NON_POLITE_ENDING`) | 합니다체 의문·명령("있습니까?", "보십시오.")이 통과했다(2차 리뷰 #11). 해요체는 이 셋으로 끝나지 않는다 |
+| 문장 속 인용 | 조각이 그 안에서 연 따옴표를 닫으며 끝나면 다음 조각과 합친다(`splitSentences`) | `목소리가 "반갑습니다." 하고 …` 처럼 정상 해요체가 거절됐다(2차 리뷰 #10, 1차 반영의 부작용) |
+| 캡션 옆 AI 표시 | 공유 이미지에서 자리표시 초상이고 캡션이 있으면 캡션 오른쪽에 같은 알약. 캡션과 알약을 한 덩어리로 가운데에 두고, 캡션 폭 한도에서 알약 몫을 뺀다 | 사용자 결정(2차 리뷰 #13): 초상 표시로 갈음할 수 없는 경우 |
+| 공유 이미지 표시 글자 | 26px → 30px | 1080px 카드를 폰 폭으로 보면 9px 남짓이었다(2차 리뷰 #14) |
+| 화면 안내문 | 합니다체 유지 | 사용자 결정(2차 리뷰 #15): 해요체 규칙은 AI 해설과 모델에 넣는 타입 설명에만 |
