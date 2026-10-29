@@ -85,3 +85,18 @@
 | `claude-fable-5-1` | $10 / $50 | 약 $200~250 | 5~15초 이상 | 과한 사양, 30일 데이터 보존 필수 |
 
 네 모델 모두 운영 요청 형태(effort low, json_schema)를 받으므로 코드 변경 없이 `TEXT_MODEL` 로 바꿀 수 있다. 실측 스크립트는 저장소 밖(세션 임시 폴더)에 있고 `--dry-run`·키 없음 종료를 확인했다. **사용자 결정(2026-10-29): Claude Haiku 5.5 유지.** 기본값이 `claude-haiku-5-5` 라 설정 변경은 없다. 모델을 바꾸려면 `wrangler.jsonc` 의 `vars` 에 `"TEXT_MODEL": "claude-…"` 를 더한다. 요청 1회가 12초(`REQUEST_TIMEOUT_MS`)에 가까운 모델이면 그 값도 함께 봐야 한다.
+
+## 배포 후 확인
+
+사용자 승인("Key's in, merge")에 따라 2026-10-29 11:53:30 KST에 main(`1b182a6`)을 푸시했다. 푸시 전에 `npx wrangler secret list --name vocatype` 로 비밀 이름 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` 가 있는 것을 확인했다(값은 보이지 않는다). Cloudflare Workers Builds가 자동 배포했다: GitHub 커밋 검사 "Workers Builds: vocatype — completed/success"(02:54:27Z), 배포 기록 02:54:22Z, 버전 `5ac8e34d-527f-4854-b837-1206863b805c`.
+
+11:55 KST, `https://vocatype.hs827.workers.dev`:
+
+| 확인 | 결과 |
+| --- | --- |
+| `GET /`, `GET /api/health` | 200, 200 |
+| `GET /api/config` | `{"provider":"openai","textProviders":["claude","workers-ai"],"features":{"portrait":true,"reading":true}}` |
+| 배포된 번들 | `index-r8FYHae-.js`(브랜치 빌드와 같은 이름), `index-CpSgsQrj.css` |
+| 배포된 JS의 리딩 대기 | `45e3`(`READING_CLIENT_TIMEOUT_MS` 45초) 1건 |
+
+- AI 호출(초상·해설)은 하지 않았다. 초상 한 장은 유료라 사용자 확인 뒤에 README "OpenAI 켜기" 4단계로 본다(장당 가격 확정, 지연, `exceededCpu` 여부, OpenAI 사용량 장수 대조).
