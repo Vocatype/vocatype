@@ -84,3 +84,19 @@
 - 해요체 검사의 한계(README 알려진 한계): 끝 구두점 뒤 공백 없이 이어진 문장, 해체·명사 종결.
 - 공유 이미지 캡션에는 따로 AI 표시가 없다. AI 표시가 법적으로 충분한지는 확인하지 않았다(법률 자문 아님).
 - 결과 화면 초상 배지는 보조기기에 "AI"로 읽힌다. `alt` 문구는 바꾸지 않았다.
+
+## 배포 후 확인
+
+사용자 승인("Merge and push")에 따라 2026-10-29 16:08:32 KST에 main(`def468a`)을 푸시했다. Cloudflare Workers Builds가 자동 배포했다: GitHub 커밋 검사 "Workers Builds: vocatype — completed/success"(07:09:06Z), 버전 `f67f3fe3-6d13-461f-a546-6bed7c71e4aa`.
+
+16:09 KST, `https://vocatype.hs827.workers.dev`:
+
+| 확인 | 결과 |
+| --- | --- |
+| 배포된 번들 | `index-BYrwPU-D.js`, `index-CL88EQcF.css`(브랜치 빌드와 같은 이름) |
+| 배포된 JS | "녹음은 듣지 않았어요" 0건, "굽이쳐요" 1건·"굽이칩니다" 0건, `card__badge`·`portrait__badge` 각 1건, 첫 줄 제3자 라이선스 안내 주석 그대로 |
+| 배포된 CSS | `.card__badge`·`.portrait__badge` 각 1건 |
+| `/third-party-licenses.txt` | `# Licenses`(033 그대로) |
+| `GET /api/config` | `provider: "openai"`, `textProviders: ["claude","workers-ai"]` |
+
+- AI 호출(초상·해설)은 하지 않았다. 실제 녹음으로 결과 화면·문체 재호출을 보는 확인은 사용자가 한다. Worker 로그의 `reading style` 줄로 재호출 빈도를 볼 수 있다.
