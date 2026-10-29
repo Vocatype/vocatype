@@ -58,7 +58,7 @@ export function buildReadingParams(input: ReadingInput, model: string): Anthropi
 }
 
 /** 응답에서 리딩과 캡션을 꺼내 정리·검증한다. 거부·잘림·형식 불일치·길이 초과면 예외를 던진다. */
-export function parseReadingMessage(message: Anthropic.Message): ReadingOutput {
+export function parseReadingMessage(message: Anthropic.Message, locale: ReadingInput['locale']): ReadingOutput {
   if (message.stop_reason === 'refusal') throw new Error(`refusal: ${String(message.stop_details?.category ?? 'unknown')}`)
   if (message.stop_reason === 'max_tokens') throw new Error('response truncated (max_tokens)')
   // 응답은 thinking 블록으로 시작할 수 있으므로 위치가 아니라 type 으로 텍스트를 고른다.
@@ -66,7 +66,7 @@ export function parseReadingMessage(message: Anthropic.Message): ReadingOutput {
     .filter((block): block is Anthropic.TextBlock => block.type === 'text')
     .map((block) => block.text)
     .join('')
-  return parseReadingJson(text)
+  return parseReadingJson(text, locale)
 }
 
 /**
@@ -98,7 +98,7 @@ export function createClaudeTextProvider(options: ClaudeTextProviderOptions): Te
         // 비용 추적용 토큰 수만 남긴다(사용자 데이터 없음). 운영에서는 observability 가 꺼져 있어 어디에도 저장되지 않는다.
         console.info(`[reading] claude ${message.model} in=${message.usage.input_tokens} out=${message.usage.output_tokens} stop=${message.stop_reason ?? 'none'}`)
         try {
-          return parseReadingMessage(message)
+          return parseReadingMessage(message, input.locale)
         } catch (cause) {
           if (attempt >= CONTRACT_RETRIES || message.stop_reason === 'refusal' || signal.aborted) throw cause
           // 체인으로 넘기기 전에 남은 시간 안에서 한 번 더 부른다. 오류 메시지만 남긴다(응답 본문 없음).

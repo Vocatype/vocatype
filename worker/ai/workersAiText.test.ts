@@ -27,19 +27,19 @@ describe('buildWorkersAiTextInput', () => {
 
 describe('parseWorkersAiTextResult', () => {
   it('문자열 JSON, 코드 펜스로 감싼 JSON, 이미 파싱된 객체를 모두 받는다', () => {
-    expect(parseWorkersAiTextResult({ response: JSON.stringify(GOOD) })).toEqual(GOOD)
-    expect(parseWorkersAiTextResult({ response: '```json\n' + JSON.stringify(GOOD) + '\n```' })).toEqual(GOOD)
-    expect(parseWorkersAiTextResult({ response: { ...GOOD, caption: `  ${GOOD.caption}\n` } })).toEqual(GOOD)
+    expect(parseWorkersAiTextResult({ response: JSON.stringify(GOOD) }, 'ko')).toEqual(GOOD)
+    expect(parseWorkersAiTextResult({ response: '```json\n' + JSON.stringify(GOOD) + '\n```' }, 'ko')).toEqual(GOOD)
+    expect(parseWorkersAiTextResult({ response: { ...GOOD, caption: `  ${GOOD.caption}\n` } }, 'ko')).toEqual(GOOD)
   })
 
   it('형식이 어긋나면 예외(체인이 다음 제공자로 넘긴다)', () => {
-    expect(() => parseWorkersAiTextResult({ response: 'Sure! Here is your reading: ...' })).toThrow(/not JSON/)
-    expect(() => parseWorkersAiTextResult({ response: JSON.stringify({ reading: '짧음', caption: 'x' }) })).toThrow(/reading length/)
-    expect(() => parseWorkersAiTextResult({ response: JSON.stringify([GOOD]) })).toThrow(/not an object/)
-    expect(() => parseWorkersAiTextResult({})).toThrow(/empty response/)
-    expect(() => parseWorkersAiTextResult(null)).toThrow(/empty response/)
+    expect(() => parseWorkersAiTextResult({ response: 'Sure! Here is your reading: ...' }, 'ko')).toThrow(/not JSON/)
+    expect(() => parseWorkersAiTextResult({ response: JSON.stringify({ reading: '짧음', caption: 'x' }) }, 'ko')).toThrow(/reading length/)
+    expect(() => parseWorkersAiTextResult({ response: JSON.stringify([GOOD]) }, 'ko')).toThrow(/not an object/)
+    expect(() => parseWorkersAiTextResult({}, 'ko')).toThrow(/empty response/)
+    expect(() => parseWorkersAiTextResult(null, 'ko')).toThrow(/empty response/)
     // 생성 타입상 출력이 문자열일 수도 있다(스트림이 아니면 실제로 오지 않지만 방어).
-    expect(() => parseWorkersAiTextResult('plain string output')).toThrow(/empty response/)
+    expect(() => parseWorkersAiTextResult('plain string output', 'ko')).toThrow(/empty response/)
   })
 })
 
