@@ -12,8 +12,9 @@ function htmlConstants(): Plugin {
 }
 
 /**
- * 브라우저로 내려가는 번들에 든 의존성(react, react-dom, scheduler — MIT)의 라이선스 원문 파일. dist/client 에 생겨 이 경로로 함께 서빙된다.
+ * 브라우저로 내려가는 번들에 든 의존성 패키지(지금은 react, react-dom, scheduler — MIT)의 라이선스 원문 파일. dist/client 에 생겨 이 경로로 함께 서빙된다.
  * MIT 는 모든 사본에 저작권 고지와 허락 문구를 요구하는데, 압축(minify)은 라이선스 주석까지 지운다(033).
+ * Vite·Rolldown 이 넣는 짧은 연결 코드(modulepreload 폴리필, CommonJS 헬퍼)는 가상 모듈이라 이 파일에 들어가지 않는다(033 설계 문서).
  */
 const THIRD_PARTY_LICENSES_FILE = 'third-party-licenses.txt'
 
@@ -28,9 +29,10 @@ export default defineConfig({
         license: { fileName: THIRD_PARTY_LICENSES_FILE },
         rolldownOptions: {
           output: {
-            // 패키지 자체의 @license 머리 주석(저작권자 표기)을 남기고, 원문 파일 위치를 각 JS 맨 앞에 알린다.
+            // 패키지 자체의 @license 머리 주석(저작권자 표기)을 남긴다.
             comments: { legal: true },
-            banner: `/*! Third-party licenses: /${THIRD_PARTY_LICENSES_FILE} */`,
+            // 원문 파일 위치를 각 JS 맨 앞에 알린다. postBanner 는 압축 뒤에 붙어 위 legal 설정과 상관없이 남는다(banner 는 압축 전이라 legal 이 꺼지면 사라진다).
+            postBanner: `/*! Third-party licenses: /${THIRD_PARTY_LICENSES_FILE} */`,
           },
         },
       },
