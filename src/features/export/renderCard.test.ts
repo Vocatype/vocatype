@@ -241,6 +241,11 @@ function textBox(c: TextCall): Box {
   return { left, top: c.y - c.size, right: left + c.width, bottom: c.y + c.size * 0.25 }
 }
 
+/** inner 가 outer 안에 다 들어 있는지. */
+function inside(inner: Box, outer: Box): boolean {
+  return inner.left >= outer.left && inner.right <= outer.right && inner.top >= outer.top && inner.bottom <= outer.bottom
+}
+
 /** 두 상자 사이 거리. 겹치거나 맞닿으면 0. */
 function gapBetween(a: Box, b: Box): number {
   const dx = Math.max(0, a.left - b.right, b.left - a.right)
@@ -272,6 +277,8 @@ function spacingProblems(calls: TextCall[], shapes: ShapeCall[]): string[] {
       if (gap < MIN_GAP - 0.01) problems.push(`${name} – "${call.text}" ${gap.toFixed(1)}px`)
     }
     for (const shape of others) {
+      // 자기 바탕 알약(AI 표시, 034) 안에 다 들어간 글자는 겹침이 아니다. 다른 도형과의 겹침은 그대로 본다.
+      if (shape.kind === 'rounded' && shape.op === 'fill' && inside(box, shape.box)) continue
       if (gapBetween(shape.box, box) === 0) problems.push(`${shape.kind} ${shape.op} overlaps "${call.text}"`)
     }
   }
@@ -328,7 +335,8 @@ describe('drawCard (027 배치)', () => {
     const view = presentResult(profileFor('WFQV'), null, 'en')
     const axisLabel = `${view.axes[0]?.letter} ${view.axes[0]?.label}`
     const { ctx, calls } = fakeContext()
-    drawCard(ctx, view, null, labelsEn)
+    // 캡션 자리만 보려고 AI 표시는 끈다(캡션 옆 표시는 아래 '생성 초상 AI 표시' 테스트).
+    drawCard(ctx, view, null, { ...labelsEn, aiMark: '' })
     // 영어 이름은 72px에서 두 줄이 되므로 이름의 마지막 줄을 기준으로 본다.
     const nameLines = calls.filter((c) => c.align === 'center' && c.text.length > 2 && view.name.includes(c.text))
     const name = nameLines.sort((a, b) => b.y - a.y)[0]
@@ -452,7 +460,7 @@ describe('drawCard 도형과 글자 간격 (028)', () => {
 })
 
 describe('생성 초상 AI 표시 (034)', () => {
-  it('생성된 초상이 있으면 초상 오른쪽 위 안쪽에 "AI" 알약을 그리고, 자리표시 초상이거나 표시가 비면 그리지 않는다', () => {
+  it('생성된 초상이 있으면 초상 오른쪽 위 안쪽에만 "AI" 알약을 그린다(캡션 옆에는 없다)', () => {
     const view = presentResult(profileFor('WFQV'), null, 'ko')
     const portrait = { naturalWidth: 1024, naturalHeight: 1024 } as HTMLImageElement
     const left = (1080 - 420) / 2
@@ -473,12 +481,38 @@ describe('생성 초상 AI 표시 (034)', () => {
     expect(marks[0]!.y).toBeGreaterThan(pill!.box.top)
     expect(marks[0]!.y).toBeLessThan(pill!.box.bottom)
 
-    const placeholder = fakeContext()
-    drawCard(placeholder.ctx, view, null, labelsKo)
-    expect(placeholder.calls.some((call) => call.text === 'AI')).toBe(false)
     const empty = fakeContext()
     drawCard(empty.ctx, view, portrait, { ...labelsKo, aiMark: '' })
     expect(empty.calls.some((call) => call.text === 'AI')).toBe(false)
+  })
+
+  it('자리표시 초상이면 초상에는 표시하지 않고, 캡션(AI 문구)이 있으면 캡션 오른쪽 같은 줄에 붙인다', () => {
+    const view = presentResult(profileFor('WFQV'), null, 'ko')
+    const { ctx, calls, shapes } = fakeContext()
+    drawCard(ctx, view, null, labelsKo)
+    const marks = calls.filter((call) => call.text === 'AI')
+    const caption = calls.find((call) => call.text === labelsKo.caption)
+    expect(marks).toHaveLength(1)
+    expect(caption).toBeDefined()
+    // 캡션 오른쪽, 같은 줄, 캡션과 겹치지 않고 오른쪽 여백 안.
+    const captionBox = textBox(caption!)
+    const markBox = textBox(marks[0]!)
+    expect(markBox.left).toBeGreaterThan(captionBox.right)
+    expect(Math.abs(marks[0]!.y - caption!.y)).toBeLessThan(20)
+    expect(markBox.right).toBeLessThanOrEqual(CARD_WIDTH - MARGIN)
+    // 캡션과 알약이 한 덩어리로 가운데에 놓인다.
+    const pill = shapes.find((shape) => shape.kind === 'rounded' && shape.op === 'fill' && inside(markBox, shape.box))
+    expect(pill).toBeDefined()
+    expect((captionBox.left + pill!.box.right) / 2).toBeCloseTo(CARD_WIDTH / 2, 0)
+    // 초상 영역(150~570)에는 없다.
+    expect(marks[0]!.y).toBeGreaterThan(150 + 420)
+
+    const noCaption = fakeContext()
+    drawCard(noCaption.ctx, view, null, { ...labelsKo, caption: '' })
+    expect(noCaption.calls.some((call) => call.text === 'AI')).toBe(false)
+    const off = fakeContext()
+    drawCard(off.ctx, view, null, { ...labelsKo, aiMark: '' })
+    expect(off.calls.some((call) => call.text === 'AI')).toBe(false)
   })
 })
 

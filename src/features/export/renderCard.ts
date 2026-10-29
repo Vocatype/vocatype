@@ -23,7 +23,10 @@ export interface CardLabels {
   date: string
   /** 목소리 해설의 공유용 캡션. 한 줄만 그리고, 빈 문자열이면 그리지 않는다. */
   caption: string
-  /** 생성된 초상 오른쪽 위에 붙이는 작은 표시(예: "AI"). 자리표시 초상이거나 빈 문자열이면 그리지 않는다(034). */
+  /**
+   * AI 결과물 표시(예: "AI", 034). 생성된 초상이면 초상 오른쪽 위에, 자리표시 초상인데 캡션(AI 문구)이 있으면 캡션 오른쪽에 붙인다.
+   * 빈 문자열이면 그리지 않는다.
+   */
   aiMark: string
 }
 
@@ -139,16 +142,21 @@ function drawPortraitPlaceholder(ctx: CanvasRenderingContext2D, view: ResultView
   drawSignature(ctx, view.signature, x + size / 2, y + size / 2, size * 0.22, size * 0.42, () => ink, { lineWidth: 3, innerCircle: ink })
 }
 
-/** 생성 초상 위 표시의 안쪽 여백·높이·글자 크기. 초상 모서리 둥글기(46) 안쪽에 들도록 둔다. */
+/** AI 표시 알약의 초상 안쪽 여백·높이·글자 크기, 캡션과의 간격. 여백 24·높이 44면 알약 끝 반원이 초상 모서리 둥글기(46) 안에 든다. */
 const AI_MARK_INSET = 24
 const AI_MARK_HEIGHT = 44
-const AI_MARK_FONT = 26
+const AI_MARK_FONT = 30
+const AI_MARK_GAP = 16
 
-/** 오른쪽 위 모서리(right, top) 기준으로 어두운 반투명 알약과 흰 글자를 그린다. 사진 위라 어떤 색 위에서도 읽힌다. */
+function aiMarkWidth(ctx: CanvasRenderingContext2D, text: string): number {
+  ctx.font = font(700, AI_MARK_FONT)
+  return ctx.measureText(text).width + 28
+}
+
+/** 오른쪽 위 모서리(right, top) 기준으로 어두운 반투명 알약과 흰 글자를 그린다. 사진 위에서도 어두운 바탕 위에서도 읽힌다. */
 function drawAiMark(ctx: CanvasRenderingContext2D, text: string, right: number, top: number) {
   ctx.save()
-  ctx.font = font(700, AI_MARK_FONT)
-  const width = ctx.measureText(text).width + 28
+  const width = aiMarkWidth(ctx, text)
   ctx.fillStyle = 'rgba(15, 14, 18, 0.62)'
   roundedRect(ctx, right - width, top, width, AI_MARK_HEIGHT, AI_MARK_HEIGHT / 2)
   ctx.fill()
@@ -245,9 +253,15 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   y += (nameLines.length - 1) * NAME_LINE
   if (labels.caption) {
     y += 70
+    // 자리표시 초상이면 초상에 표시가 없으므로 캡션(AI 문구) 오른쪽에 붙인다. 캡션과 알약을 한 덩어리로 가운데에 둔다.
+    const captionMark = !portrait && labels.aiMark ? labels.aiMark : ''
+    const markWidth = captionMark ? aiMarkWidth(ctx, captionMark) + AI_MARK_GAP : 0
     ctx.fillStyle = SOFT
     ctx.font = font(400, 40)
-    ctx.fillText(oneLine(labels.caption, CONTENT_WIDTH - 40, measure), CARD_WIDTH / 2, y)
+    const captionText = oneLine(labels.caption, CONTENT_WIDTH - 40 - markWidth, measure)
+    const groupWidth = measure(captionText) + markWidth
+    ctx.fillText(captionText, CARD_WIDTH / 2 - markWidth / 2, y)
+    if (captionMark) drawAiMark(ctx, captionMark, CARD_WIDTH / 2 + groupWidth / 2, y - 36)
   }
 
   // 축 강도: 2×2, "글자 라벨"과 흰 막대(퍼센트 표기 없음). 신호가 부족하면 기본값이라 그리지 않는다.
