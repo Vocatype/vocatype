@@ -5,11 +5,18 @@ import { detectImageMime } from './workersAi.ts'
 export const OPENAI_IMAGES_URL = 'https://api.openai.com/v1/images/generations'
 /** 기본 모델. 2.5 flare 는 "빠르고 품질 높은 일상 생성용"(031 조사). `IMAGE_MODEL` 변수로 바꿀 수 있다. */
 export const DEFAULT_IMAGE_MODEL = 'gpt-image-2.5-flare'
-/** 정사각형의 최소 크기(총 픽셀 655,360 이상). 결과 카드가 1:1로 쓴다. */
+/**
+ * 표준 크기 세 가지 중 정사각형. 결과 카드가 1:1로 쓴다.
+ * 816×816 같은 사용자 정의 크기도 되지만(16의 배수, 총 655,360픽셀 이상) 2.5 의 크기별 토큰 수가 공개되지 않아 실측 전에는 표준 크기를 쓴다.
+ */
 export const OPENAI_PORTRAIT_SIZE = '1024x1024'
-/** 사용자 결정(031). 1024×1024 기준 장당 약 $0.013(OpenAI 계산기 인용 수치). low 는 얼굴 디테일이, high 는 비용·시간이 아쉽다. */
+/**
+ * 사용자 결정(031). low 는 얼굴 디테일이, high 는 비용·시간이 아쉽다.
+ * 2.5 의 장당 가격은 공개되지 않았다(공식 계산기도 2.5 는 추정하지 않는다). 제3자 자료는 1024×1024 medium 약 $0.013, 같은 토큰 단가인 GPT Image 2 공식 표는 $0.053.
+ * 실제 값은 `[portrait] openai … out=…` 로그의 출력 토큰 × $30/100만으로 확인한다.
+ */
 export const OPENAI_PORTRAIT_QUALITY = 'medium'
-/** jpeg 는 png 보다 빠르고(공식 가이드) 수백 KB 라 클라이언트 상한(PORTRAIT_IMAGE_MAX_CHARS) 안에 넉넉히 든다. */
+/** `output_compression`(0~100, 기본 100). jpeg 는 png 보다 빠르고(공식 가이드) 1024×1024 가 수백 KB 라 클라이언트 상한(PORTRAIT_IMAGE_MAX_CHARS) 안에 넉넉히 든다. */
 export const OPENAI_OUTPUT_COMPRESSION = 90
 
 /** 모델 이름은 `gpt-image-`로 시작하는 식별자만 받는다. 설정 오타나 이상한 값이 요청에 실리지 않게 한다. */
@@ -77,17 +84,26 @@ export function createOpenAiImageProvider(options: OpenAiImageProviderOptions): 
     name: 'openai',
     supportsPortrait: true,
     async generatePortrait(input: PortraitInput): Promise<PortraitOutput> {
+      // 같은 신호가 본문 읽기까지 덮는다(본문은 base64 이미지라 크다).
+      const signal = AbortSignal.timeout(timeoutMs)
       const response = await doFetch(OPENAI_IMAGES_URL, {
         method: 'POST',
         headers: { authorization: `Bearer ${options.apiKey}`, 'content-type': 'application/json' },
         body: JSON.stringify(buildImageRequest(input, model)),
-        signal: AbortSignal.timeout(timeoutMs),
+        signal,
       })
       if (!response.ok) throw Object.assign(new Error(await describeFailure(response)), { name: 'OpenAiError' })
-      const result = (await response.json()) as ImagesResponse
+      let result: ImagesResponse | null
+      try {
+        result = (await response.json()) as ImagesResponse | null
+      } catch (cause) {
+        if (signal.aborted) throw cause
+        // 성공 상태인데 본문이 JSON 이 아니거나 잘렸다. 파서 오류 메시지에는 본문 일부가 들어가므로 그대로 던지지 않는다.
+        throw Object.assign(new Error(`HTTP ${response.status} invalid_body`), { name: 'OpenAiError' })
+      }
       // 비용 추적용 토큰 수만 남긴다(사용자 데이터 없음). 운영에서는 observability 가 꺼져 있어 어디에도 저장되지 않는다.
-      console.info(`[portrait] openai ${model} in=${result.usage?.input_tokens ?? '?'} out=${result.usage?.output_tokens ?? '?'}`)
-      const image = result.data?.[0]?.b64_json
+      console.info(`[portrait] openai ${model} in=${result?.usage?.input_tokens ?? '?'} out=${result?.usage?.output_tokens ?? '?'}`)
+      const image = result?.data?.[0]?.b64_json
       if (typeof image !== 'string' || !image) return { image: null }
       const mime = detectImageMime(image)
       if (!mime) return { image: null }

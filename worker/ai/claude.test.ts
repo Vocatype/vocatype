@@ -124,18 +124,27 @@ describe('createClaudeTextProvider', () => {
   })
 
   it('제공자 오류는 그대로 전파된다(라우트가 503으로 바꾼다)', async () => {
-    const provider = createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage: async () => { throw new Error('overloaded') } })
+    const createMessage = vi.fn(async () => {
+      throw new Error('overloaded')
+    })
+    const provider = createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage })
     await expect(provider.generateReading(input)).rejects.toThrow('overloaded')
+    // 호출 오류는 SDK 가 이미 재시도했으므로 다시 부르지 않는다(계약 재호출은 답이 온 경우만).
+    expect(createMessage).toHaveBeenCalledTimes(1)
   })
 
   it('출력이 계약에 맞지 않으면 체인으로 넘기기 전에 한 번 더 부르고, 그 답을 쓴다', async () => {
     vi.spyOn(console, 'info').mockImplementation(() => undefined)
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const replies = [message([text(JSON.stringify({ reading: '짧음', caption: GOOD.caption }))]), message([text(JSON.stringify(GOOD))])]
-    const createMessage = vi.fn(async () => replies.shift() as Anthropic.Message)
+    const createMessage = vi.fn(async (_params: Anthropic.MessageCreateParamsNonStreaming, _options?: { signal?: AbortSignal }) => replies.shift() as Anthropic.Message)
     const provider = createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage })
-    await expect(provider.generateReading(input)).resolves.toEqual(GOOD)
+    const chainSignal = new AbortController().signal
+    await expect(provider.generateReading(input, { signal: chainSignal })).resolves.toEqual(GOOD)
     expect(createMessage).toHaveBeenCalledTimes(2)
+    // 다시 부를 때도 체인이 배분한 같은 신호를 쓴다(새 신호를 만들면 Workers AI 예비 몫과 체인 예산을 잠식한다).
+    expect(createMessage.mock.calls[0]?.[1]?.signal).toBe(chainSignal)
+    expect(createMessage.mock.calls[1]?.[1]?.signal).toBe(chainSignal)
     expect(String(warn.mock.calls[0]?.[0])).toContain('[reading] claude output rejected, retrying: reading length')
     // 로그에는 오류 메시지만 들어간다(응답 본문 없음).
     expect(String(warn.mock.calls[0]?.[0])).not.toContain('짧음')

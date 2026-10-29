@@ -85,6 +85,31 @@ describe('createOpenAiImageProvider', () => {
     await expect(createOpenAiImageProvider({ apiKey: 'sk-test', fetch: html as unknown as typeof fetch }).generatePortrait({ prompt: 'p', seed: 1 })).rejects.toThrow(/^HTTP 502$/)
   })
 
+  it('성공 상태인데 본문이 JSON 이 아니면 본문을 싣지 않고 invalid_body 로 실패하고, 본문이 null 이면 이미지 없음', async () => {
+    const html = async () => new Response('<html>upstream secret-detail</html>', { status: 200 })
+    const error = await createOpenAiImageProvider({ apiKey: 'sk-test', fetch: html as unknown as typeof fetch }).generatePortrait({ prompt: 'p', seed: 1 }).catch((cause: unknown) => cause)
+    expect(error).toMatchObject({ name: 'OpenAiError', message: 'HTTP 200 invalid_body' })
+    expect(String((error as Error).message)).not.toContain('secret-detail')
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const empty = async () => Response.json(null)
+    await expect(createOpenAiImageProvider({ apiKey: 'sk-test', fetch: empty as unknown as typeof fetch }).generatePortrait({ prompt: 'p', seed: 1 })).resolves.toEqual({ image: null })
+  })
+
+  it('본문을 읽는 중에 상한이 지나도 TimeoutError 로 실패한다(invalid_body 로 바꾸지 않는다)', async () => {
+    // 헤더는 왔지만 본문이 끝나지 않는 응답. 신호가 오면 그 이유로 거부한다.
+    const slowBody = async (_input: RequestInfo | URL, init?: RequestInit) =>
+      ({
+        ok: true,
+        status: 200,
+        json: () =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+          }),
+      }) as unknown as Response
+    const provider = createOpenAiImageProvider({ apiKey: 'sk-test', timeoutMs: 20, fetch: slowBody as unknown as typeof fetch })
+    await expect(provider.generatePortrait({ prompt: 'p', seed: 1 })).rejects.toMatchObject({ name: 'TimeoutError' })
+  })
+
   it('이미지가 없거나 알 수 없는 형식이면 null', async () => {
     vi.spyOn(console, 'info').mockImplementation(() => undefined)
     const empty = async () => imagesResponse(undefined)

@@ -11,7 +11,7 @@
   },
   // 초상(이미지) 제공자 선택. 하나만 고른다.
   //   "openai"     OpenAI GPT 이미지 모델 (현재 값, 031). `wrangler secret put OPENAI_API_KEY`가 있어야 켜진다(없으면 mock처럼 초상을 만들지 않는다).
-  //                기본 모델 gpt-image-2.5-flare. 바꾸려면 "IMAGE_MODEL": "gpt-image-…" 변수를 추가한다. 초상 1장 약 $0.013(medium, 1024×1024).
+  //                기본 모델 gpt-image-2.5-flare. 바꾸려면 "IMAGE_MODEL": "gpt-image-…" 변수를 추가한다. 초상 1장 약 $0.013~0.053(medium, 1024×1024. 2.5 공식 장당 가격이 없어 실측 전 범위).
   //   "workers-ai" 아래 AI 바인딩(Leonardo Lucid Origin, 무료 할당량)으로 초상을 만든다. 되돌릴 때 이 값으로 바꾼다.
   //   "mock"       초상을 만들지 않는다(자리표시 초상).
   // TEXT_PROVIDER 는 목소리 리딩(텍스트) 폴백 체인. 콤마 목록을 순서대로 시도하고 모두 실패하면 고정 문구(mock)로 끝난다.

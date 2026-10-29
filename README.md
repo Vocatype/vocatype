@@ -94,15 +94,15 @@ AI는 어댑터(`worker/ai/`) 뒤에 있다. 설정이 없거나 키·바인딩�
 
 1. OpenAI 플랫폼(<https://platform.openai.com>)에서 준비한다.
    - GPT 이미지 모델은 **조직 인증(Organization Verification)** 이 필요할 수 있다. 플랫폼 설정의 Organization 화면에서 인증한다(신분증 확인, 반영까지 시간이 걸릴 수 있다. 메뉴 이름은 바뀔 수 있다).
-   - Billing에서 **선불 크레딧**을 넣고 자동 충전(auto recharge)은 꺼 둔다. 잔액이 이 서비스의 실제 비용 상한이 된다. 예산 알림(Limits)도 걸어 둔다.
-   - 이 서비스 전용 프로젝트를 만들고 그 안에서 API 키를 발급한다. 가능하면 권한을 Restricted로 두고 이미지 생성만 허용한다.
+   - Billing에서 **선불 크레딧**을 넣고 자동 충전(auto recharge)은 꺼 둔다. 잔액이 실제 비용 상한이 된다. 잔액은 조직 전체가 함께 쓰므로, 다른 프로젝트가 있는 조직이면 바닥났을 때 그 프로젝트들도 함께 멈춘다(가능하면 이 서비스 전용 조직). 예산 알림(Limits)도 걸어 둔다.
+   - 이 서비스 전용 프로젝트를 만들고 그 안에서 API 키를 발급한다. 가능하면 권한을 Restricted로 두고 이미지 생성만 허용한다(좁힌 권한으로 `403`이 나면 4단계 로그로 확인하고 권한을 넓힌다).
 2. 키를 Worker의 **비밀**로 넣는다. 저장소, `wrangler.jsonc`, 대시보드 변수(Plaintext) 화면에는 넣지 않는다. 둘 중 하나:
    ```bash
    npx wrangler secret put OPENAI_API_KEY
    ```
    또는 Cloudflare 대시보드 → Workers & Pages → `vocatype` → Settings → Variables and Secrets → Add → Type **Secret**, 이름 `OPENAI_API_KEY`. 비밀은 `wrangler deploy`가 덮어쓰지 않으므로 Git 푸시 배포 뒤에도 남는다.
 3. `wrangler.jsonc`의 `vars.AI_PROVIDER`가 `"openai"`인 상태로 커밋·푸시한다(031에서 이미 바꿨다). 키보다 배포가 먼저 되면 키가 없어 mock(자리표시 초상)으로 동작할 뿐 깨지지 않는다.
-4. 배포 후 `https://<worker>/api/config`가 `{"provider":"openai","features":{"portrait":true}}`를 돌려주면 켜진 것이다. 실제 한 장은 아래 명령으로 확인한다(1장 약 $0.013이 청구된다). 503이면 Worker 로그(`npx wrangler tail --name <worker>`)의 `[portrait] provider failed: OpenAiError: HTTP 4xx <코드>` 줄을 본다(`401` 키 오류, `403` 보통 조직 인증 미완료, `429` 한도·잔액 부족, `400 moderation_blocked` 검열). 성공하면 `[portrait] openai <모델> in=… out=…` 토큰 수 줄이 남는다.
+4. 배포 후 `https://<worker>/api/config`가 `{"provider":"openai","features":{"portrait":true}}`를 돌려주면 켜진 것이다. 실제 한 장은 아래 명령으로 확인한다(1장이 청구된다. 장당 가격은 아래 "보내는 데이터와 비용"). 503이면 Worker 로그(`npx wrangler tail --name <worker>`)의 `[portrait] provider failed: OpenAiError: HTTP <상태> <코드>` 줄을 본다(`401` 키 오류, `403` 보통 조직 인증 미완료·키 권한 부족이거나 OpenAI가 지원하지 않는 지역에서 실행된 경우(`unsupported_country_region_territory`), `429` 한도·잔액 부족, `400 moderation_blocked` 검열, `200 invalid_body` 응답 본문 이상). 성공하면 `[portrait] openai <모델> in=… out=…` 토큰 수 줄이 남는다. **첫 몇 장에서 함께 확인한다**: `out=` 토큰 수(장당 가격 확정), `wrangler tail`의 요청 결과(`ok`인지, CPU 한도 초과 `exceededCpu`인지)와 걸린 시간, OpenAI 사용량 화면의 장수가 성공 응답 수와 맞는지(45초에서 끊긴 생성도 과금될 수 있다).
    ```bash
    curl -s -X POST https://<worker>/api/portrait -H 'content-type: application/json' -d '{"typeCode":"WFQV","seed":123}' -o portrait-1.json
    node -e "const r=require('./portrait-1.json');require('fs').writeFileSync('portrait-1.jpg',Buffer.from(r.image.split(',')[1],'base64'))"
@@ -126,11 +126,11 @@ AI는 어댑터(`worker/ai/`) 뒤에 있다. 설정이 없거나 키·바인딩�
 
 - 초상 생성 요청에는 **타입 코드(4글자)와 씨앗(정수)** 만 들어간다. 음성, 녹음 파일, 분석 수치는 서버로 가지 않는다.
 - 프롬프트는 서버가 타입 코드로만 만든다. 성별·나이·인종은 지정하지 않으며, 생성된 이미지는 응답으로만 돌아가고 서버에 저장되지 않는다.
-- OpenAI에는 이 영어 프롬프트와 모델·크기·품질 설정만 간다. 씨앗·IP·브라우저 정보는 보내지 않고(`user`·`safety_identifier` 없음), 요청은 Worker가 보내므로 사용자 IP는 OpenAI에 가지 않는다. 프롬프트와 이미지는 [OpenAI API 데이터 정책](https://openai.com/policies/api-data-usage-policies)에 따라 처리된다.
-- OpenAI 비용(`gpt-image-2.5-flare`, 1024×1024, medium): 이미지 출력 100만 토큰당 $30, 텍스트 입력 $5. OpenAI 계산기 기준 출력 약 439토큰이라 **장당 약 $0.013**(프롬프트 입력 포함 약 $0.0135), 1만 장에 약 $135다. 장당 수치는 계산기를 인용한 자료 기준이므로 배포 후 `[portrait] openai … out=…` 로그로 확인한다. 정확한 값은 [OpenAI 가격표](https://openai.com/api/pricing/)를 확인한다.
-- 초상 엔드포인트는 인증이 없으므로 **속도 제한을 반드시 유지한다**: `wrangler.jsonc`의 `ratelimits`가 접속 IP당 1분에 2회로 막고(초과 시 429, 031에서 5회 → 2회), 다른 사이트에서 온 요청(`Sec-Fetch-Site`)은 403으로 거절한다. 한 번의 생성에 초상은 1장이라 정상 사용에는 충분하다. IP는 Rate Limiting 바인딩 안에서 최대 60초 동안 카운터 키로만 유지되고 영구 저장·로그는 없다. 제한은 Cloudflare 콜로(지역 데이터센터)별로 적용되므로 전 세계 합산 한도는 2회보다 클 수 있다.
-- IP 하나가 제한을 쉬지 않고 채우면 하루 2,880장 ≈ **$39**다. IP가 여럿이면(IPv6 주소를 바꿔 가며 보내는 경우 포함) 코드상 전체 상한은 없고, **전체 상한은 OpenAI 선불 크레딧 잔액(자동 충전 끔)뿐**이다. 크레딧이 바닥나면 OpenAI가 `429`로 거절하고 결과 화면은 자리표시 초상으로 진행한다.
-- OpenAI 조직 한도는 기본 분당 20장(Build 티어)이다. 동시에 많이 몰리면 `429`로 자리표시 초상이 나오며, 한도는 사용량이 늘면 자동으로 오른다.
+- OpenAI에는 이 영어 프롬프트와 모델·크기·품질 설정만 간다. 씨앗·IP·브라우저 정보는 보내지 않고(`user`·`safety_identifier` 없음), 요청은 Worker가 보내므로 사용자 IP는 OpenAI에 가지 않는다. OpenAI 문서([Your data](https://developers.openai.com/api/docs/guides/your-data))상 `/v1/images/generations` 데이터는 학습에 쓰이지 않고 남용 감시를 위해 30일 보존된다.
+- OpenAI 비용(`gpt-image-2.5-flare`, 1024×1024, medium): 토큰 단가는 이미지 출력 100만 토큰당 $30, 텍스트 입력 $5로 공개돼 있지만 **2.5의 장당 가격은 공개되지 않았다**(공식 계산기도 2.5의 토큰 소비는 추정하지 않는다). 제3자 자료는 장당 약 $0.013, 같은 토큰 단가인 GPT Image 2의 공식 표는 1024×1024 medium $0.053(low $0.006, high $0.211)이다. 실측 전에는 **장당 $0.013~0.053**(프롬프트 입력 약 $0.0004 별도), 1만 장에 약 $135~535로 본다. 첫 호출의 `[portrait] openai … out=…` 출력 토큰 × $30/100만으로 확정하고, 그 값으로 품질·속도 제한을 다시 본다. 단가는 [OpenAI 가격표](https://developers.openai.com/api/docs/pricing)를 확인한다.
+- 초상 엔드포인트는 인증이 없으므로 **속도 제한을 반드시 유지한다**: `wrangler.jsonc`의 `ratelimits`가 접속 IP당 1분에 2회로 막고(초과 시 429, 031에서 5회 → 2회), 다른 사이트에서 온 요청(`Sec-Fetch-Site`)은 403으로 거절한다. 한 번의 생성에 초상은 1장이라 혼자 쓰는 사용자에게는 충분하다. 다만 회사·학교·통신사 공유 IP(CGNAT)처럼 여러 사람이 같은 IP를 쓰면 같은 콜로에서 1분 안 세 번째 생성부터 429로 자리표시 초상이 조용히 나온다. IP는 Rate Limiting 바인딩 안에서 최대 60초 동안 카운터 키로만 유지되고 영구 저장·로그는 없다. 제한은 Cloudflare 콜로(지역 데이터센터)별로 적용되므로 전 세계 합산 한도는 2회보다 클 수 있다.
+- IP 하나가 제한을 쉬지 않고 채우면 하루 2,880장 ≈ **$39~154**다(5회였다면 7,200장 ≈ $97~385). IP가 여럿이면(IPv6 주소를 바꿔 가며 보내는 경우 포함) 코드상 전체 상한은 없고, **전체 상한은 OpenAI 선불 크레딧 잔액(자동 충전 끔)뿐**이다. 잔액은 조직 전체가 함께 쓴다. 크레딧이 바닥나면 OpenAI가 `429`로 거절하고 결과 화면은 자리표시 초상으로 진행한다.
+- OpenAI 조직 한도는 사용 등급(usage tier)을 따른다. 누적 크레딧 구매 $5부터 Build(이 모델 분당 20장), $100에 Launch(150장), $500에 Grow(250장)로 자동으로 오른다. 기준은 사용량이 아니라 **누적 구매액**이라, 자동 충전을 끈 채로는 크레딧을 더 사야 오른다. 동시에 많이 몰려 한도를 넘으면 `429`로 자리표시 초상이 나온다.
 
 ### 텍스트 제공자 (목소리 해설)
 
@@ -193,7 +193,8 @@ claude (키가 있을 때만) ──실패──▶ workers-ai (무료 Workers A
 - 분석 축의 범위(`src/features/analysis/axes.ts`의 `AXIS_RANGES`)는 합성 신호로만 검증한 초기값이다. 실제 화자 10명 이상의 녹음으로 축 분포를 보고 범위를 보정해야 16개 타입이 고르게 나온다. 자세한 내용은 `branches/004-feature-analysis/02-implementation.md`의 "알려진 한계와 보정".
 - 온도 축의 밝기 지표(스펙트럼 기울기)는 음높이와 함께 커지는 경향이 남아 있다. 보정 때 음높이 정규화 지표로 바꾸는 방안을 검토한다.
 - OpenAI 초상은 `seed`를 받지 않아 같은 녹음으로 다시 요청해도 다른 얼굴이 나온다. 흐름상 한 녹음에 초상을 한 번만 만들므로 사용자에게 보이는 차이는 없다. Workers AI로 되돌리면 같은 씨앗은 "같은 얼굴·구도"까지 재현되지만 응답 바이트는 매번 조금 달라(GPU 비결정성) 해시로 같은지 판정할 수 없다(015 실측).
-- OpenAI 초상의 실제 지연은 아직 재지 않았다(키 등록 전). medium 1024×1024는 Worker 상한 45초 안에 들 것으로 보지만, 배포 후 생성 화면 대기와 로그로 확인한다.
+- OpenAI 초상의 실제 지연·장당 가격은 아직 재지 않았다(키 등록 전). medium 1024×1024는 Worker 상한 45초 안에 들 것으로 보지만(공식 문서는 "복잡한 프롬프트는 최대 2분"), 배포 후 생성 화면 대기와 로그로 확인한다.
+- **과금됐는데 사용자는 자리표시 초상을 받을 수 있는 경로**: Worker가 45초에서 OpenAI 호출을 끊은 경우(끊긴 생성의 과금 여부는 문서에 없다), 사용자가 생성 화면을 떠난 경우(클라이언트는 요청을 끊지만 Worker의 OpenAI 호출이 함께 끊기는지는 확인하지 않았다), Workers CPU 한도에 걸린 경우(1024×1024 jpeg 응답의 JSON 파싱·직렬화는 로컬 측정 수백 KB에 1~4ms. 무료 플랜 10ms 안이지만 엣지에서는 더 느릴 수 있다). 첫 호출들에서 README "OpenAI 켜기" 4단계로 확인한다.
 - iOS Safari는 `download` 속성을 새 탭으로 열 수 있다. 공유 시트("공유" 버튼)를 쓰면 사진 앱에 바로 저장할 수 있다.
 - 목소리 해설은 생성 시점 언어로 한 번만 만들어진다. 결과 화면에서 언어를 바꾸면 해설 카드가 사라지고 카탈로그 설명만 보인다. 다시 녹음·생성하면 바뀐 언어로 만들어진다.
 - 결과는 재미로 보는 해석이며 성격·건강 등 어떤 진단도 아니다.
