@@ -43,6 +43,24 @@ describe('parseWorkersAiTextResult', () => {
   })
 })
 
+describe('parseWorkersAiTextResult 문체', () => {
+  const mixed = { reading: '목소리가 시원한 바람처럼 흘러나옵니다. 말하는 동안 여유로움이 느껴져요. 듣는 사람이 따라가게 돼요.', caption: GOOD.caption }
+
+  it('한국어 요청에서 …다 문장이 섞이면 이 제공자의 실패로 본다(체인은 다음으로, 마지막이면 고정 문구) — 034', () => {
+    expect(() => parseWorkersAiTextResult({ response: JSON.stringify(mixed) }, 'ko')).toThrow(/reading style/)
+    expect(() => parseWorkersAiTextResult({ response: mixed }, 'ko')).toThrow(/reading style/)
+    expect(parseWorkersAiTextResult({ response: JSON.stringify(mixed) }, 'en')).toEqual(mixed)
+  })
+
+  it('제공자는 요청 언어를 검증에 넘긴다', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    const ai = { run: async () => ({ response: JSON.stringify(mixed) }) } as unknown as Ai
+    const provider = createWorkersAiTextProvider(ai)
+    await expect(provider.generateReading(input)).rejects.toThrow(/reading style/)
+    await expect(provider.generateReading({ ...input, locale: 'en' })).resolves.toEqual(mixed)
+  })
+})
+
 describe('createWorkersAiTextProvider', () => {
   it('모델 상수와 만든 입력으로 ai.run 을 부르고 결과를 검증한다', async () => {
     vi.spyOn(console, 'info').mockImplementation(() => undefined)

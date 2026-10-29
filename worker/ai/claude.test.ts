@@ -158,7 +158,7 @@ describe('createClaudeTextProvider', () => {
     const createMessage = vi.fn(async () => replies.shift() as Anthropic.Message)
     await expect(createClaudeTextProvider({ apiKey: 'sk-ant-test', createMessage }).generateReading(input)).resolves.toEqual(GOOD)
     expect(createMessage).toHaveBeenCalledTimes(2)
-    expect(String(warn.mock.calls[0]?.[0])).toContain('reading style: sentence 1 is not 해요체')
+    expect(String(warn.mock.calls[0]?.[0])).toContain('reading style: sentence 1 ends in -다, not 해요체')
     // 영어 요청에는 해요체 검사를 하지 않는다.
     const english = { reading: 'Your voice moves like a cool breeze. It leaves room to breathe between phrases. Listeners lean in to follow it.', caption: 'A voice like morning air' }
     const once = vi.fn(async () => message([text(JSON.stringify(english))]))

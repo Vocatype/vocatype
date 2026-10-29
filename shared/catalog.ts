@@ -75,112 +75,112 @@ const TYPES: Record<TypeCode, Omit<VoiceType, 'code'>> = {
   WFQV: {
     name: { ko: '불꽃 이야기꾼', en: 'The Fireside Storyteller' },
     description: {
-      ko: '따뜻하고 꽉 찬 목소리가 빠르게 굽이칩니다. 듣는 사람을 이야기 한가운데로 끌어들이는 힘이 있어요.',
+      ko: '따뜻하고 꽉 찬 목소리가 빠르게 굽이쳐요. 듣는 사람을 이야기 한가운데로 끌어들이는 힘이 있어요.',
       en: 'A warm, full voice that moves fast and bends with every turn of the story. People lean in when you talk.',
     },
   },
   WFQE: {
     name: { ko: '한낮의 라디오 진행자', en: 'The Midday Radio Host' },
     description: {
-      ko: '따뜻하고 안정적인 톤으로 빠르게, 그러나 흔들림 없이 말합니다. 어떤 자리든 편안하게 이끄는 목소리예요.',
+      ko: '따뜻하고 안정적인 톤으로 빠르게, 그러나 흔들림 없이 말해요. 어떤 자리든 편안하게 이끄는 목소리예요.',
       en: 'Warm and steady, quick but never rushed. The kind of voice that keeps any room at ease.',
     },
   },
   WFMV: {
     name: { ko: '노을빛 낭독가', en: 'The Sunset Narrator' },
     description: {
-      ko: '깊고 따뜻한 음색이 천천히, 풍부한 억양으로 흐릅니다. 한 문장에도 온도가 담기는 목소리예요.',
+      ko: '깊고 따뜻한 음색이 천천히, 풍부한 억양으로 흘러요. 한 문장에도 온도가 담기는 목소리예요.',
       en: 'Deep and warm, unhurried, rich in intonation. Every sentence arrives with its own temperature.',
     },
   },
   WFME: {
     name: { ko: '깊은 숲의 안내자', en: 'The Deep Forest Guide' },
     description: {
-      ko: '낮고 묵직한 목소리가 고르게, 느긋하게 이어집니다. 듣고 있으면 마음이 가라앉는 목소리예요.',
+      ko: '낮고 묵직한 목소리가 고르게, 느긋하게 이어져요. 듣고 있으면 마음이 가라앉는 목소리예요.',
       en: 'Low, grounded and even, moving at its own pace. Listening to you feels like exhaling.',
     },
   },
   WLQV: {
     name: { ko: '봄바람 전령', en: 'The Spring Breeze Messenger' },
     description: {
-      ko: '가볍고 따뜻한 목소리가 통통 튀며 빠르게 오갑니다. 대화에 생기를 불어넣는 목소리예요.',
+      ko: '가볍고 따뜻한 목소리가 통통 튀며 빠르게 오가요. 대화에 생기를 불어넣는 목소리예요.',
       en: 'Light, warm and quick, bouncing from one thought to the next. You make conversations feel alive.',
     },
   },
   WLQE: {
     name: { ko: '햇살 아래 산책자', en: 'The Sunlit Stroller' },
     description: {
-      ko: '부드럽고 따뜻한 톤이 경쾌하게, 그러나 고르게 이어집니다. 듣는 사람이 자연스럽게 미소 짓는 목소리예요.',
+      ko: '부드럽고 따뜻한 톤이 경쾌하게, 그러나 고르게 이어져요. 듣는 사람이 자연스럽게 미소 짓는 목소리예요.',
       en: 'Soft, warm and brisk, flowing evenly along. People find themselves smiling without noticing.',
     },
   },
   WLMV: {
     name: { ko: '캠프파이어 시인', en: 'The Campfire Poet' },
     description: {
-      ko: '따뜻한 숨결이 천천히, 억양을 살려 흐릅니다. 말보다 여운이 길게 남는 목소리예요.',
+      ko: '따뜻한 숨결이 천천히, 억양을 살려 흘러요. 말보다 여운이 길게 남는 목소리예요.',
       en: 'Warm breath, slow tempo, expressive rise and fall. What you say lingers long after you stop.',
     },
   },
   WLME: {
     name: { ko: '다락방의 자장가', en: 'The Attic Lullaby' },
     description: {
-      ko: '가볍고 따뜻한 목소리가 느긋하고 고르게 이어집니다. 긴장을 풀어 주는 목소리예요.',
+      ko: '가볍고 따뜻한 목소리가 느긋하고 고르게 이어져요. 긴장을 풀어 주는 목소리예요.',
       en: 'Light and warm, slow and even. The voice that lets everyone put their shoulders down.',
     },
   },
   CFQV: {
     name: { ko: '새벽 도시의 앵커', en: 'The Dawn City Anchor' },
     description: {
-      ko: '또렷하고 꽉 찬 목소리가 빠르게, 강약을 살려 움직입니다. 핵심을 짚어 전하는 힘이 있어요.',
+      ko: '또렷하고 꽉 찬 목소리가 빠르게, 강약을 살려 움직여요. 핵심을 짚어 전하는 힘이 있어요.',
       en: 'Clear, full and fast, with sharp dynamics. You get to the point and people remember it.',
     },
   },
   CFQE: {
     name: { ko: '유리알 해설자', en: 'The Crystal Commentator' },
     description: {
-      ko: '맑고 단단한 톤으로 빠르고 고르게 말합니다. 복잡한 이야기도 투명하게 들리게 하는 목소리예요.',
+      ko: '맑고 단단한 톤으로 빠르고 고르게 말해요. 복잡한 이야기도 투명하게 들리게 하는 목소리예요.',
       en: 'Crisp, firm, quick and even. Complicated things sound transparent when you explain them.',
     },
   },
   CFMV: {
     name: { ko: '겨울 바다의 지휘자', en: 'The Winter Sea Conductor' },
     description: {
-      ko: '서늘하고 깊은 목소리가 천천히, 큰 파도처럼 오르내립니다. 한마디에 무게가 실리는 목소리예요.',
+      ko: '서늘하고 깊은 목소리가 천천히, 큰 파도처럼 오르내려요. 한마디에 무게가 실리는 목소리예요.',
       en: 'Cool and deep, slow, rising and falling like a long swell. Your words carry weight.',
     },
   },
   CFME: {
     name: { ko: '달빛 사서', en: 'The Moonlit Librarian' },
     description: {
-      ko: '차분하고 단단한 음색이 고르게, 느긋하게 이어집니다. 믿고 기대게 되는 목소리예요.',
+      ko: '차분하고 단단한 음색이 고르게, 느긋하게 이어져요. 믿고 기대게 되는 목소리예요.',
       en: 'Calm, firm and even, never in a hurry. A voice people trust before they know why.',
     },
   },
   CLQV: {
     name: { ko: '은빛 종달새', en: 'The Silver Lark' },
     description: {
-      ko: '맑고 가벼운 목소리가 빠르게, 생동감 있게 날아오릅니다. 공간을 환하게 만드는 목소리예요.',
+      ko: '맑고 가벼운 목소리가 빠르게, 생동감 있게 날아올라요. 공간을 환하게 만드는 목소리예요.',
       en: 'Bright, light and quick, lifting with every phrase. You brighten whatever room you are in.',
     },
   },
   CLQE: {
     name: { ko: '비 오는 날의 바리스타', en: 'The Rainy Day Barista' },
     description: {
-      ko: '맑고 가벼운 톤이 경쾌하고 고르게 이어집니다. 가까이에서 조곤조곤 들리는 목소리예요.',
+      ko: '맑고 가벼운 톤이 경쾌하고 고르게 이어져요. 가까이에서 조곤조곤 들리는 목소리예요.',
       en: 'Clear, light, brisk and even. A close, quiet voice that makes small talk feel easy.',
     },
   },
   CLMV: {
     name: { ko: '안개 속 첼리스트', en: 'The Misty Cellist' },
     description: {
-      ko: '서늘하고 섬세한 목소리가 천천히, 억양을 살려 흐릅니다. 말 사이의 숨까지 음악이 되는 목소리예요.',
+      ko: '서늘하고 섬세한 목소리가 천천히, 억양을 살려 흘러요. 말 사이의 숨까지 음악이 되는 목소리예요.',
       en: 'Cool and delicate, slow and expressive. Even the pauses between your words sound like music.',
     },
   },
   CLME: {
     name: { ko: '서리 아침의 서점 주인', en: 'The Frosty Morning Bookseller' },
     description: {
-      ko: '맑고 가벼운 음색이 고르고 느긋하게 이어집니다. 조용히 오래 듣고 싶은 목소리예요.',
+      ko: '맑고 가벼운 음색이 고르고 느긋하게 이어져요. 조용히 오래 듣고 싶은 목소리예요.',
       en: 'Clear and light, even and unhurried. The kind of voice you could listen to for a long while.',
     },
   },
