@@ -205,11 +205,10 @@ export function ResultScreen({ capture, profile, portrait, reading, calibration 
       {shownReading ? (
         <section className="card card--reading" aria-labelledby="result-reading">
           <h2 id="result-reading" className="card__title">
-            {t('result.section.reading')}
+            {t('result.section.reading')} <span className="card__badge">{t('result.readingBadge')}</span>
           </h2>
           <p className="reading__text">{shownReading.reading}</p>
           <p className="reading__caption">{shownReading.caption}</p>
-          <p className="card__note">{t('result.readingNote')}</p>
         </section>
       ) : null}
 

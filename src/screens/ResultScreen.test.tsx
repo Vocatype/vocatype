@@ -188,7 +188,9 @@ describe('ResultScreen 리딩·초상·머리글·버튼', () => {
     expect(same).toContain(escape(messages.ko['result.section.reading']))
     expect(same).toContain(escape(readingKo.reading))
     expect(same).toContain(escape(readingKo.caption))
-    expect(same).toContain(escape(messages.ko['result.readingNote']))
+    // 긴 안내 문장 대신 제목 옆 작은 "AI" 표시만 있다(034).
+    expect(same).toContain(`<span class="card__badge">${escape(messages.ko['result.readingBadge'])}</span>`)
+    expect(same).not.toContain('녹음은 듣지 않았어요')
 
     const other = render({ locale: 'en', reading: readingKo })
     expect(other).not.toContain(escape(messages.en['result.section.reading']))

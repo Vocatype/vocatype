@@ -736,6 +736,21 @@ p {
   font-size: 0.95rem;
 }
 
+/* 제목 옆 작은 표시(목소리 해설의 "AI"). 제목의 대문자·자간을 따르지 않는다. */
+.card__badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  vertical-align: 1px;
+}
+
 .card__note {
   font-size: 0.85rem;
   color: var(--fg-muted);
