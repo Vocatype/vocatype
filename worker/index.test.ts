@@ -96,7 +96,7 @@ describe('worker routes', () => {
     expect(await response.json()).toEqual({ image: 'data:image/jpeg;base64,/9j/QUJD', provider: 'workers-ai' })
   })
 
-  it('openai 제공자는 OpenAI 이미지 API 를 부르고 data URL을 돌려준다. 보내는 것은 타입 코드로 만든 프롬프트뿐이다', async () => {
+  it('openai 제공자는 OpenAI 이미지 API 를 부르고 data URL을 돌려준다. 보내는 것은 서버가 만든 프롬프트뿐이다', async () => {
     vi.spyOn(console, 'info').mockImplementation(() => undefined)
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => Response.json({ created: 1, data: [{ b64_json: '/9j/QUJD' }], usage: { input_tokens: 80, output_tokens: 439 } }))
     vi.stubGlobal('fetch', fetchMock)

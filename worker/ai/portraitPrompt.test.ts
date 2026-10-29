@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getVoiceType } from '../../shared/catalog.ts'
 import { ALL_TYPE_CODES } from '../../shared/typeCode.ts'
-import { buildPortraitPrompt, MOOD_AXES, pickFor, STAGING } from './portraitPrompt.ts'
+import { buildPortraitPrompt, MOOD_AXES, MOOD_VALUES_SCOPE, NOTHING_INDICATES_IDENTITY, pickFor, STAGING, TITLE_ONLY_MOOD } from './portraitPrompt.ts'
 
 const axes = { warmth: 0.82, density: 0.71, pace: 0.77, variation: 0.68, pitch: 0.38, brightness: 0.45 }
 
@@ -39,16 +39,23 @@ describe('buildPortraitPrompt', () => {
     expect(prompt).toContain('- expression liveliness: 0.68 (0 = calm, serene expression, 1 = animated expression, mid-laugh)')
     expect(prompt).toContain('- overall brightness: 0.45 (0 = dark, low-key image, 1 = bright, high-key image)')
     expect(prompt).not.toMatch(/pitch|0\.38/i)
-    expect(prompt).toContain("never to decide the person's gender, age or ethnicity")
+    expect(prompt).toContain(`Mood values from 0 to 1. ${MOOD_VALUES_SCOPE}:`)
+    // 다섯 축 가운데 둘은 자세·표정이라 범위에 넣는다(1차 리뷰 #4).
+    expect(MOOD_VALUES_SCOPE).toContain('light, color, pose and expression')
     // 0과 1도 두 자리로 쓴다.
     expect(buildPortraitPrompt({ typeCode: 'WFQV', axes: { ...axes, warmth: 0, brightness: 1 }, seed: 1 })).toMatch(/lighting warmth: 0\.00[\s\S]*overall brightness: 1\.00/)
   })
 
-  it('타입 영어 이름을 분위기로만 넣고 그림에 글자를 넣지 말라고 적는다. 타입 코드·씨앗 숫자는 넣지 않는다', () => {
+  it('타입 영어 이름을 따옴표 없이 분위기로만 넣고, 사람의 직업·나이·외모가 아니라고 적고, 그림에 글자를 넣지 말라고 적는다. 타입 코드·씨앗 숫자는 넣지 않는다', () => {
     const seed = 2837461920
     const prompt = buildPortraitPrompt({ typeCode: 'WFQV', axes, seed })
-    expect(prompt).toContain(`"${getVoiceType('WFQV').name.en}"`)
+    const name = getVoiceType('WFQV').name.en
+    expect(prompt).toContain(`inspired by the mood of ${name}. ${TITLE_ONLY_MOOD}`)
+    expect(prompt).not.toContain(`"${name}"`)
     expect(prompt).toContain('do not show any text, letters or logos in the image')
+    // 성별·나이·인종 금지는 축 값뿐 아니라 문장 전체에 건다(1차 리뷰 #1).
+    expect(prompt).toContain(NOTHING_INDICATES_IDENTITY)
+    expect(prompt.indexOf(NOTHING_INDICATES_IDENTITY)).toBeGreaterThan(prompt.indexOf('overall brightness'))
     expect(prompt).not.toContain('WFQV')
     expect(prompt).not.toContain(String(seed))
   })
@@ -57,7 +64,7 @@ describe('buildPortraitPrompt', () => {
     for (const code of ALL_TYPE_CODES) {
       for (let seed = 0; seed < 300; seed += 7) {
         const prompt = buildPortraitPrompt({ typeCode: code, axes, seed })
-        const withoutInstruction = prompt.replace("never to decide the person's gender, age or ethnicity", '')
+        const withoutInstruction = [TITLE_ONLY_MOOD, MOOD_VALUES_SCOPE, NOTHING_INDICATES_IDENTITY].reduce((text, instruction) => text.replace(instruction, ''), prompt)
         expect(withoutInstruction, `${code} ${seed}`).not.toMatch(BANNED)
         expect(withoutInstruction, `${code} ${seed}`).not.toMatch(/gender|ethnicity|\bage\b/i)
         expect(prompt.toLowerCase()).toContain('photorealistic')

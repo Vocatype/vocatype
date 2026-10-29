@@ -56,7 +56,7 @@ export function fetchAiConfig(): Promise<ApiConfigResponse> {
 }
 
 /**
- * 초상 생성 요청. 타입 코드와 씨앗만 보낸다(음성은 절대 보내지 않는다).
+ * 초상 생성 요청. 타입 코드·씨앗·반올림한 여섯 축만 보낸다(음성은 절대 보내지 않는다).
  * 실패·타임아웃이면 null을 돌려주고 호출자는 자리표시 초상으로 진행한다.
  */
 export async function requestPortrait(request: PortraitRequest, signal?: AbortSignal): Promise<string | null> {

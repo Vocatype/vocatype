@@ -95,7 +95,7 @@ describe('requestReading', () => {
 })
 
 describe('requestPortrait', () => {
-  it('타입 코드와 씨앗만 보내고 data URL을 돌려준다', async () => {
+  it('타입 코드·씨앗·여섯 축만 보내고 data URL을 돌려준다', async () => {
     let sentBody = ''
     mockFetch((_input, init) => {
       sentBody = String(init?.body)

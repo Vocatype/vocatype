@@ -38,6 +38,14 @@ export const MOOD_AXES: readonly (readonly [Exclude<ReadingAxisKey, 'pitch'>, st
   ['brightness', 'overall brightness', 'dark, low-key image', 'bright, high-key image'],
 ]
 
+/*
+ * 성별·나이·인종을 정하지 말라는 지시. 타입 이름(Conductor, Librarian, Silver Lark 등)은 직업·나이를 떠올리게 할 수 있어
+ * 축 값뿐 아니라 제목과 문장 전체에 건다(1차 리뷰 #1). 테스트가 이 문구를 고정한다.
+ */
+export const TITLE_ONLY_MOOD = "This title sets only the mood, not the person's job, age or appearance"
+export const MOOD_VALUES_SCOPE = "Use them only for light, color, pose and expression, never to decide the person's gender, age or ethnicity"
+export const NOTHING_INDICATES_IDENTITY = "Nothing above indicates the person's gender, age or ethnicity."
+
 /**
  * 씨앗과 항목 번호를 섞은 32비트 정수로 후보 하나를 고른다. 항목마다 다르게 섞어 항목끼리 짝지어 움직이지 않게 한다.
  * 같은 씨앗이면 언제나 같은 후보다.
@@ -63,9 +71,11 @@ export function buildPortraitPrompt({ typeCode, axes, seed }: PortraitPromptInpu
     'Photorealistic portrait photograph of one person looking at the camera.',
     `${staging.angle}, ${staging.framing}, ${staging.background}.`,
     `${outfit}, ${staging.hair}.`,
-    `Overall feeling inspired by the title "${type.name.en}" — use it only as a mood; do not show any text, letters or logos in the image.`,
-    "Mood values from 0 to 1. Use them only for light, color and mood, never to decide the person's gender, age or ethnicity:",
+    // 제목은 따옴표 없이 넣는다. 따옴표는 이미지 모델에 "이 글자를 그려라"로 읽힐 수 있다(1차 리뷰 #2).
+    `Overall feeling inspired by the mood of ${type.name.en}. ${TITLE_ONLY_MOOD}; do not show any text, letters or logos in the image.`,
+    `Mood values from 0 to 1. ${MOOD_VALUES_SCOPE}:`,
     ...MOOD_AXES.map(([key, label, low, high]) => `- ${label}: ${axes[key].toFixed(2)} (0 = ${low}, 1 = ${high})`),
+    NOTHING_INDICATES_IDENTITY,
     '85mm lens, shallow depth of field, natural skin texture, high detail, editorial photography.',
   ].join('\n')
 }
