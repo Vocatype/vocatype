@@ -189,7 +189,7 @@ describe('ResultScreen 리딩·초상·머리글·버튼', () => {
     expect(same).toContain(escape(readingKo.reading))
     expect(same).toContain(escape(readingKo.caption))
     // 긴 안내 문장 대신 제목 옆 작은 "AI" 표시만 있다(034).
-    expect(same).toContain(`<span class="card__badge">${escape(messages.ko['result.readingBadge'])}</span>`)
+    expect(same).toContain(`<span class="card__badge">${escape(messages.ko['result.aiBadge'])}</span>`)
     expect(same).not.toContain('녹음은 듣지 않았어요')
 
     const other = render({ locale: 'en', reading: readingKo })
@@ -209,6 +209,8 @@ describe('ResultScreen 리딩·초상·머리글·버튼', () => {
     expect(placeholders[0]!['aria-label']).toBe(alt)
     expect(without).toContain(escape(messages.ko['result.portraitPending']))
     expect(without).not.toContain('<img')
+    // 자리표시 초상은 AI가 만든 것이 아니라 AI 표시를 붙이지 않는다(034).
+    expect(without).not.toContain('portrait__badge')
 
     const dataUrl = 'data:image/png;base64,iVBORw0KGgo='
     const withPortrait = render({ portrait: dataUrl })
@@ -216,6 +218,7 @@ describe('ResultScreen 리딩·초상·머리글·버튼', () => {
     expect(images).toHaveLength(1)
     expect(images[0]!['src']).toBe(dataUrl)
     expect(images[0]!['alt']).toBe(alt)
+    expect(withPortrait).toContain(`<span class="portrait__badge">${escape(messages.ko['result.aiBadge'])}</span>`)
     expect(withPortrait).not.toContain('portrait--placeholder')
     expect(withPortrait).not.toContain(escape(messages.ko['result.portraitPending']))
   })

@@ -79,6 +79,7 @@ export function ResultScreen({ capture, profile, portrait, reading, calibration 
       readOf: current.scriptTitle ? t('result.readOf', { title: current.scriptTitle }) : '',
       date: new Date().toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-US'),
       caption,
+      aiMark: t('result.aiBadge'),
     })
   }
 
@@ -159,7 +160,7 @@ export function ResultScreen({ capture, profile, portrait, reading, calibration 
       {view.quality === 'low-signal' ? <p className="notice">{t('result.lowSignal')}</p> : null}
 
       <section className="card card--hero" aria-labelledby="result-type-name">
-        <PortraitFrame image={portrait} palette={view.color.palette} signature={view.signature} alt={t('result.portraitAlt', { name: view.name })} />
+        <PortraitFrame image={portrait} palette={view.color.palette} signature={view.signature} alt={t('result.portraitAlt', { name: view.name })} badge={t('result.aiBadge')} />
         {!portrait ? <p className="card__note">{t('result.portraitPending')}</p> : null}
         <p className="type__code">
           <span className="visually-hidden">{t('result.typeCode')} </span>
@@ -205,7 +206,7 @@ export function ResultScreen({ capture, profile, portrait, reading, calibration 
       {shownReading ? (
         <section className="card card--reading" aria-labelledby="result-reading">
           <h2 id="result-reading" className="card__title">
-            {t('result.section.reading')} <span className="card__badge">{t('result.readingBadge')}</span>
+            {t('result.section.reading')} <span className="card__badge">{t('result.aiBadge')}</span>
           </h2>
           <p className="reading__text">{shownReading.reading}</p>
           <p className="reading__caption">{shownReading.caption}</p>

@@ -743,7 +743,8 @@ p {
   padding: 1px 7px;
   border-radius: 999px;
   background: var(--accent-soft);
-  color: var(--accent);
+  /* 작은 굵은 글씨라 4.5:1 이상이 필요하다. --accent 그대로는 라이트에서 3.87:1(034 1차 리뷰 #2, 002의 .howto__num 과 같은 처리). */
+  color: color-mix(in srgb, var(--accent) 75%, var(--fg));
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -763,6 +764,7 @@ p {
 }
 
 .portrait {
+  position: relative;
   width: min(100%, 320px);
   aspect-ratio: 1;
   border-radius: 24px;
@@ -778,6 +780,20 @@ p {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+/* 생성된 초상 오른쪽 위의 작은 "AI" 표시(034). 사진 위라 테마와 상관없이 어두운 반투명 바탕에 흰 글자. */
+.portrait__badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(15, 14, 18, 0.62);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .portrait__signature {

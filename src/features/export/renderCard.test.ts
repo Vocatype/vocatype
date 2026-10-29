@@ -152,6 +152,7 @@ const labelsKo: CardLabels = {
   readOf: '『별 헤는 밤』 낭독',
   date: '2026. 10. 19.',
   caption: '이야기 한가운데로 끌어들이는 목소리',
+  aiMark: 'AI',
 }
 
 const labelsEn: CardLabels = {
@@ -447,6 +448,37 @@ describe('drawCard 도형과 글자 간격 (028)', () => {
     expect(calls.filter((c) => c.size === 48 && c.text.endsWith('…'))).toHaveLength(1)
     expect(calls.filter((c) => c.size === 42)).toHaveLength(scentLines)
     expect(spacingProblems(calls, shapes)).toEqual([])
+  })
+})
+
+describe('생성 초상 AI 표시 (034)', () => {
+  it('생성된 초상이 있으면 초상 오른쪽 위 안쪽에 "AI" 알약을 그리고, 자리표시 초상이거나 표시가 비면 그리지 않는다', () => {
+    const view = presentResult(profileFor('WFQV'), null, 'ko')
+    const portrait = { naturalWidth: 1024, naturalHeight: 1024 } as HTMLImageElement
+    const left = (1080 - 420) / 2
+    const top = 150
+    const { ctx, calls, shapes } = fakeContext()
+    drawCard(ctx, view, portrait, labelsKo)
+    const marks = calls.filter((call) => call.text === 'AI')
+    expect(marks).toHaveLength(1)
+    const pill = shapes.find((shape) => shape.kind === 'rounded' && shape.op === 'fill' && shape.box.top === top + 24)
+    expect(pill).toBeDefined()
+    // 알약은 초상 사각형 안, 오른쪽 위 모서리 쪽이고 clip 밖에서 그린다(초상을 지나 잘리지 않는다).
+    expect(pill!.box.right).toBe(left + 420 - 24)
+    expect(pill!.box.left).toBeGreaterThan(left + 420 / 2)
+    expect(pill!.box.bottom).toBeLessThan(top + 420 / 2)
+    expect(pill!.clipped).toBe(false)
+    // 글자는 알약 안 가운데.
+    expect(marks[0]!.x).toBeCloseTo((pill!.box.left + pill!.box.right) / 2)
+    expect(marks[0]!.y).toBeGreaterThan(pill!.box.top)
+    expect(marks[0]!.y).toBeLessThan(pill!.box.bottom)
+
+    const placeholder = fakeContext()
+    drawCard(placeholder.ctx, view, null, labelsKo)
+    expect(placeholder.calls.some((call) => call.text === 'AI')).toBe(false)
+    const empty = fakeContext()
+    drawCard(empty.ctx, view, portrait, { ...labelsKo, aiMark: '' })
+    expect(empty.calls.some((call) => call.text === 'AI')).toBe(false)
   })
 })
 

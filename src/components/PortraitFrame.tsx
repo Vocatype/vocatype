@@ -7,13 +7,16 @@ interface Props {
   palette: readonly string[]
   signature: readonly number[]
   alt: string
+  /** 생성된 초상 모서리에 붙이는 작은 표시(예: "AI"). 자리표시 초상에는 붙이지 않는다(034). */
+  badge?: string
 }
 
-export function PortraitFrame({ image, palette, signature, alt }: Props) {
+export function PortraitFrame({ image, palette, signature, alt, badge }: Props) {
   if (image) {
     return (
       <div className="portrait">
         <img className="portrait__image" src={image} alt={alt} />
+        {badge ? <span className="portrait__badge">{badge}</span> : null}
       </div>
     )
   }

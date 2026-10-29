@@ -23,6 +23,8 @@ export interface CardLabels {
   date: string
   /** 목소리 해설의 공유용 캡션. 한 줄만 그리고, 빈 문자열이면 그리지 않는다. */
   caption: string
+  /** 생성된 초상 오른쪽 위에 붙이는 작은 표시(예: "AI"). 자리표시 초상이거나 빈 문자열이면 그리지 않는다(034). */
+  aiMark: string
 }
 
 /*
@@ -137,6 +139,25 @@ function drawPortraitPlaceholder(ctx: CanvasRenderingContext2D, view: ResultView
   drawSignature(ctx, view.signature, x + size / 2, y + size / 2, size * 0.22, size * 0.42, () => ink, { lineWidth: 3, innerCircle: ink })
 }
 
+/** 생성 초상 위 표시의 안쪽 여백·높이·글자 크기. 초상 모서리 둥글기(46) 안쪽에 들도록 둔다. */
+const AI_MARK_INSET = 24
+const AI_MARK_HEIGHT = 44
+const AI_MARK_FONT = 26
+
+/** 오른쪽 위 모서리(right, top) 기준으로 어두운 반투명 알약과 흰 글자를 그린다. 사진 위라 어떤 색 위에서도 읽힌다. */
+function drawAiMark(ctx: CanvasRenderingContext2D, text: string, right: number, top: number) {
+  ctx.save()
+  ctx.font = font(700, AI_MARK_FONT)
+  const width = ctx.measureText(text).width + 28
+  ctx.fillStyle = 'rgba(15, 14, 18, 0.62)'
+  roundedRect(ctx, right - width, top, width, AI_MARK_HEIGHT, AI_MARK_HEIGHT / 2)
+  ctx.fill()
+  ctx.fillStyle = '#ffffff'
+  ctx.textAlign = 'center'
+  ctx.fillText(text, right - width / 2, top + AI_MARK_HEIGHT / 2 + AI_MARK_FONT * 0.36)
+  ctx.restore()
+}
+
 /** 한 줄로 맞추고 넘치면 말줄임. */
 function oneLine(text: string, width: number, measure: (s: string) => number): string {
   return clampLines(wrapText(text, width, measure), 1, width, measure)[0] ?? ''
@@ -208,6 +229,7 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   ctx.lineWidth = 3
   ctx.stroke()
   ctx.restore()
+  if (portrait && labels.aiMark) drawAiMark(ctx, labels.aiMark, portraitX + PORTRAIT_SIZE - AI_MARK_INSET, PORTRAIT_Y + AI_MARK_INSET)
 
   // 타입 코드·이름(최대 2줄)·해설 캡션(1줄, 없으면 공간도 쓰지 않음). 타입 설명 문단은 저장 카드에 넣지 않는다(결과 화면에 있다).
   let y = PORTRAIT_Y + PORTRAIT_SIZE + 90
