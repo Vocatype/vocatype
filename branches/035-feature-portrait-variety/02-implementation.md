@@ -79,3 +79,17 @@ Nothing above indicates the person's gender, age or ethnicity.
 - 문장이 길어져 입력 토큰이 늘었다(약 80 → 약 250토큰 추정). 입력 단가는 100만 토큰당 $5라 장당 약 $0.001 미만이 더 든다. 배포 뒤 `[portrait] openai … in=…` 로그로 확인한다.
 - 축이 없는 옛 클라이언트 탭은 400 → 자리표시 초상이다. 새로 고치면 된다.
 - Workers AI(Lucid Origin)로 되돌렸을 때 긴 여러 줄 프롬프트가 잘 먹히는지는 보지 않았다(지금 운영은 OpenAI).
+
+## 배포 후 확인
+
+사용자 승인("넣고 고치고 병합 후 메인에 올려봐")에 따라 2026-10-29 17:03:47 KST에 main(`a4e3f40`)을 푸시했다. Cloudflare Workers Builds가 자동 배포했다: GitHub 커밋 검사 "Workers Builds: vocatype — completed/success"(08:04:29Z), 버전 `15dd0f83-2fec-40ee-9a67-5358c1140014`.
+
+17:04 KST, `https://vocatype.hs827.workers.dev`(과금 없는 요청만):
+
+| 확인 | 결과 |
+| --- | --- |
+| 배포된 JS | `index-BVlfbHVI.js`(브랜치 빌드와 같은 이름). 초상 요청에 `seed` 뒤 `axes` 를 넣는 코드가 있음 |
+| 축이 범위 밖인 초상 요청(`warmth: 2`) | 400(검증이 운영에 반영됨. 제공자 호출 전에 끝나 과금 없음) |
+| `GET /api/config` | `provider: "openai"`, `textProviders: ["claude","workers-ai"]` |
+
+- 실제 초상 생성(장당 과금)은 하지 않았다. 사용자가 집에서 여러 번 녹음해 다양성을 본다. 배포 전에 열어 둔 탭은 새로고침해야 한다(옛 형식은 400 → 자리표시 초상).
