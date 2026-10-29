@@ -153,11 +153,15 @@ function aiMarkWidth(ctx: CanvasRenderingContext2D, text: string): number {
   return ctx.measureText(text).width + 28
 }
 
-/** 오른쪽 위 모서리(right, top) 기준으로 어두운 반투명 알약과 흰 글자를 그린다. 사진 위에서도 어두운 바탕 위에서도 읽힌다. */
-function drawAiMark(ctx: CanvasRenderingContext2D, text: string, right: number, top: number) {
+/** 알약 바탕: 사진 위에서는 어둡게(어떤 사진에서도 흰 글자 5:1 이상), 카드 바탕 위(캡션 옆)에서는 밝게 해 모양이 보이게 한다(3차 리뷰 #23). */
+const AI_MARK_ON_PHOTO = 'rgba(15, 14, 18, 0.62)'
+const AI_MARK_ON_CARD = 'rgba(255, 255, 255, 0.14)'
+
+/** 오른쪽 위 모서리(right, top) 기준으로 반투명 알약과 흰 글자를 그린다. */
+function drawAiMark(ctx: CanvasRenderingContext2D, text: string, right: number, top: number, background: string) {
   ctx.save()
   const width = aiMarkWidth(ctx, text)
-  ctx.fillStyle = 'rgba(15, 14, 18, 0.62)'
+  ctx.fillStyle = background
   roundedRect(ctx, right - width, top, width, AI_MARK_HEIGHT, AI_MARK_HEIGHT / 2)
   ctx.fill()
   ctx.fillStyle = '#ffffff'
@@ -237,7 +241,7 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
   ctx.lineWidth = 3
   ctx.stroke()
   ctx.restore()
-  if (portrait && labels.aiMark) drawAiMark(ctx, labels.aiMark, portraitX + PORTRAIT_SIZE - AI_MARK_INSET, PORTRAIT_Y + AI_MARK_INSET)
+  if (portrait && labels.aiMark) drawAiMark(ctx, labels.aiMark, portraitX + PORTRAIT_SIZE - AI_MARK_INSET, PORTRAIT_Y + AI_MARK_INSET, AI_MARK_ON_PHOTO)
 
   // 타입 코드·이름(최대 2줄)·해설 캡션(1줄, 없으면 공간도 쓰지 않음). 타입 설명 문단은 저장 카드에 넣지 않는다(결과 화면에 있다).
   let y = PORTRAIT_Y + PORTRAIT_SIZE + 90
@@ -261,7 +265,7 @@ export function drawCard(ctx: CanvasRenderingContext2D, view: ResultView, portra
     const captionText = oneLine(labels.caption, CONTENT_WIDTH - 40 - markWidth, measure)
     const groupWidth = measure(captionText) + markWidth
     ctx.fillText(captionText, CARD_WIDTH / 2 - markWidth / 2, y)
-    if (captionMark) drawAiMark(ctx, captionMark, CARD_WIDTH / 2 + groupWidth / 2, y - 36)
+    if (captionMark) drawAiMark(ctx, captionMark, CARD_WIDTH / 2 + groupWidth / 2, y - 36, AI_MARK_ON_CARD)
   }
 
   // 축 강도: 2×2, "글자 라벨"과 흰 막대(퍼센트 표기 없음). 신호가 부족하면 기본값이라 그리지 않는다.

@@ -278,7 +278,7 @@ function spacingProblems(calls: TextCall[], shapes: ShapeCall[]): string[] {
     }
     for (const shape of others) {
       // 자기 바탕 알약(AI 표시, 034) 안에 다 들어간 글자는 겹침이 아니다. 다른 도형과의 겹침은 그대로 본다.
-      if (shape.kind === 'rounded' && shape.op === 'fill' && inside(box, shape.box)) continue
+      if (call.text === labelsKo.aiMark && shape.kind === 'rounded' && shape.op === 'fill' && inside(box, shape.box)) continue
       if (gapBetween(shape.box, box) === 0) problems.push(`${shape.kind} ${shape.op} overlaps "${call.text}"`)
     }
   }
@@ -498,7 +498,7 @@ describe('생성 초상 AI 표시 (034)', () => {
     const captionBox = textBox(caption!)
     const markBox = textBox(marks[0]!)
     expect(markBox.left).toBeGreaterThan(captionBox.right)
-    expect(Math.abs(marks[0]!.y - caption!.y)).toBeLessThan(20)
+    expect(Math.abs(marks[0]!.y - caption!.y)).toBeLessThan(4)
     expect(markBox.right).toBeLessThanOrEqual(CARD_WIDTH - MARGIN)
     // 캡션과 알약이 한 덩어리로 가운데에 놓인다.
     const pill = shapes.find((shape) => shape.kind === 'rounded' && shape.op === 'fill' && inside(markBox, shape.box))
@@ -506,6 +506,18 @@ describe('생성 초상 AI 표시 (034)', () => {
     expect((captionBox.left + pill!.box.right) / 2).toBeCloseTo(CARD_WIDTH / 2, 0)
     // 초상 영역(150~570)에는 없다.
     expect(marks[0]!.y).toBeGreaterThan(150 + 420)
+
+    // 공백 없는 긴 캡션도 알약 몫을 뺀 폭으로 말줄임되어 캡션과 알약이 모두 여백 안에 든다(3차 리뷰 #21).
+    for (const long of ['가'.repeat(60), 'x'.repeat(200)]) {
+      const crowded = fakeContext()
+      drawCard(crowded.ctx, view, null, { ...labelsKo, caption: long })
+      const drawn = crowded.calls.find((call) => call.text.endsWith('…') && call.size === 40)
+      const mark = crowded.calls.find((call) => call.text === 'AI')
+      expect(drawn && mark, long.slice(0, 3)).toBeTruthy()
+      expect(textBox(drawn!).left).toBeGreaterThanOrEqual(MARGIN)
+      const pillRight = Math.max(...crowded.shapes.filter((shape) => shape.kind === 'rounded' && shape.op === 'fill' && inside(textBox(mark!), shape.box)).map((shape) => shape.box.right))
+      expect(pillRight).toBeLessThanOrEqual(CARD_WIDTH - MARGIN)
+    }
 
     const noCaption = fakeContext()
     drawCard(noCaption.ctx, view, null, { ...labelsKo, caption: '' })
