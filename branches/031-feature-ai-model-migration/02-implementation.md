@@ -100,3 +100,20 @@
 | 배포된 JS의 리딩 대기 | `45e3`(`READING_CLIENT_TIMEOUT_MS` 45초) 1건 |
 
 - AI 호출(초상·해설)은 하지 않았다. 초상 한 장은 유료라 사용자 확인 뒤에 README "OpenAI 켜기" 4단계로 본다(장당 가격 확정, 지연, `exceededCpu` 여부, OpenAI 사용량 장수 대조).
+
+### 첫 실호출(2026-10-29 12:06 KST)
+
+사용자 승인("Yes, test one")으로 운영에 초상 한 장을 요청했다(`{"typeCode":"WFQV","seed":123}`). `npx wrangler tail vocatype --format json` 을 켜 둔 채 보냈다.
+
+| 확인 | 결과 |
+| --- | --- |
+| 응답 | HTTP 200, `provider: "openai"`, 9.57초(curl 전체), 171,131바이트 |
+| Worker | outcome `ok`, 벽시계 9,240ms, **CPU 3ms** |
+| 로그 | `[portrait] openai gpt-image-2.5-flare in=84 out=439` |
+| 이미지 | `data:image/jpeg;base64,…` 171,099자 → jpeg 128,305바이트, 1024×1024 실사 초상(프롬프트대로 따뜻한 조명·밝은 미소·따뜻한 톤 옷) |
+| 장당 가격 | 출력 439 × $30/100만 = $0.01317 + 입력 84 × $5/100만 = $0.00042 → **약 $0.0136**. 범위($0.013~0.053)의 아래쪽, 제3자 수치와 같은 출력 토큰 |
+
+- 조직 인증·키 권한 문제 없음(403 없이 성공).
+- 표본은 1장이다. README·`wrangler.jsonc`·`openaiImage.ts` 주석의 비용을 실측 단가로 바꿨다(하루 IP당 약 $39, 1만 장 약 $136).
+- 품질 medium·분당 2회는 실측 단가가 사용자 결정 당시 전제($0.013)와 같아 그대로 둔다.
+- 해설(Claude)은 이번에 부르지 않았다.

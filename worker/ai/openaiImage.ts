@@ -13,7 +13,7 @@ export const OPENAI_PORTRAIT_SIZE = '1024x1024'
 /**
  * 사용자 결정(031). low 는 얼굴 디테일이, high 는 비용·시간이 아쉽다.
  * 2.5 의 장당 가격은 공개되지 않았다(모델 페이지: GPT Image 2 계산기는 2.5 를 추정하지 않는다. 가이드의 2.5·2 공용 계산기 값은 글로 확인하지 못했다). 제3자 자료는 1024×1024 medium 약 $0.013, 같은 토큰 단가인 GPT Image 2 공식 표는 $0.053.
- * 실제 값은 `[portrait] openai … out=…` 로그의 출력 토큰 × $30/100만으로 확인한다.
+ * 2026-10-29 운영 실측 1장: 입력 84 / 출력 439토큰 → 장당 약 $0.0136(제3자 수치 쪽). 값은 `[portrait] openai … out=…` 로그로 확인한다.
  */
 export const OPENAI_PORTRAIT_QUALITY = 'medium'
 /** `output_compression`(0~100, 기본 100). jpeg 는 png 보다 빠르고(공식 가이드) 1024×1024 가 수백 KB 라 클라이언트 상한(PORTRAIT_IMAGE_MAX_CHARS) 안에 넉넉히 든다. */
